@@ -1,0 +1,3 @@
+import { Typography } from '@mui/material'
+import { SimplePage } from './SimplePage'
+export default function Broker() { return <SimplePage title="BECOME A FREIGHT BROKER" canonical="/freight-broker-masterclass/"><Typography maxWidth={920} mx="auto" fontSize={{ xs: 18, md: 21 }} textAlign="center">The Freight Broker Masterclass is a step-by-step training program designed to teach you how to become a professional freight broker from scratch. This program breaks down the freight brokerage industry into clear, actionable lessons, making it accessible whether you are completely new to trucking or looking to transition into a flexible, high-opportunity career.</Typography></SimplePage> }

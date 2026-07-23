@@ -1,0 +1,3 @@
+import { Typography } from '@mui/material'
+import { SimplePage } from './SimplePage'
+export default function TruckingSchool() { return <SimplePage title="WELCOME TO IMAN TRUCKING SCHOOL" canonical="/iman-trucking-school/"><Typography maxWidth={920} mx="auto" fontSize={{ xs: 18, md: 21 }} textAlign="center">Iman Trucking School is committed to preparing the next generation of professionals for success in the trucking and logistics industry. Our programs are designed to provide clear, step-by-step training that equips students with practical skills, industry knowledge, and the confidence needed to start and grow a career the right way.</Typography></SimplePage> }
