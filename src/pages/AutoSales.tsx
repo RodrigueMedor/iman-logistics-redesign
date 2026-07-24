@@ -25,7 +25,7 @@ const buyingSteps = [
 export default function AutoSales() {
   return (
     <>
-      <Seo title="Car Auto Sales - Iman Logistics" canonical="/car-auto-sales/" />
+      <Seo title="Car & Truck Sales - Iman Logistics" canonical="/car-auto-sales/" />
       <Box sx={{
         background: (theme) => theme.palette.mode === 'dark'
           ? 'linear-gradient(125deg, #070323 0%, #0A005A 100%)'
@@ -37,12 +37,12 @@ export default function AutoSales() {
           <Grid container spacing={5} alignItems="center">
             <Grid size={{ xs: 12, md: 7 }}>
               <Reveal>
-                <Chip label="IMAN AUTO SALES" color="secondary" sx={{ fontWeight: 800, mb: 2.5 }} />
+                <Chip label="IMAN CAR & TRUCK SALES" color="secondary" sx={{ fontWeight: 800, mb: 2.5 }} />
                 <Typography component="h1" variant="h2" sx={{ fontSize: { xs: 44, md: 70 }, lineHeight: 1.02 }}>
-                  Find the right vehicle for your next move
+                  Find the right car or truck for your next move
                 </Typography>
                 <Typography mt={3} fontSize={{ xs: 18, md: 21 }} color="rgba(255,255,255,.8)" maxWidth={730}>
-                  A straightforward vehicle-buying experience backed by responsive service, clear information, and personal support.
+                  A straightforward car and commercial truck buying experience backed by responsive service, clear information, and personal support.
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4}>
                   <Button component={RouterLink} to="/contact-us/" size="large" color="secondary" variant="contained">Ask about inventory</Button>
@@ -87,8 +87,8 @@ export default function AutoSales() {
         <Container maxWidth="md">
           <SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 52 }} />
           <Typography variant="h3" mt={1.5}>Tell us what you’re looking for</Typography>
-          <Typography color="rgba(255,255,255,.78)" fontSize={18} mt={1.5}>Share your preferred make, model, budget, and timeline with our team.</Typography>
-          <Button component={RouterLink} to="/contact-us/" color="secondary" variant="contained" size="large" sx={{ mt: 3 }}>Contact auto sales</Button>
+          <Typography color="rgba(255,255,255,.78)" fontSize={18} mt={1.5}>Share your preferred car or truck type, make, model, budget, and timeline with our team.</Typography>
+          <Button component={RouterLink} to="/contact-us/" color="secondary" variant="contained" size="large" sx={{ mt: 3 }}>Contact vehicle sales</Button>
         </Container>
       </Box>
     </>

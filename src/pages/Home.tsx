@@ -1,133 +1,120 @@
-import { Box, Container, Grid, Stack, Typography } from '@mui/material'
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'
+import { useState } from 'react'
+import { Box, Button, Chip, Container, Grid, Paper, Stack, Typography } from '@mui/material'
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded'
+import DirectionsCarFilledOutlinedIcon from '@mui/icons-material/DirectionsCarFilledOutlined'
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined'
+import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
+import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
+import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined'
+import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
-import { BuyButton } from '../components/common/BuyButton'
-import { RotatingHeroOrbit } from '../components/home/RotatingHeroOrbit'
-import hero from '../assets/images/SDFERGGF-scaled.png'
-import portrait from '../assets/images/POLO234-scaled.png'
-import map from '../assets/images/mapusa-2048x1269.png'
-import testimonial from '../assets/images/dgd.png'
-import module1 from '../assets/images/1.png'
-import module2 from '../assets/images/2.png'
-import module3 from '../assets/images/3.png'
-import module4 from '../assets/images/4.png'
-import module5 from '../assets/images/5.png'
+import { Reveal } from '../components/common/Reveal'
+import DispatchMasterclass from './DispatchMasterclass'
+import truckHighway from '../assets/videos/truck-highway-banner.mp4'
+import truckCanyon from '../assets/videos/truck-canyon-road.mp4'
+import truckPort from '../assets/videos/truck-port-road.mp4'
 
-const benefits = [
-  ['Master Your Earning Potential', 'Take command of your career. Your input, your schedule, and your success should directly benefit only you.'],
-  ['Go all-in on your dream.', 'Tired of enriching others? Your energy is worth more. See how leveraging a six-figure income lets you finally benefit directly'],
-  ['Elevate your quality of life', 'Want more time with your family and friends? Stop wishing for a life you can enjoy; this is your moment to claim it.'],
-  ['Your office is the world', 'You can enjoy total location freedom, managing loads and working from anywhere as a dispatcher'],
-]
-const learning = [
-  'How the freight dispatch industry works',
-  'The role and responsibilities of a dispatcher',
-  'How to find and work with carriers',
-  'Rate negotiation strategies with brokers',
-  'Dispatch workflows, paperwork, and compliance basics',
-  'How to communicate professionally with drivers and brokers',
-  'How to scale and manage multiple trucks',
-]
-const modules = [
-  [module1, 'Begin Dispatching Right Away', 'Learn how to implement the system that ensures your dispatching business runs flawlessly. The curriculum includes: What a Dispatcher Does, Immediate Startup Strategies, Core Daily Responsibilities, Building Driver Trust, Networking Secrets, and more powerful insights'],
-  [module2, 'Load Board Strategies', 'You will master everything from understanding what load boards are to expertly obtaining and booking freight, negotiating top rates, and building lasting relationships with key Shippers and Brokers.'],
-  [module3, 'Managing Day-to-Day Operations', 'This module provides the comprehensive, A-to-Z steps of the entire dispatching process, ensuring you miss nothing. Topics covered include: Driver confirmation, ELD verification, seamless load booking, confirming competitive rates, expert broker communication'],
-  [module4, 'Controlling Your Dispatching Finances', 'The contrast between struggling to survive and generating massive profits in trucking is stark. It’s not about effort it’s about having the right system. We reveal the advanced, strategic methodologies you need to maximize every financial metric.'],
-  [module5, 'Building Your Dispatching Team', 'Ready to start a dispatch service where loads are booked by OTHERS? This Masterclass shows you how to establish that system and create passive income! I reveal the massive benefits of ownership, teach advanced methods for finding smarter loads, and give you the duplication blueprint to step back and become a true'],
-]
-const sectionHeading = { fontSize: { xs: 34, md: 52 }, color: 'primary.main', textAlign: 'center', mb: 5 }
+const heroVideos = [
+  [truckHighway, 'Truck driving through a mountain highway'],
+  [truckCanyon, 'Aerial view of a truck crossing a canyon road'],
+  [truckPort, 'Truck driving away through a freight port'],
+] as const
+
+const services = [
+  [LocalShippingOutlinedIcon, 'Career training', 'Freight Dispatch Masterclass', 'Build practical dispatching skills with step-by-step training designed for real-world trucking operations.', '/freight-dispatch-masterclass/', 'Explore dispatch training'],
+  [QueryStatsOutlinedIcon, 'Business training', 'Freight Broker Masterclass', 'Learn the foundations, workflows, and relationship-building skills needed to enter freight brokerage.', '/freight-broker-masterclass/', 'Explore broker training'],
+  [SchoolOutlinedIcon, 'Driver education', 'Iman Trucking School', 'Move toward a professional driving career with education built around confidence, safety, and opportunity.', '/iman-trucking-school/', 'Visit trucking school'],
+  [DirectionsCarFilledOutlinedIcon, 'Vehicle sales', 'Car & Truck Sales', 'Get personal support finding the right car or commercial truck for your next move.', '/car-auto-sales/', 'Explore vehicle sales'],
+] as const
+
+const trustPoints = [
+  ['Practical guidance', 'Clear next steps grounded in real logistics and transportation needs.'],
+  ['Personal support', 'Responsive help from your first question through your next milestone.'],
+  ['Multiple paths forward', 'Training, consulting, tracking, and vehicle solutions in one place.'],
+] as const
 
 export default function Home() {
+  const [activeVideo, setActiveVideo] = useState(0)
+
   return <>
-    <Seo title="Freight Dispatch Masterclass - Iman Logistics" canonical="/" />
-    <Box sx={{ bgcolor: '#0A005A', color: 'white', py: { xs: 7, md: 10 } }}>
-      <Container>
-        <Grid container spacing={6} alignItems="center">
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Typography component="h1" variant="h2" sx={{ fontSize: { xs: 42, md: 65 }, mb: 3 }}>Become a Freight Dispatcher</Typography>
-            <Typography fontSize={{ xs: 18, md: 21 }} mb={4}>The <strong>Freight Dispatch Masterclass</strong> is a step-by-step training designed to teach you how to become a professional freight dispatcher from scratch. Whether you’re new to trucking or looking for a flexible career, this masterclass gives you the tools, knowledge, and confidence to get started the right way.</Typography>
-            <BuyButton />
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}><RotatingHeroOrbit><VideoPoster src={hero} alt="Freight Dispatch Masterclass" /></RotatingHeroOrbit></Grid>
-        </Grid>
-      </Container>
-    </Box>
+    <Seo title="Iman Logistics | Training, Consulting & Vehicle Solutions" canonical="/" />
+    <Box component="section" aria-label="Iman Logistics on the road" sx={{ position: 'relative', overflow: 'hidden', minHeight: { xs: 650, md: 720 }, display: 'flex', alignItems: 'center', color: 'white', bgcolor: '#08062d' }}>
+      <Box
+        key={heroVideos[activeVideo][0]}
+        component="video"
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        onEnded={() => setActiveVideo(current => (current + 1) % heroVideos.length)}
+        aria-hidden="true"
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: { xs: '62% center', md: 'center' },
+          animation: 'heroVideoFade 900ms ease',
+          '@keyframes heroVideoFade': { from: { opacity: 0 }, to: { opacity: 1 } },
+          '@media (prefers-reduced-motion: reduce)': { display: 'none' },
+        }}
+      >
+        <source src={heroVideos[activeVideo][0]} type="video/mp4" />
+      </Box>
+      <Box sx={{ position: 'absolute', inset: 0, background: { xs: 'linear-gradient(90deg, rgba(4,3,30,.94) 0%, rgba(7,5,45,.73) 70%, rgba(4,3,30,.34) 100%)', md: 'linear-gradient(90deg, rgba(4,3,30,.94) 0%, rgba(7,5,45,.78) 36%, rgba(4,3,30,.28) 67%, rgba(4,3,30,.12) 100%)' } }} />
+      <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, rgba(4,3,30,.45) 0%, transparent 38%)' }} />
 
-    <Box sx={{ py: { xs: 8, md: 12 } }}>
-      <Container>
-        <Typography component="h2" variant="h2" sx={sectionHeading}>Why Dispatch Training is the Best Choice</Typography>
-        <Grid container spacing={4}>
-          {benefits.map(([title, text]) => <Grid size={{ xs: 12, sm: 6 }} key={title}><Box sx={{ p: 4, height: '100%', border: 1, borderColor: 'divider', bgcolor: 'background.paper', boxShadow: '0 5px 18px rgba(0,0,0,.08)' }}><Typography variant="h3" color="primary" fontSize={28} mb={2}>{title}</Typography><Typography fontSize={18}>{text}</Typography></Box></Grid>)}
-        </Grid>
-      </Container>
-    </Box>
+      <Container sx={{ position: 'relative', zIndex: 1, py: { xs: 9, md: 14 } }}>
+        <Reveal>
+          <Chip label="YOUR NEXT MOVE STARTS HERE" sx={{ mb: 3, color: 'white', bgcolor: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)', backdropFilter: 'blur(10px)', fontWeight: 800, letterSpacing: '.08em' }} />
+          <Typography component="h1" sx={{ maxWidth: 760, fontSize: { xs: 46, sm: 60, md: 78 }, lineHeight: 1.01, fontWeight: 900, letterSpacing: '-.045em', textShadow: '0 4px 24px rgba(0,0,0,.28)' }}>Build your future in logistics.</Typography>
+          <Typography sx={{ maxWidth: 650, mt: 3, fontSize: { xs: 18, md: 22 }, lineHeight: 1.65, color: 'rgba(255,255,255,.84)', textShadow: '0 2px 14px rgba(0,0,0,.4)' }}>Training, consulting, and vehicle solutions designed to help ambitious people move forward with clarity.</Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4.5} alignItems={{ sm: 'center' }}>
+            <Button component={RouterLink} to="/freight-dispatch-masterclass/" size="large" color="secondary" variant="contained" endIcon={<ArrowForwardRoundedIcon />}>Explore our services</Button>
+            <Button component={RouterLink} to="/consultants/" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.62)', bgcolor: 'rgba(8,6,45,.18)', backdropFilter: 'blur(8px)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,.1)' } }}>Speak with a consultant</Button>
+          </Stack>
+        </Reveal>
 
-    <Box sx={{ bgcolor: '#0A005A', color: 'white', py: { xs: 8, md: 11 } }}>
-      <Container>
-        <Grid container spacing={6} alignItems="center">
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Typography component="h2" variant="h2" sx={{ fontSize: { xs: 36, md: 52 }, mb: 3 }}>Unlocking High-Earning Potential as a Freight Dispatcher.</Typography>
-            <Stack spacing={1.5} fontSize={19}>
-              <Typography>Expect a single truck to pull in about $6,500 in gross revenue each week.</Typography>
-              <Typography>Your potential gross earning from that truck is up to $650 weekly.</Typography>
-              <Typography>Scale that up: Two trucks mean your weekly gross earnings climb to $1,300$…..</Typography>
-              <Typography>Four trucks instantly equals 2,600$ gross per week…</Typography>
-              <Typography>Six trucks brings your gross weekly earnings up to an impressive 3,900$…</Typography>
-              <Typography>This is more than math; this is your proven reality. You are seeing the exact blueprint dispatchers use annually to break the six-figure barrier and claim complete control over their lives.</Typography>
-            </Stack>
-            <Box mt={4}><BuyButton /></Box>
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}><Box component="img" loading="lazy" src={map} alt="Map of the United States" sx={{ width: '100%' }} /></Grid>
-        </Grid>
-      </Container>
-    </Box>
-
-    <Box sx={{ py: { xs: 8, md: 12 } }}>
-      <Container>
-        <Typography component="h2" variant="h2" sx={sectionHeading}>Dispatching provides a viable path to self-employment and control</Typography>
-        <Typography variant="h3" textAlign="center" color="secondary" mb={7} fontSize={{ xs: 24, md: 35 }}>( You don't need trucking background to start )</Typography>
-        <Grid container spacing={6} alignItems="center">
-          <Grid size={{ xs: 12, md: 5 }}><Box component="img" loading="lazy" src={portrait} alt="Freight dispatch instructor" sx={{ width: '100%', maxHeight: 650, objectFit: 'contain' }} /></Grid>
-          <Grid size={{ xs: 12, md: 7 }}>
-            <Typography component="h2" variant="h2" color="primary" fontSize={{ xs: 36, md: 52 }} mb={3}>What You’ll Learn</Typography>
-            <Stack component="ul" spacing={2} sx={{ pl: 3 }}>{learning.map(item => <Typography component="li" fontSize={20} key={item}>{item}</Typography>)}</Stack>
-            <Box mt={4}><BuyButton /></Box>
-          </Grid>
-        </Grid>
-      </Container>
-    </Box>
-
-    <Box sx={{ bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f6f6f6', py: { xs: 8, md: 12 } }}>
-      <Container>
-        <Typography component="h2" variant="h2" sx={sectionHeading}>Your Step-by-Step Training Guide</Typography>
-        <Stack spacing={5}>
-          {modules.map(([image, title, text], i) => <Grid container spacing={5} alignItems="center" direction={{ xs: 'column', md: i % 2 ? 'row-reverse' : 'row' }} key={title}>
-            <Grid size={{ xs: 12, md: 5 }}><Box component="img" loading="lazy" src={image} alt="" sx={{ width: '100%' }} /></Grid>
-            <Grid size={{ xs: 12, md: 7 }}><Typography component="h3" variant="h3" color="primary" fontSize={30} mb={2}>{title}</Typography><Typography fontSize={18}>{text}</Typography></Grid>
-          </Grid>)}
+        <Stack direction="row" spacing={1} sx={{ mt: { xs: 7, md: 9 } }} aria-label="Choose background video">
+          {heroVideos.map(([, description], index) => (
+            <Box
+              component="button"
+              key={description}
+              type="button"
+              onClick={() => setActiveVideo(index)}
+              aria-label={`Play video ${index + 1}: ${description}`}
+              aria-current={index === activeVideo}
+              sx={{
+                width: index === activeVideo ? 42 : 12,
+                height: 5,
+                p: 0,
+                border: 0,
+                borderRadius: 5,
+                bgcolor: index === activeVideo ? 'secondary.main' : 'rgba(255,255,255,.48)',
+                cursor: 'pointer',
+                transition: 'width 240ms ease, background-color 240ms ease',
+              }}
+            />
+          ))}
         </Stack>
+
       </Container>
     </Box>
 
-    <Box sx={{ py: { xs: 8, md: 12 } }}>
-      <Container>
-        <Typography component="h2" variant="h2" sx={sectionHeading}>.....Client success stories arrive in our inbox every single day</Typography>
-        <Grid container spacing={3}>{[1,2,3,4].map(n => <Grid size={{ xs: 12, sm: 6 }} key={n}><VideoPoster src={testimonial} alt={`Client success story ${n}`} /></Grid>)}</Grid>
-      </Container>
-    </Box>
-    <Box sx={{ bgcolor: '#0A005A', color: 'white', py: { xs: 8, md: 11 }, textAlign: 'center' }}>
-      <Container maxWidth="md">
-        <Typography component="h2" variant="h2" fontSize={{ xs: 36, md: 52 }} mb={3}>Success belongs to those who possess the right information and are prepared to execute</Typography>
-        <Typography component="h2" variant="h3" fontSize={{ xs: 24, md: 35 }} mb={4}>Stop waiting. Hit the button below to secure your spot instantly.</Typography>
-        <BuyButton />
-      </Container>
+    <Container sx={{ py: { xs: 9, md: 13 } }}>
+      <Reveal><Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'end' }} spacing={3} mb={5}><Box><Typography color="secondary" fontWeight={900} letterSpacing=".12em" fontSize={12}>WHAT WE DO</Typography><Typography component="h2" variant="h2" sx={{ mt: 1, maxWidth: 650, fontSize: { xs: 38, md: 54 }, letterSpacing: '-.03em' }}>One company. More ways to move forward.</Typography></Box><Typography color="text.secondary" maxWidth={460} fontSize={18}>Choose the path that fits your goals today—and count on a team that understands where you want to go next.</Typography></Stack></Reveal>
+      <Grid container spacing={3}>
+        {services.map(([Icon, eyebrow, title, description, href, action], index) => <Grid size={{ xs: 12, md: 6 }} key={title}><Reveal delay={index * 70}><Paper sx={{ height: '100%', p: { xs: 3.5, md: 4.5 }, borderRadius: 4, border: 1, borderColor: 'divider', boxShadow: '0 14px 40px rgba(10,0,90,.06)', transition: 'transform 200ms ease, box-shadow 200ms ease', '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 20px 50px rgba(10,0,90,.12)' } }}><Stack direction="row" justifyContent="space-between" alignItems="flex-start"><Box sx={{ display: 'grid', placeItems: 'center', width: 54, height: 54, borderRadius: 3, bgcolor: 'action.selected', color: 'primary.main' }}><Icon sx={{ fontSize: 30 }} /></Box><Typography color="text.secondary" fontSize={11} fontWeight={900} letterSpacing=".12em" textTransform="uppercase">{eyebrow}</Typography></Stack><Typography component="h3" variant="h4" fontWeight={900} mt={4}>{title}</Typography><Typography color="text.secondary" mt={1.5} minHeight={{ md: 56 }}>{description}</Typography><Button component={RouterLink} to={href} endIcon={<ArrowForwardRoundedIcon />} sx={{ mt: 2.5, px: 0, '&:hover': { bgcolor: 'transparent', gap: .5 } }}>{action}</Button></Paper></Reveal></Grid>)}
+      </Grid>
+    </Container>
+
+    <Box sx={{ bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f6f7fb', py: { xs: 8, md: 11 } }}><Container><Grid container spacing={3}>{trustPoints.map(([title, description], index) => <Grid size={{ xs: 12, md: 4 }} key={title}><Stack direction="row" spacing={2.25}><Typography color="secondary" fontWeight={900} fontSize={14}>0{index + 1}</Typography><Box><Typography variant="h6" fontWeight={900}>{title}</Typography><Typography color="text.secondary" mt={1}>{description}</Typography></Box></Stack></Grid>)}</Grid></Container></Box>
+
+    <Box sx={{ py: { xs: 9, md: 12 } }}><Container><Paper sx={{ overflow: 'hidden', borderRadius: 5, color: 'white', bgcolor: '#0A005A', p: { xs: 4, md: 7 } }}><Grid container spacing={4} alignItems="center"><Grid size={{ xs: 12, md: 8 }}><SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 46 }} /><Typography component="h2" variant="h3" mt={2} sx={{ fontSize: { xs: 34, md: 48 } }}>Not sure which path is right for you?</Typography><Typography mt={2} color="rgba(255,255,255,.75)" fontSize={18}>Tell us what you’re working toward. We’ll help you identify the best next step.</Typography></Grid><Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { md: 'right' } }}><Button component={RouterLink} to="/consultants/" color="secondary" variant="contained" size="large" endIcon={<ArrowForwardRoundedIcon />}>Book a consultation</Button></Grid></Grid></Paper></Container></Box>
+
+    <Box id="freight-dispatch-masterclass">
+      <DispatchMasterclass embedded />
     </Box>
   </>
-}
-
-function VideoPoster({ src, alt }: { src: string; alt: string }) {
-  return <Box role="button" tabIndex={0} aria-label={`Play video: ${alt}`} sx={{ position: 'relative', lineHeight: 0, overflow: 'hidden', cursor: 'pointer', '&:hover img': { transform: 'scale(1.02)' } }}>
-    <Box component="img" loading="lazy" src={src} alt={alt} sx={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', transition: 'transform .25s' }} />
-    <PlayCircleOutlineIcon sx={{ position: 'absolute', inset: 0, m: 'auto', color: 'white', fontSize: 76, filter: 'drop-shadow(0 2px 4px #000)' }} />
-  </Box>
 }
