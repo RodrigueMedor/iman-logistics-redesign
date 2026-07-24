@@ -10,4 +10,4 @@ vite.config.d.ts
 .env.*
 !.env.example
 .netlify/
-
+.idea/

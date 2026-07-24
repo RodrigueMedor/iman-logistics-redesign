@@ -139,7 +139,7 @@ export default function Contact() {
                 <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Email Address" type="email" autoComplete="email" {...register('email')} error={!!errors.email} helperText={errors.email?.message} /></Grid>
                 <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Phone Number" autoComplete="tel" {...register('phone')} error={!!errors.phone} helperText={errors.phone?.message} /></Grid>
                 <Grid size={{ xs: 12, sm: 6 }}><TextField select fullWidth label="Preferred Contact Method" {...register('preferredMethod')} error={!!errors.preferredMethod} helperText={errors.preferredMethod?.message}>{['Email', 'Phone Call', 'Text Message', 'Video Meeting'].map(value => <MenuItem value={value} key={value}>{value}</MenuItem>)}</TextField></Grid>
-                <Grid size={{ xs: 12, sm: 6 }}><TextField select fullWidth label="Service Interested In" {...register('service')} error={!!errors.service} helperText={errors.service?.message}>{['Freight Dispatch Masterclass', 'Freight Broker Masterclass', 'Iman Trucking School', 'Professional Consultation', 'General Information'].map(value => <MenuItem value={value} key={value}>{value}</MenuItem>)}</TextField></Grid>
+                <Grid size={{ xs: 12, sm: 6 }}><TextField select fullWidth label="Service Interested In" {...register('service')} error={!!errors.service} helperText={errors.service?.message}>{['Freight Dispatch Masterclass', 'Freight Broker Masterclass', 'Iman Trucking School', 'Shipment Tracking', 'Car Auto Sales', 'Professional Consultation', 'General Information'].map(value => <MenuItem value={value} key={value}>{value}</MenuItem>)}</TextField></Grid>
                 <Grid size={12}><TextField fullWidth label="Subject" {...register('subject')} error={!!errors.subject} helperText={errors.subject?.message} /></Grid>
                 <Grid size={12}><TextField fullWidth multiline minRows={6} label="Message" {...register('message')} error={!!errors.message} helperText={errors.message?.message || 'Include your goals, questions, and any context that may help us respond.'} /></Grid>
                 <Grid size={12}>
@@ -196,4 +196,3 @@ function InfoCard({ icon, title, text }: { icon: React.ReactNode; title: string;
 
 const heroChip = { color: 'white', bgcolor: 'rgba(255,255,255,.10)', border: '1px solid rgba(255,255,255,.16)' }
 const cardSx = { height: '100%', borderRadius: 3.5, transition: 'transform .22s ease, box-shadow .22s ease, border-color .22s ease', '&:hover': { transform: 'translateY(-6px)', boxShadow: '0 18px 45px rgba(10,0,90,.12)', borderColor: 'primary.main' } }
-

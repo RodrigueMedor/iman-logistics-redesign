@@ -13,6 +13,8 @@ const links = [
   ['Freight Dispatch Masterclass', '/'],
   ['Freight Broker Masterclass', '/freight-broker-masterclass/'],
   ['Iman Trucking School', '/iman-trucking-school/'],
+  ['Tracking', '/tracking/'],
+  ['Car Auto Sales', '/car-auto-sales/'],
   ['Consultants', '/consultants/'],
   ['About Us', '/about-us/'],
   ['Contact Us', '/contact-us/'],
@@ -35,7 +37,7 @@ export function Header() {
           <Box component={RouterLink} to="/" aria-label="Iman Logistics home" sx={{ display: 'block', width: { xs: 150, md: 190 }, lineHeight: 0 }}>
             <Box component="img" src={mode === 'dark' ? darkLogo : logo} alt="Iman Logistics" sx={{ width: '100%', height: 70, objectFit: 'contain' }} />
           </Box>
-          <Box component="nav" aria-label="Main navigation" sx={{ display: { xs: 'none', lg: 'flex' }, gap: 3 }}>
+          <Box component="nav" aria-label="Main navigation" sx={{ display: { xs: 'none', xl: 'flex' }, gap: 2.25 }}>
             {links.map(([label, href]) => {
               const active = isActiveRoute(href)
               return (
@@ -76,7 +78,7 @@ export function Header() {
           </Box>
           <Stack direction="row" alignItems="center">
             <Tooltip title={modeLabel}><IconButton aria-label={modeLabel} onClick={toggleMode} color="primary">{mode === 'dark' ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />}</IconButton></Tooltip>
-            <IconButton aria-label="Open navigation menu" onClick={() => setOpen(true)} sx={{ display: { lg: 'none' }, color: 'primary.main' }}><MenuIcon /></IconButton>
+            <IconButton aria-label="Open navigation menu" onClick={() => setOpen(true)} sx={{ display: { xl: 'none' }, color: 'primary.main' }}><MenuIcon /></IconButton>
           </Stack>
         </Toolbar>
       </Container>
