@@ -15,6 +15,7 @@ import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { Reveal } from '../components/common/Reveal'
+import { VEHICLE_SALES_URL } from '../config/links'
 
 const buyingSteps = [
   [DirectionsCarFilledOutlinedIcon, 'Explore available vehicles', 'Tell us the vehicle type, budget, and features that fit your needs.'],
@@ -42,11 +43,11 @@ export default function AutoSales() {
                   Find the right car or truck for your next move
                 </Typography>
                 <Typography mt={3} fontSize={{ xs: 18, md: 21 }} color="rgba(255,255,255,.8)" maxWidth={730}>
-                  A straightforward car and commercial truck buying experience backed by responsive service, clear information, and personal support.
+                  Explore our approach to car and commercial truck sales, then continue to our dedicated sales website to browse inventory and make an inquiry.
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4}>
-                  <Button component={RouterLink} to="/contact-us/" size="large" color="secondary" variant="contained">Ask about inventory</Button>
-                  <Button component={RouterLink} to="/contact-us/" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.7)' }}>Sell or trade a vehicle</Button>
+                  <Button component="a" href={VEHICLE_SALES_URL} target="_blank" rel="noopener noreferrer" size="large" color="secondary" variant="contained">Visit sales website ↗</Button>
+                  <Button component={RouterLink} to="/contact-us/" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.7)' }}>Contact our team</Button>
                 </Stack>
               </Reveal>
             </Grid>
@@ -54,9 +55,9 @@ export default function AutoSales() {
               <Reveal delay={120}>
                 <Paper sx={{ p: { xs: 3.5, md: 5 }, borderRadius: 5, textAlign: 'center', bgcolor: 'rgba(255,255,255,.1)', color: 'white', border: '1px solid rgba(255,255,255,.22)', backdropFilter: 'blur(12px)' }}>
                   <DirectionsCarFilledOutlinedIcon sx={{ fontSize: 90, color: 'secondary.main' }} />
-                  <Typography variant="h4" fontWeight={900} mt={2}>Inventory is coming soon</Typography>
+                  <Typography variant="h4" fontWeight={900} mt={2}>Cars and commercial trucks</Typography>
                   <Typography color="rgba(255,255,255,.76)" mt={1.5}>
-                    Contact us today and we’ll help identify vehicles that match what you’re looking for.
+                    Find personal vehicles for everyday needs and dependable trucks for work, hauling, and business growth.
                   </Typography>
                 </Paper>
               </Reveal>
@@ -87,8 +88,8 @@ export default function AutoSales() {
         <Container maxWidth="md">
           <SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 52 }} />
           <Typography variant="h3" mt={1.5}>Tell us what you’re looking for</Typography>
-          <Typography color="rgba(255,255,255,.78)" fontSize={18} mt={1.5}>Share your preferred car or truck type, make, model, budget, and timeline with our team.</Typography>
-          <Button component={RouterLink} to="/contact-us/" color="secondary" variant="contained" size="large" sx={{ mt: 3 }}>Contact vehicle sales</Button>
+          <Typography color="rgba(255,255,255,.78)" fontSize={18} mt={1.5}>Continue to our dedicated sales website to explore vehicles and connect with the sales team.</Typography>
+          <Button component="a" href={VEHICLE_SALES_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" sx={{ mt: 3 }}>Visit Car & Truck Sales ↗</Button>
         </Container>
       </Box>
     </>

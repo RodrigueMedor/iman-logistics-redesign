@@ -45,7 +45,7 @@ export default function DispatchMasterclass({ embedded = false }: { embedded?: b
         <Grid container spacing={6} alignItems="center">
           <Grid size={{ xs: 12, md: 6 }}>
             <Typography component="h1" variant="h2" sx={{ fontSize: { xs: 42, md: 65 }, mb: 3 }}>Become a Freight Dispatcher</Typography>
-            <Typography fontSize={{ xs: 18, md: 21 }} mb={4}>The <strong>Freight Dispatch Masterclass</strong> is a step-by-step training designed to teach you how to become a professional freight dispatcher from scratch. Whether you’re new to trucking or looking for a flexible career, this masterclass gives you the tools, knowledge, and confidence to get started the right way.</Typography>
+            <Typography fontSize={{ xs: 18, md: 21 }} mb={4}>The <strong>Freight Dispatch Masterclass</strong> is a step-by-step training designed to teach you how to become a professional freight dispatcher from scratch. Explore the program overview here, then continue to our dedicated masterclass website when you’re ready to enroll.</Typography>
             <BuyButton />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}><RotatingHeroOrbit><VideoPoster src={hero} alt="Freight Dispatch Masterclass" /></RotatingHeroOrbit></Grid>

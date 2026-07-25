@@ -27,21 +27,24 @@ import { Link as RouterLink, useLocation } from 'react-router-dom'
 import logo from '../../assets/images/logo-2048x755.png'
 import darkLogo from '../../assets/images/imanSlogogolden-copy-2.png'
 import { useColorMode } from '../../contexts/ColorModeContext'
+import { TRUCKING_SCHOOL_URL } from '../../config/links'
 
 const services = [
   ['Freight Dispatcher', '/freight-dispatch-masterclass/'],
   ['Freight Broker Masterclass', '/freight-broker-masterclass/'],
-  ['Iman Trucking School', '/iman-trucking-school/'],
+  ['Iman Trucking School', TRUCKING_SCHOOL_URL],
   ['Shipment Tracking', '/tracking/'],
 ] as const
 
 const primaryLinks = [
   ['Car & Truck Sales', '/car-auto-sales/'],
+  ['Careers', '/careers/'],
   ['About', '/about-us/'],
   ['Contact', '/contact-us/'],
 ] as const
 
 const normalizePath = (path: string) => path === '/' ? '/' : path.replace(/\/+$/, '')
+const isExternalLink = (href: string) => /^https?:\/\//i.test(href)
 
 export function Header() {
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -52,9 +55,14 @@ export function Header() {
   const currentPath = normalizePath(pathname)
 
   const isActiveRoute = (href: string) => {
+    if (isExternalLink(href)) return false
     const route = normalizePath(href)
     return route === '/' ? currentPath === '/' : currentPath === route || currentPath.startsWith(`${route}/`)
   }
+
+  const linkProps = (href: string) => isExternalLink(href)
+    ? { component: 'a' as const, href, target: '_blank', rel: 'noopener noreferrer' }
+    : { component: RouterLink, to: href }
 
   const groupIsActive = (items: readonly (readonly [string, string])[]) =>
     items.some(([, href]) => isActiveRoute(href))
@@ -107,8 +115,7 @@ export function Header() {
       {items.map(([label, href]) => (
         <MenuItem
           key={href}
-          component={RouterLink}
-          to={href}
+          {...linkProps(href)}
           selected={isActiveRoute(href)}
           onClick={closeMenus}
           sx={{ minHeight: 46, borderRadius: 2, px: 1.5, fontSize: 14, fontWeight: isActiveRoute(href) ? 700 : 500 }}
@@ -270,8 +277,7 @@ export function Header() {
             <List disablePadding>
               {[['Home', '/'] as const, ...services, ...primaryLinks].map(([label, href]) => (
                 <ListItemButton
-                  component={RouterLink}
-                  to={href}
+                  {...linkProps(href)}
                   key={href}
                   selected={isActiveRoute(href)}
                   aria-current={isActiveRoute(href) ? 'page' : undefined}
