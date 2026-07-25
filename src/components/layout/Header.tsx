@@ -27,12 +27,11 @@ import { Link as RouterLink, useLocation } from 'react-router-dom'
 import logo from '../../assets/images/logo-2048x755.png'
 import darkLogo from '../../assets/images/imanSlogogolden-copy-2.png'
 import { useColorMode } from '../../contexts/ColorModeContext'
-import { TRUCKING_SCHOOL_URL } from '../../config/links'
 
 const services = [
   ['Freight Dispatcher', '/freight-dispatch-masterclass/'],
   ['Freight Broker Masterclass', '/freight-broker-masterclass/'],
-  ['Iman Trucking School', TRUCKING_SCHOOL_URL],
+  ['Iman Trucking School', '/iman-trucking-school/'],
   ['Shipment Tracking', '/tracking/'],
 ] as const
 
