@@ -156,7 +156,7 @@ export default function TrackingAdmin() {
       <Container>
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={3}>
           <Box>
-            <Chip label="LOCAL DEMO · NOT SECURED" color="secondary" sx={{ mb: 2, fontWeight: 900 }} />
+            <Chip label="SUPER ADMIN · SECURE ACCESS" color="secondary" sx={{ mb: 2, fontWeight: 900 }} />
             <Typography component="h1" variant="h2" sx={{ fontSize: { xs: 40, md: 58 } }}>Shipment administration</Typography>
             <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>Create and update shipment records used by the customer-facing tracker on this device.</Typography>
           </Box>
