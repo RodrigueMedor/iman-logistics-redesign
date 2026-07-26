@@ -27,6 +27,8 @@ const demoEmail = 'superadmin@imanlogistics.com'
 const demoUsername = 'superadmin'
 const demoPassword = 'Admin123!'
 const demoSessionKey = 'iman-local-super-admin-session'
+const lastActivityKey = 'iman-auth-last-activity'
+const inactivityLimitMs = 30 * 60 * 1000
 
 function createDemoSession(email = demoEmail, id = 'local-super-admin', fullName = 'Iman Super Admin'): Session {
   const user = {
@@ -93,6 +95,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     return () => listener.subscription.unsubscribe()
   }, [])
+
+  useEffect(() => {
+    if (!session) {
+      window.localStorage.removeItem(lastActivityKey)
+      return
+    }
+
+    let lastRecordedActivity = 0
+    const recordActivity = () => {
+      const now = Date.now()
+      if (now - lastRecordedActivity < 15_000) return
+      lastRecordedActivity = now
+      window.localStorage.setItem(lastActivityKey, String(now))
+    }
+    const signOutForInactivity = async () => {
+      window.localStorage.removeItem(lastActivityKey)
+      window.localStorage.removeItem(demoSessionKey)
+      window.sessionStorage.removeItem(demoSessionKey)
+      if (supabase) await supabase.auth.signOut()
+      setSession(null)
+      setProfile(null)
+    }
+    const checkActivity = () => {
+      const lastActivity = Number(window.localStorage.getItem(lastActivityKey) || Date.now())
+      if (Date.now() - lastActivity >= inactivityLimitMs) void signOutForInactivity()
+    }
+    const activityEvents: Array<keyof WindowEventMap> = ['pointerdown', 'keydown', 'scroll', 'touchstart']
+
+    recordActivity()
+    activityEvents.forEach(eventName => window.addEventListener(eventName, recordActivity, { passive: true }))
+    const activityCheck = window.setInterval(checkActivity, 30_000)
+
+    return () => {
+      activityEvents.forEach(eventName => window.removeEventListener(eventName, recordActivity))
+      window.clearInterval(activityCheck)
+    }
+  }, [session])
 
   const value = useMemo<AuthContextValue>(() => ({
     configured: isSupabaseConfigured || import.meta.env.DEV,
