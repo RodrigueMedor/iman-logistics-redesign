@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Alert, Box, Button, Chip, Container, Grid, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined'
@@ -8,16 +8,30 @@ import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded'
 import LanguageRoundedIcon from '@mui/icons-material/LanguageRounded'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
-import { formatElapsed, getWorkOrders, saveWorkOrder, type WorkOrder, type WorkOrderPriority, type WorkOrderStatus } from '../services/workOrders'
+import { formatElapsed, listSupabaseWorkOrders, saveEmployeeWorkOrder, type WorkOrder, type WorkOrderPriority, type WorkOrderStatus } from '../services/workOrders'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function EmployeeWorkOrders() {
   const { profile, signOut } = useAuth()
   const employee = profile?.full_name || ''
-  const [orders, setOrders] = useState(() => getWorkOrders())
+  const [orders, setOrders] = useState<WorkOrder[]>([])
   const [statusFilter, setStatusFilter] = useState<'Active' | 'History' | 'All' | WorkOrderStatus>('Active')
   const [message, setMessage] = useState('')
   const [noteInputs, setNoteInputs] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+
+  const loadOrders = async () => {
+    setLoading(true)
+    try {
+      setOrders(await listSupabaseWorkOrders())
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : 'Unable to load assigned work orders.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { void loadOrders() }, [])
 
   const assignedOrders = useMemo(() => orders
     .filter(order => order.assignee === employee || order.assignee.startsWith(`${employee} ·`))
@@ -29,7 +43,7 @@ export default function EmployeeWorkOrders() {
     })
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate)), [employee, orders, statusFilter])
 
-  const updateStatus = (order: WorkOrder, status: WorkOrderStatus) => {
+  const updateStatus = async (order: WorkOrder, status: WorkOrderStatus) => {
     const noteText = (noteInputs[order.id] || '').trim()
     const mostRecentSavedNote = order.notes?.[order.notes.length - 1]?.message.trim() || ''
     const requiredComment = noteText || mostRecentSavedNote
@@ -42,7 +56,7 @@ export default function EmployeeWorkOrders() {
     const notes = noteText
       ? [...(order.notes || []), { id: `NOTE-${Date.now()}`, author: employee, message: noteText, createdAt: now, kind: status === 'Completed' ? 'Completion comment' as const : 'Progress note' as const }]
       : order.notes
-    setOrders(saveWorkOrder({
+    const updated = {
       ...order,
       status,
       notes,
@@ -64,12 +78,18 @@ export default function EmployeeWorkOrders() {
               ? 'Work resumed after the blocker was cleared.'
               : noteText || `Work order changed to ${status}.`,
       }],
-    }))
-    setNoteInputs(current => ({ ...current, [order.id]: '' }))
-    setMessage(status === 'Pending approval' ? `${order.id} submitted to the super admin for approval.` : `${order.id} updated to ${status}.`)
+    }
+    try {
+      await saveEmployeeWorkOrder(updated)
+      await loadOrders()
+      setNoteInputs(current => ({ ...current, [order.id]: '' }))
+      setMessage(status === 'Pending approval' ? `${order.id} submitted to the super admin for approval.` : `${order.id} updated to ${status}.`)
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : 'Unable to update this work order.')
+    }
   }
 
-  const addNote = (order: WorkOrder) => {
+  const addNote = async (order: WorkOrder) => {
     const noteText = (noteInputs[order.id] || '').trim()
     if (!noteText) {
       setMessage('Enter a progress note before saving.')
@@ -77,9 +97,14 @@ export default function EmployeeWorkOrders() {
     }
     const now = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())
     const notes = [...(order.notes || []), { id: `NOTE-${Date.now()}`, author: employee, message: noteText, createdAt: now, kind: 'Progress note' as const }]
-    setOrders(saveWorkOrder({ ...order, notes, updatedAt: now }))
-    setNoteInputs(current => ({ ...current, [order.id]: '' }))
-    setMessage(`${order.id} progress note saved.`)
+    try {
+      await saveEmployeeWorkOrder({ ...order, notes, updatedAt: now })
+      await loadOrders()
+      setNoteInputs(current => ({ ...current, [order.id]: '' }))
+      setMessage(`${order.id} progress note saved.`)
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : 'Unable to save this progress note.')
+    }
   }
 
   const isAssigned = (order: WorkOrder) => order.assignee === employee || order.assignee.startsWith(`${employee} ·`)
@@ -99,6 +124,7 @@ export default function EmployeeWorkOrders() {
 
     <Container sx={{ py: { xs: 6, md: 8 } }}>
       <Alert severity="info" sx={{ mb: 4, borderRadius: 3 }}>You are signed in as {employee}. Only work assigned to your account is available in this view.</Alert>
+      {loading && <Alert severity="info" sx={{ mb: 4 }}>Loading assigned work orders…</Alert>}
 
       <Grid container spacing={3} mb={4} alignItems="stretch">
         <Grid size={{ xs: 12, md: 6 }}><Paper sx={{ p: 3, height: '100%', borderRadius: 4, border: 1, borderColor: 'divider' }}><Stack direction="row" spacing={2} alignItems="center"><Box sx={{ display: 'grid', placeItems: 'center', width: 52, height: 52, borderRadius: 3, bgcolor: 'action.selected', color: 'primary.main' }}><PersonOutlineRoundedIcon /></Box><Box><Typography color="text.secondary" fontSize={12} fontWeight={800}>SIGNED-IN EMPLOYEE</Typography><Typography variant="h6" fontWeight={900}>{employee}</Typography></Box></Stack></Paper></Grid>

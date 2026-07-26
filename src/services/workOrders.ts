@@ -16,10 +16,12 @@ export type WorkOrderStatusEvent = {
 }
 
 export type WorkOrder = {
+  databaseId?: string
   id: string
   title: string
   description: string
   assignee: string
+  assigneeId?: string
   priority: WorkOrderPriority
   status: WorkOrderStatus
   dueDate: string
@@ -37,6 +39,12 @@ export type WorkOrder = {
   completionSubmittedAt?: string
   resolutionSummary?: string
   statusHistory?: WorkOrderStatusEvent[]
+}
+
+export type WorkOrderEmployee = {
+  id: string
+  fullName: string
+  email: string
 }
 
 export function formatElapsed(start?: string, end?: string) {
@@ -112,3 +120,127 @@ export function saveWorkOrder(workOrder: WorkOrder): WorkOrder[] {
   window.localStorage.setItem(storageKey, JSON.stringify(next))
   return next
 }
+
+type WorkOrderRow = {
+  id: string
+  work_order_number: string
+  title: string
+  description: string
+  assignee_id: string
+  priority: WorkOrderPriority
+  status: WorkOrderStatus
+  due_date: string
+  shipment_reference: string
+  pickup_location: string
+  destination: string
+  delivery_appointment: string | null
+  actual_delivery_at: string | null
+  started_at: string | null
+  blocked_at: string | null
+  completed_at: string | null
+  completion_submitted_at: string | null
+  resolution_summary: string
+  notes: WorkOrderNote[]
+  status_history: WorkOrderStatusEvent[]
+  created_at: string
+  updated_at: string
+}
+
+const formatDateTime = (value?: string | null) => value
+  ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+  : ''
+
+const mapRow = (row: WorkOrderRow, employeeNames: Map<string, string>): WorkOrder => ({
+  databaseId: row.id,
+  id: row.work_order_number,
+  title: row.title,
+  description: row.description,
+  assigneeId: row.assignee_id,
+  assignee: employeeNames.get(row.assignee_id) || 'Unknown employee',
+  priority: row.priority,
+  status: row.status,
+  dueDate: row.due_date,
+  shipmentReference: row.shipment_reference,
+  pickupLocation: row.pickup_location,
+  destination: row.destination,
+  deliveryAppointment: row.delivery_appointment || '',
+  actualDeliveryAt: row.actual_delivery_at || undefined,
+  startedAt: row.started_at || undefined,
+  blockedAt: row.blocked_at || undefined,
+  completedAt: row.completed_at || undefined,
+  completionSubmittedAt: row.completion_submitted_at || undefined,
+  resolutionSummary: row.resolution_summary,
+  notes: row.notes || [],
+  statusHistory: row.status_history || [],
+  createdAt: formatDateTime(row.created_at),
+  updatedAt: formatDateTime(row.updated_at),
+})
+
+export async function listWorkOrderEmployees(): Promise<WorkOrderEmployee[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, full_name, email')
+    .eq('role', 'employee')
+    .eq('active', true)
+    .order('full_name')
+  if (error) throw error
+  return (data || []).map(item => ({ id: item.id, fullName: item.full_name, email: item.email }))
+}
+
+export async function listSupabaseWorkOrders(): Promise<WorkOrder[]> {
+  if (!supabase) return getWorkOrders()
+  const [{ data: rows, error }, { data: profiles, error: profileError }] = await Promise.all([
+    supabase.from('work_orders').select('*').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('id, full_name'),
+  ])
+  if (error) throw error
+  if (profileError) throw profileError
+  const names = new Map((profiles || []).map(item => [item.id, item.full_name]))
+  return ((rows || []) as WorkOrderRow[]).map(row => mapRow(row, names))
+}
+
+export async function saveAdminWorkOrder(workOrder: WorkOrder, adminId: string): Promise<void> {
+  if (!supabase || !workOrder.assigneeId) throw new Error('Select an active employee.')
+  const payload = {
+    work_order_number: workOrder.id,
+    title: workOrder.title,
+    description: workOrder.description,
+    assignee_id: workOrder.assigneeId,
+    created_by: adminId,
+    priority: workOrder.priority,
+    status: workOrder.status,
+    due_date: workOrder.dueDate,
+    shipment_reference: workOrder.shipmentReference,
+    pickup_location: workOrder.pickupLocation || '',
+    destination: workOrder.destination || '',
+    delivery_appointment: workOrder.deliveryAppointment || null,
+    actual_delivery_at: workOrder.actualDeliveryAt || null,
+    started_at: workOrder.startedAt || null,
+    blocked_at: workOrder.blockedAt || null,
+    completed_at: workOrder.completedAt || null,
+    completion_submitted_at: workOrder.completionSubmittedAt || null,
+    resolution_summary: workOrder.resolutionSummary || '',
+    notes: workOrder.notes || [],
+    status_history: workOrder.statusHistory || [],
+    updated_at: new Date().toISOString(),
+  }
+  const query = workOrder.databaseId
+    ? supabase.from('work_orders').update(payload).eq('id', workOrder.databaseId)
+    : supabase.from('work_orders').insert(payload)
+  const { error } = await query
+  if (error) throw error
+}
+
+export async function saveEmployeeWorkOrder(workOrder: WorkOrder): Promise<void> {
+  if (!supabase || !workOrder.databaseId) throw new Error('This work order is not connected to the shared database.')
+  const { error } = await supabase.rpc('employee_update_work_order', {
+    order_id: workOrder.databaseId,
+    next_status: workOrder.status,
+    next_notes: workOrder.notes || [],
+    next_history: workOrder.statusHistory || [],
+    next_resolution_summary: workOrder.resolutionSummary || '',
+  })
+  if (error) throw error
+}
+import { supabase } from '../lib/supabase'

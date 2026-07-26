@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Alert, Autocomplete, Box, Button, Chip, Container, Grid, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
 import AddTaskRoundedIcon from '@mui/icons-material/AddTaskRounded'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
@@ -11,31 +11,41 @@ import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
-import { demoEmployees, formatElapsed, generateShipmentReference, getWorkOrders, saveWorkOrder, type WorkOrder, type WorkOrderPriority, type WorkOrderStatus } from '../services/workOrders'
+import { formatElapsed, generateShipmentReference, listSupabaseWorkOrders, listWorkOrderEmployees, saveAdminWorkOrder, type WorkOrder, type WorkOrderEmployee, type WorkOrderPriority, type WorkOrderStatus } from '../services/workOrders'
 import { useAuth } from '../contexts/AuthContext'
-import { getDemoEmployees } from '../services/demoAuth'
 import { usCityOptions } from '../data/usCities'
 
 type WorkOrderForm = Omit<WorkOrder, 'createdAt' | 'updatedAt'>
 
 const statusOptions: WorkOrderStatus[] = ['Open', 'In progress', 'Blocked', 'Pending approval', 'Completed']
 const priorityOptions: WorkOrderPriority[] = ['Low', 'Normal', 'High', 'Urgent']
-const createEmptyForm = (): WorkOrderForm => ({ id: '', title: '', description: '', assignee: '', priority: 'Normal', status: 'Open', dueDate: '', shipmentReference: generateShipmentReference(), pickupLocation: '', destination: '', deliveryAppointment: '' })
+const createEmptyForm = (): WorkOrderForm => ({ id: '', title: '', description: '', assignee: '', assigneeId: '', priority: 'Normal', status: 'Open', dueDate: '', shipmentReference: generateShipmentReference(), pickupLocation: '', destination: '', deliveryAppointment: '' })
 
 export default function WorkOrders() {
-  const { profile, signOut } = useAuth()
-  const [orders, setOrders] = useState(() => getWorkOrders())
+  const { user, profile, signOut } = useAuth()
+  const [orders, setOrders] = useState<WorkOrder[]>([])
+  const [employees, setEmployees] = useState<WorkOrderEmployee[]>([])
   const [form, setForm] = useState<WorkOrderForm>(() => createEmptyForm())
   const [editingId, setEditingId] = useState('')
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'All' | WorkOrderStatus>('All')
   const [message, setMessage] = useState('')
-  const employeeOptions = useMemo(() => {
-    const createdEmployees = import.meta.env.DEV
-      ? getDemoEmployees().map(employee => employee.fullName)
-      : []
-    return [...new Set([...createdEmployees, ...demoEmployees])]
-  }, [])
+  const [loading, setLoading] = useState(true)
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const [nextOrders, nextEmployees] = await Promise.all([listSupabaseWorkOrders(), listWorkOrderEmployees()])
+      setOrders(nextOrders)
+      setEmployees(nextEmployees)
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : 'Unable to load shared work orders.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { void loadData() }, [])
 
   const filteredOrders = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -61,34 +71,43 @@ export default function WorkOrders() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!form.title.trim() || !form.description.trim() || !form.assignee || !form.dueDate) {
+    if (!form.title.trim() || !form.description.trim() || !form.assigneeId || !form.dueDate) {
       setMessage('Complete the title, description, assignee, and due date.')
       return
     }
-    const now = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())
-    const existing = orders.find(item => item.id === editingId)
-    const saved: WorkOrder = {
-      ...form,
-      id: editingId || `WO-${Date.now().toString().slice(-6)}`,
-      title: form.title.trim(),
-      description: form.description.trim(),
-      shipmentReference: form.shipmentReference.trim().toUpperCase(),
-      createdAt: existing?.createdAt ?? now,
-      updatedAt: now,
-      statusHistory: existing?.statusHistory ?? [{ id: `EVENT-${Date.now()}`, status: form.status, actor: profile?.full_name || 'Super Admin', createdAt: new Date().toISOString(), detail: 'Work order created and assigned.' }],
+    try {
+      const now = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())
+      const existing = orders.find(item => item.id === editingId)
+      const selectedEmployee = employees.find(employee => employee.id === form.assigneeId)
+      const saved: WorkOrder = {
+        ...form,
+        databaseId: existing?.databaseId,
+        id: editingId || `WO-${Date.now().toString().slice(-6)}`,
+        assignee: selectedEmployee?.fullName || form.assignee,
+        title: form.title.trim(),
+        description: form.description.trim(),
+        shipmentReference: form.shipmentReference.trim().toUpperCase(),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        statusHistory: existing?.statusHistory ?? [{ id: `EVENT-${Date.now()}`, status: form.status, actor: profile?.full_name || 'Super Admin', createdAt: new Date().toISOString(), detail: 'Work order created and assigned.' }],
+      }
+      if (!user?.id) throw new Error('Your administrator session is unavailable. Sign in again.')
+      await saveAdminWorkOrder(saved, user.id)
+      await loadData()
+      setEditingId(saved.id)
+      setForm(({ ...saved }))
+      setMessage(`${saved.id} saved and assigned to ${saved.assignee}.`)
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : 'Unable to save this work order.')
     }
-    setOrders(saveWorkOrder(saved))
-    setEditingId(saved.id)
-    setForm(({ ...saved }))
-    setMessage(`${saved.id} saved and assigned to ${saved.assignee}.`)
   }
 
-  const quickStatus = (order: WorkOrder, status: WorkOrderStatus) => {
+  const quickStatus = async (order: WorkOrder, status: WorkOrderStatus) => {
     const now = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date())
     const isoNow = new Date().toISOString()
-    setOrders(saveWorkOrder({
+    const updated = {
       ...order,
       status,
       updatedAt: now,
@@ -102,7 +121,14 @@ export default function WorkOrders() {
         createdAt: isoNow,
         detail: status === 'Completed' ? 'Completion reviewed and approved by super admin.' : status === 'In progress' && order.status === 'Pending approval' ? 'Returned to employee for additional work.' : 'Status changed by super admin.',
       }],
-    }))
+    }
+    try {
+      if (!user?.id) throw new Error('Your administrator session is unavailable. Sign in again.')
+      await saveAdminWorkOrder(updated, user.id)
+      await loadData()
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : 'Unable to update work-order status.')
+    }
   }
 
   const counts = statusOptions.map(status => [status, orders.filter(item => item.status === status).length] as const)
@@ -125,6 +151,7 @@ export default function WorkOrders() {
 
     <Container sx={{ py: { xs: 6, md: 8 } }}>
       <Alert severity="success" sx={{ mb: 4, borderRadius: 3 }}>This page is restricted to the super admin. Employee accounts cannot open the assignment controls.</Alert>
+      {loading && <Alert severity="info" sx={{ mb: 4 }}>Loading shared work orders…</Alert>}
       <Grid container spacing={4} alignItems="flex-start">
         <Grid size={{ xs: 12, lg: 4 }}>
           <Paper component="form" onSubmit={handleSubmit} sx={{ p: { xs: 3, md: 4 }, borderRadius: 4, border: 1, borderColor: 'divider', position: { lg: 'sticky' }, top: { lg: 130 } }}>
@@ -132,7 +159,12 @@ export default function WorkOrders() {
             <Stack spacing={2.25}>
               <TextField required label="Task title" value={form.title} onChange={event => updateField('title', event.target.value)} />
               <TextField required multiline minRows={3} label="Task description" value={form.description} onChange={event => updateField('description', event.target.value)} />
-              <TextField select required label="Assign to employee" value={form.assignee} onChange={event => updateField('assignee', event.target.value)}>{employeeOptions.map(employee => <MenuItem key={employee} value={employee}>{employee}</MenuItem>)}</TextField>
+              <TextField select required label="Assign to employee" value={form.assigneeId || ''} onChange={event => {
+                const assigneeId = event.target.value
+                const employee = employees.find(item => item.id === assigneeId)
+                setForm(current => ({ ...current, assigneeId, assignee: employee?.fullName || '' }))
+              }}>{employees.map(employee => <MenuItem key={employee.id} value={employee.id}>{employee.fullName} · {employee.email}</MenuItem>)}</TextField>
+              {!employees.length && !loading && <Alert severity="warning">Create an active employee account before assigning a work order.</Alert>}
               <Grid container spacing={1.5}><Grid size={{ xs: 6 }}><TextField select fullWidth label="Priority" value={form.priority} onChange={event => updateField('priority', event.target.value)}>{priorityOptions.map(item => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid><Grid size={{ xs: 6 }}><TextField select fullWidth label="Status" value={form.status} onChange={event => updateField('status', event.target.value)}>{statusOptions.map(item => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid></Grid>
               <TextField required type="date" label="Due date" value={form.dueDate} onChange={event => updateField('dueDate', event.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
               <TextField label="Shipment reference" value={form.shipmentReference} helperText="Generated automatically for each new work order." slotProps={{ input: { readOnly: true } }} />
