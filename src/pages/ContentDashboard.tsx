@@ -8,6 +8,7 @@ import type { SvgIconComponent } from '@mui/icons-material'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { useContent } from '../contexts/ContentContext'
+import { contentPages } from '../config/contentPages'
 
 export default function ContentDashboard() {
   const { entries } = useContent()
@@ -29,6 +30,14 @@ export default function ContentDashboard() {
         <Grid size={{ xs: 12, md: 7 }}><Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 4, height: '100%' }}><Typography variant="h4" fontWeight={900}>Manage website content</Typography><Typography color="text.secondary" mt={1.5}>Create page sections, update homepage messaging, upload images, edit buttons, control layouts, and publish or save drafts.</Typography><Button component={RouterLink} to="/content-admin/content/" variant="contained" size="large" endIcon={<ArrowForwardRoundedIcon />} sx={{ mt: 3 }}>Open content library</Button></Paper></Grid>
         <Grid size={{ xs: 12, md: 5 }}><Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 4, height: '100%', bgcolor: '#f7f2df' }}><Typography variant="h5" fontWeight={900}>Separate and focused</Typography><Typography color="text.secondary" mt={1.5}>Shipment management, work orders, and employees remain in the Operations Portal. This dashboard is dedicated only to the public website.</Typography><Button component={RouterLink} to="/" target="_blank" startIcon={<PublicOutlinedIcon />} sx={{ mt: 2.5 }}>View public website</Button></Paper></Grid>
       </Grid>
+      <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 4, mt: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1} mb={3}><Box><Typography variant="h4" fontWeight={900}>All website pages</Typography><Typography color="text.secondary" mt={.5}>Every page supports create, read, update, publish, and delete operations.</Typography></Box><Chip label={`${contentPages.length} pages`} color="secondary" sx={{ alignSelf: 'flex-start', fontWeight: 900 }} /></Stack>
+        <Grid container spacing={2}>{contentPages.map(page => {
+          const pageEntries = entries.filter(entry => entry.page === page.value)
+          const pagePublished = pageEntries.filter(entry => entry.published).length
+          return <Grid size={{ xs: 12, md: 6 }} key={page.value}><Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}><Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}><Box><Typography fontWeight={900}>{page.label}</Typography><Typography variant="body2" color="text.secondary" mt={.5}>{pageEntries.length} sections · {pagePublished} published</Typography></Box><Chip size="small" label={page.value === 'global' ? 'Sitewide' : 'Page'} /></Stack><Stack direction="row" spacing={1} mt={2.5}><Button component={RouterLink} to={`/content-admin/content/?page=${page.value}`} variant="contained" size="small">Manage content</Button><Button component={RouterLink} to={page.path} target="_blank" size="small">View page</Button></Stack></Paper></Grid>
+        })}</Grid>
+      </Paper>
     </Container>
   </>
 }

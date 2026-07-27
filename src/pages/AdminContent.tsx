@@ -7,19 +7,18 @@ import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined'
 import { supabase } from '../lib/supabase'
 import { useContent, type SiteContent } from '../contexts/ContentContext'
 import { Seo } from '../components/common/Seo'
+import { contentPages } from '../config/contentPages'
+import { useSearchParams } from 'react-router-dom'
 
-const pages = [
-  ['global', 'Global header and footer'], ['home', 'Home'], ['freight-dispatch-masterclass', 'Freight Dispatcher'],
-  ['freight-broker-masterclass', 'Freight Broker'], ['iman-trucking-school', 'Iman Trucking School'],
-  ['consultants', 'Consultation'], ['tracking', 'Tracking'], ['car-auto-sales', 'Car & Truck Sales'],
-  ['careers', 'Careers'], ['about-us', 'About'], ['contact-us', 'Contact'],
-] as const
 const emptyContent = { page: 'home', section_key: 'custom-', section_label: '', title: '', body: '', image_url: '', button_text: '', button_url: '', layout: 'image-right', sort_order: 100, published: true }
 
 export default function AdminContent() {
   const { entries, refresh } = useContent()
-  const [editing, setEditing] = useState<Partial<SiteContent>>(emptyContent)
-  const [pageFilter, setPageFilter] = useState('all')
+  const [searchParams] = useSearchParams()
+  const requestedPage = searchParams.get('page')
+  const initialPage = contentPages.some(page => page.value === requestedPage) ? requestedPage! : 'all'
+  const [editing, setEditing] = useState<Partial<SiteContent>>({ ...emptyContent, page: initialPage === 'all' ? 'home' : initialPage })
+  const [pageFilter, setPageFilter] = useState(initialPage)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -74,7 +73,7 @@ export default function AdminContent() {
       <Grid container spacing={4} alignItems="flex-start">
         <Grid size={{ xs: 12, lg: 5 }}><Paper component="form" onSubmit={save} sx={{ p: { xs: 3, md: 4 }, borderRadius: 4, position: { lg: 'sticky' }, top: { lg: 96 } }}><Stack spacing={2.2}>
           <Stack direction="row" justifyContent="space-between" alignItems="center"><Typography variant="h5" fontWeight={900}>{editing.id ? 'Edit content' : 'Add content section'}</Typography>{editing.id && <Button onClick={reset}>Cancel</Button>}</Stack>
-          <TextField select required label="Website page" value={editing.page || 'home'} onChange={event => setEditing({ ...editing, page: event.target.value })}>{pages.map(([value, label]) => <MenuItem value={value} key={value}>{label}</MenuItem>)}</TextField>
+          <TextField select required label="Website page" value={editing.page || 'home'} onChange={event => setEditing({ ...editing, page: event.target.value })}>{contentPages.map(page => <MenuItem value={page.value} key={page.value}>{page.label}</MenuItem>)}</TextField>
           <TextField required label="Section key" helperText="Use custom-name for a new section shown on the public page." value={editing.section_key || ''} onChange={event => setEditing({ ...editing, section_key: event.target.value })} />
           <TextField required label="Section label" value={editing.section_label || ''} onChange={event => setEditing({ ...editing, section_label: event.target.value })} />
           <TextField label="Heading" value={editing.title || ''} onChange={event => setEditing({ ...editing, title: event.target.value })} />
@@ -88,7 +87,7 @@ export default function AdminContent() {
           <Button type="submit" variant="contained" size="large" disabled={saving} startIcon={editing.id ? <EditOutlinedIcon /> : <AddRoundedIcon />}>{saving ? 'Saving…' : editing.id ? 'Update content' : 'Create content'}</Button>
         </Stack></Paper></Grid>
         <Grid size={{ xs: 12, lg: 7 }}><Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 4 }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2} mb={3}><Box><Typography variant="h5" fontWeight={900}>Content library</Typography><Typography color="text.secondary">{filtered.length} managed sections</Typography></Box><TextField select size="small" label="Filter page" value={pageFilter} onChange={event => setPageFilter(event.target.value)} sx={{ minWidth: 210 }}><MenuItem value="all">All pages</MenuItem>{pages.map(([value, label]) => <MenuItem value={value} key={value}>{label}</MenuItem>)}</TextField></Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2} mb={3}><Box><Typography variant="h5" fontWeight={900}>Content library</Typography><Typography color="text.secondary">{filtered.length} managed sections</Typography></Box><TextField select size="small" label="Filter page" value={pageFilter} onChange={event => { const nextPage = event.target.value; setPageFilter(nextPage); if (!editing.id && nextPage !== 'all') setEditing(current => ({ ...current, page: nextPage })) }} sx={{ minWidth: 210 }}><MenuItem value="all">All pages</MenuItem>{contentPages.map(page => <MenuItem value={page.value} key={page.value}>{page.label}</MenuItem>)}</TextField></Stack>
           <Stack spacing={1.5}>{filtered.map(entry => <Paper variant="outlined" key={entry.id} sx={{ p: 2.5, borderRadius: 3, opacity: entry.published ? 1 : .65 }}><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" gap={2}><Box minWidth={0}><Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap"><Chip size="small" label={entry.page} /><Chip size="small" color={entry.published ? 'success' : 'default'} label={entry.published ? 'Published' : 'Draft'} variant="outlined" /></Stack><Typography fontWeight={900} mt={1.5}>{entry.section_label || entry.title}</Typography><Typography variant="body2" color="text.secondary">{entry.section_key}</Typography><Typography variant="body2" mt={1} noWrap>{entry.title}</Typography></Box><Stack direction="row" alignItems="center"><Button size="small" startIcon={<EditOutlinedIcon />} onClick={() => setEditing(entry)}>Edit</Button><Button size="small" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => void remove(entry)}>Delete</Button></Stack></Stack></Paper>)}{!filtered.length && <Alert severity="info">No content records for this page yet. Use the editor to create the first section.</Alert>}</Stack>
         </Paper></Grid>
       </Grid>
