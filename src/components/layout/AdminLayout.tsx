@@ -6,6 +6,7 @@ import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined'
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -14,6 +15,7 @@ const navigation = [
   { label: 'Shipment management', path: '/tracking/admin/', icon: <DashboardOutlinedIcon /> },
   { label: 'Work orders', path: '/tracking/admin/work-orders/', icon: <AssignmentOutlinedIcon /> },
   { label: 'Employees', path: '/tracking/admin/users/', icon: <GroupOutlinedIcon /> },
+  { label: 'Website content', path: '/content-admin/', icon: <DashboardCustomizeOutlinedIcon /> },
 ]
 
 export function AdminLayout() {
