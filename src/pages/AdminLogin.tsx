@@ -13,6 +13,7 @@ export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState(() => (location.state as { passwordReset?: boolean } | null)?.passwordReset ? 'Password updated successfully. You can now sign in.' : '')
   const [submitting, setSubmitting] = useState(false)
 
   if (user && profile) return <Navigate to={profile.role === 'super_admin' ? '/tracking/admin/work-orders/' : '/tracking/team/work-orders/'} replace />
@@ -39,6 +40,21 @@ export default function AdminLogin() {
     navigate(role === 'super_admin' ? requested || '/tracking/admin/work-orders/' : '/tracking/team/work-orders/', { replace: true })
   }
 
+  const resetPassword = async () => {
+    const resetEmail = email.trim()
+    setError('')
+    setNotice('')
+    if (!resetEmail || !resetEmail.includes('@')) return setError('Enter your account email address first.')
+    if (!supabase) return setError('Password recovery is not configured.')
+    setSubmitting(true)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/admin/reset-password/`,
+    })
+    setSubmitting(false)
+    if (resetError) return setError(resetError.message)
+    setNotice('Password reset email sent. Open the secure link in that email to choose a new password.')
+  }
+
   return <>
     <Seo title="Team Sign In | Iman Logistics" canonical="/admin/login/" />
     <Box sx={{ bgcolor: 'primary.main', minHeight: '72vh', py: { xs: 8, md: 12 }, display: 'grid', alignItems: 'center' }}>
@@ -50,9 +66,11 @@ export default function AdminLogin() {
             {!configured && <Alert severity="warning">Authentication has not been configured for this deployment.</Alert>}
             {import.meta.env.DEV && <Alert severity="info"><strong>Local test access</strong><br />Username: superadmin<br />Password: Admin123!</Alert>}
             {error && <Alert severity="error">{error}</Alert>}
+            {notice && <Alert severity="success">{notice}</Alert>}
             <TextField required type={import.meta.env.DEV ? 'text' : 'email'} label={import.meta.env.DEV ? 'Username or email' : 'Email address'} autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} />
             <TextField required type="password" label="Password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} />
             <Button type="submit" size="large" variant="contained" disabled={!configured || submitting}>{submitting ? 'Signing in…' : 'Sign in securely'}</Button>
+            <Button type="button" onClick={() => void resetPassword()} disabled={!configured || submitting}>Forgot password?</Button>
           </Stack>
         </Paper>
       </Container>

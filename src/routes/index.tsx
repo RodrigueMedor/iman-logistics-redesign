@@ -21,11 +21,13 @@ const AdminLogin = lazy(() => import('../pages/AdminLogin'))
 const AdminUsers = lazy(() => import('../pages/AdminUsers'))
 const Careers = lazy(() => import('../pages/Careers'))
 const AdminContent = lazy(() => import('../pages/AdminContent'))
+const AdminResetPassword = lazy(() => import('../pages/AdminResetPassword'))
 
 function Loading() { return <Stack alignItems="center" justifyContent="center" minHeight="50vh"><CircularProgress /></Stack> }
 export function AppRoutes() {
   return <Suspense fallback={<Loading />}><Routes>
     <Route path="admin/login/" element={<AdminLogin />} />
+    <Route path="admin/reset-password/" element={<AdminResetPassword />} />
     <Route element={<ProtectedRoute roles={['super_admin']} />}>
       <Route element={<AdminLayout />}>
         <Route path="tracking/admin/" element={<TrackingAdmin />} />
