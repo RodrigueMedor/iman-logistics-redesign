@@ -3,7 +3,6 @@ import { AppBar, Avatar, Box, Button, Chip, Divider, Drawer, IconButton, List, L
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined'
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined'
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined'
-import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
@@ -15,7 +14,6 @@ const navigation = [
   { label: 'Shipment management', path: '/tracking/admin/', icon: <DashboardOutlinedIcon /> },
   { label: 'Work orders', path: '/tracking/admin/work-orders/', icon: <AssignmentOutlinedIcon /> },
   { label: 'Employees', path: '/tracking/admin/users/', icon: <GroupOutlinedIcon /> },
-  { label: 'Website content', path: '/tracking/admin/content/', icon: <ArticleOutlinedIcon /> },
 ]
 
 export function AdminLayout() {

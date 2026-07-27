@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { SiteLayout } from '../components/layout/SiteLayout'
 import { ProtectedRoute } from '../components/auth/ProtectedRoute'
 import { AdminLayout } from '../components/layout/AdminLayout'
+import { ContentAdminLayout } from '../components/layout/ContentAdminLayout'
 
 const Home = lazy(() => import('../pages/Home'))
 const DispatchMasterclass = lazy(() => import('../pages/DispatchMasterclass'))
@@ -22,6 +23,7 @@ const AdminUsers = lazy(() => import('../pages/AdminUsers'))
 const Careers = lazy(() => import('../pages/Careers'))
 const AdminContent = lazy(() => import('../pages/AdminContent'))
 const AdminResetPassword = lazy(() => import('../pages/AdminResetPassword'))
+const ContentDashboard = lazy(() => import('../pages/ContentDashboard'))
 
 function Loading() { return <Stack alignItems="center" justifyContent="center" minHeight="50vh"><CircularProgress /></Stack> }
 export function AppRoutes() {
@@ -33,7 +35,11 @@ export function AppRoutes() {
         <Route path="tracking/admin/" element={<TrackingAdmin />} />
         <Route path="tracking/admin/work-orders/" element={<WorkOrders />} />
         <Route path="tracking/admin/users/" element={<AdminUsers />} />
-        <Route path="tracking/admin/content/" element={<AdminContent />} />
+      </Route>
+      <Route path="tracking/admin/content/" element={<Navigate to="/content-admin/content/" replace />} />
+      <Route element={<ContentAdminLayout />}>
+        <Route path="content-admin/" element={<ContentDashboard />} />
+        <Route path="content-admin/content/" element={<AdminContent />} />
       </Route>
     </Route>
     <Route element={<ProtectedRoute roles={['super_admin', 'employee']} />}>

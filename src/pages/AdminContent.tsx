@@ -66,7 +66,7 @@ export default function AdminContent() {
   }
 
   return <>
-    <Seo title="Website Content | Iman Logistics" canonical="/tracking/admin/content/" />
+    <Seo title="Website Content | Iman Logistics" canonical="/content-admin/content/" />
     <Box sx={{ bgcolor: 'primary.main', color: 'white', py: { xs: 5, md: 7 } }}><Container><Chip label="SUPER ADMIN CMS" color="secondary" sx={{ mb: 2, fontWeight: 900 }} /><Typography component="h1" variant="h2" sx={{ fontSize: { xs: 40, md: 58 } }}>Website content</Typography><Typography color="rgba(255,255,255,.76)" mt={1}>Create, update, publish, and remove text, images, buttons, and page sections without changing source code.</Typography></Container></Box>
     <Container sx={{ py: { xs: 5, md: 7 } }}>
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
