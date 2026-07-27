@@ -4,14 +4,17 @@ import { BrowserRouter } from 'react-router-dom'
 import { AppRoutes } from './routes'
 import { ColorModeProvider } from './contexts/ColorModeContext'
 import { AuthProvider } from './contexts/AuthContext'
+import { ContentProvider } from './contexts/ContentContext'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ColorModeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <ContentProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </ContentProvider>
       </AuthProvider>
     </ColorModeProvider>
   </React.StrictMode>,

@@ -27,6 +27,7 @@ import { Link as RouterLink, useLocation } from 'react-router-dom'
 import logo from '../../assets/images/logo-2048x755.png'
 import darkLogo from '../../assets/images/imanSlogogolden-copy-2.png'
 import { useColorMode } from '../../contexts/ColorModeContext'
+import { useContent } from '../../contexts/ContentContext'
 
 const services = [
   ['Freight Dispatcher', '/freight-dispatch-masterclass/'],
@@ -50,6 +51,8 @@ export function Header() {
   const [servicesAnchor, setServicesAnchor] = useState<HTMLElement | null>(null)
   const { pathname } = useLocation()
   const { mode, toggleMode } = useColorMode()
+  const { content } = useContent()
+  const headerContent = content('global', 'header', { section_label: 'Logistics · Education · Growth', title: 'Speak with a consultant', button_text: 'Book a consultation', button_url: '/consultants/' })
   const modeLabel = mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
   const currentPath = normalizePath(pathname)
 
@@ -149,7 +152,7 @@ export function Header() {
             sx={{ minHeight: 32 }}
           >
             <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.13em', textTransform: 'uppercase', opacity: 0.78 }}>
-              Logistics · Education · Growth
+              {headerContent.section_label}
             </Typography>
             <Box
               component={RouterLink}
@@ -165,7 +168,7 @@ export function Header() {
                 '&:hover': { textDecoration: 'underline', textUnderlineOffset: 3 },
               }}
             >
-              Speak with a consultant <ArrowOutwardRoundedIcon sx={{ fontSize: 14 }} />
+              {headerContent.title} <ArrowOutwardRoundedIcon sx={{ fontSize: 14 }} />
             </Box>
           </Stack>
         </Container>
@@ -226,7 +229,7 @@ export function Header() {
           </Tooltip>
           <Button
             component={RouterLink}
-            to="/consultants/"
+            to={headerContent.button_url || '/consultants/'}
             variant="contained"
             disableElevation
             endIcon={<ArrowOutwardRoundedIcon />}
@@ -241,7 +244,7 @@ export function Header() {
               transition: 'transform 180ms ease, box-shadow 180ms ease',
             }}
           >
-            Book a consultation
+            {headerContent.button_text || 'Book a consultation'}
           </Button>
           <IconButton
             aria-label="Open navigation menu"
@@ -290,10 +293,10 @@ export function Header() {
           </Box>
           <Box sx={{ mt: 'auto', p: 2.5, bgcolor: 'action.hover', borderTop: 1, borderColor: 'divider' }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              Ready to move your logistics career or business forward?
+              {headerContent.body || 'Ready to move your logistics career or business forward?'}
             </Typography>
-            <Button component={RouterLink} to="/consultants/" variant="contained" fullWidth endIcon={<ArrowOutwardRoundedIcon />} onClick={() => setDrawerOpen(false)} sx={{ minHeight: 48, borderRadius: 2.5 }}>
-              Book a consultation
+            <Button component={RouterLink} to={headerContent.button_url || '/consultants/'} variant="contained" fullWidth endIcon={<ArrowOutwardRoundedIcon />} onClick={() => setDrawerOpen(false)} sx={{ minHeight: 48, borderRadius: 2.5 }}>
+              {headerContent.button_text || 'Book a consultation'}
             </Button>
             <Button onClick={toggleMode} fullWidth startIcon={mode === 'dark' ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />} sx={{ mt: 1, color: 'text.secondary' }}>
               {modeLabel}

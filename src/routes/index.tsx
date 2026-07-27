@@ -20,6 +20,7 @@ const AutoSales = lazy(() => import('../pages/AutoSales'))
 const AdminLogin = lazy(() => import('../pages/AdminLogin'))
 const AdminUsers = lazy(() => import('../pages/AdminUsers'))
 const Careers = lazy(() => import('../pages/Careers'))
+const AdminContent = lazy(() => import('../pages/AdminContent'))
 
 function Loading() { return <Stack alignItems="center" justifyContent="center" minHeight="50vh"><CircularProgress /></Stack> }
 export function AppRoutes() {
@@ -30,6 +31,7 @@ export function AppRoutes() {
         <Route path="tracking/admin/" element={<TrackingAdmin />} />
         <Route path="tracking/admin/work-orders/" element={<WorkOrders />} />
         <Route path="tracking/admin/users/" element={<AdminUsers />} />
+        <Route path="tracking/admin/content/" element={<AdminContent />} />
       </Route>
     </Route>
     <Route element={<ProtectedRoute roles={['super_admin', 'employee']} />}>

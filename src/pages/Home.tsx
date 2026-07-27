@@ -13,6 +13,7 @@ import DispatchMasterclass from './DispatchMasterclass'
 import truckHighway from '../assets/videos/truck-highway-banner.mp4'
 import truckCanyon from '../assets/videos/truck-canyon-road.mp4'
 import truckPort from '../assets/videos/truck-port-road.mp4'
+import { useContent } from '../contexts/ContentContext'
 
 const heroVideos = [
   [truckHighway, 'Truck driving through a mountain highway'],
@@ -35,6 +36,10 @@ const trustPoints = [
 
 export default function Home() {
   const [activeVideo, setActiveVideo] = useState(0)
+  const { content } = useContent()
+  const hero = content('home', 'hero', { section_label: 'YOUR NEXT MOVE STARTS HERE', title: 'Build your future in logistics.', body: 'Training, consulting, and vehicle solutions designed to help ambitious people move forward with clarity.', button_text: 'Explore our services', button_url: '/freight-dispatch-masterclass/' })
+  const overview = content('home', 'overview', { section_label: 'WHAT WE DO', title: 'One company. More ways to move forward.', body: 'Choose the path that fits your goals today—and count on a team that understands where you want to go next.' })
+  const cta = content('home', 'cta', { title: 'Not sure which path is right for you?', body: 'Tell us what you’re working toward. We’ll help you identify the best next step.', button_text: 'Book a consultation', button_url: '/consultants/' })
 
   return <>
     <Seo title="Iman Logistics | Training, Consulting & Vehicle Solutions" canonical="/" />
@@ -67,11 +72,11 @@ export default function Home() {
 
       <Container sx={{ position: 'relative', zIndex: 1, py: { xs: 9, md: 14 } }}>
         <Reveal>
-          <Chip label="YOUR NEXT MOVE STARTS HERE" sx={{ mb: 3, color: 'white', bgcolor: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)', backdropFilter: 'blur(10px)', fontWeight: 800, letterSpacing: '.08em' }} />
-          <Typography component="h1" sx={{ maxWidth: 760, fontSize: { xs: 46, sm: 60, md: 78 }, lineHeight: 1.01, fontWeight: 900, letterSpacing: '-.045em', textShadow: '0 4px 24px rgba(0,0,0,.28)' }}>Build your future in logistics.</Typography>
-          <Typography sx={{ maxWidth: 650, mt: 3, fontSize: { xs: 18, md: 22 }, lineHeight: 1.65, color: 'rgba(255,255,255,.84)', textShadow: '0 2px 14px rgba(0,0,0,.4)' }}>Training, consulting, and vehicle solutions designed to help ambitious people move forward with clarity.</Typography>
+          <Chip label={hero.section_label} sx={{ mb: 3, color: 'white', bgcolor: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.22)', backdropFilter: 'blur(10px)', fontWeight: 800, letterSpacing: '.08em' }} />
+          <Typography component="h1" sx={{ maxWidth: 760, fontSize: { xs: 46, sm: 60, md: 78 }, lineHeight: 1.01, fontWeight: 900, letterSpacing: '-.045em', textShadow: '0 4px 24px rgba(0,0,0,.28)' }}>{hero.title}</Typography>
+          <Typography sx={{ maxWidth: 650, mt: 3, fontSize: { xs: 18, md: 22 }, lineHeight: 1.65, color: 'rgba(255,255,255,.84)', textShadow: '0 2px 14px rgba(0,0,0,.4)' }}>{hero.body}</Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4.5} alignItems={{ sm: 'center' }}>
-            <Button component={RouterLink} to="/freight-dispatch-masterclass/" size="large" color="secondary" variant="contained" endIcon={<ArrowForwardRoundedIcon />}>Explore our services</Button>
+            <Button component={RouterLink} to={hero.button_url || '/freight-dispatch-masterclass/'} size="large" color="secondary" variant="contained" endIcon={<ArrowForwardRoundedIcon />}>{hero.button_text || 'Explore our services'}</Button>
             <Button component={RouterLink} to="/consultants/" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.62)', bgcolor: 'rgba(8,6,45,.18)', backdropFilter: 'blur(8px)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,.1)' } }}>Speak with a consultant</Button>
           </Stack>
         </Reveal>
@@ -103,7 +108,7 @@ export default function Home() {
     </Box>
 
     <Container sx={{ py: { xs: 9, md: 13 } }}>
-      <Reveal><Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'end' }} spacing={3} mb={5}><Box><Typography color="secondary" fontWeight={900} letterSpacing=".12em" fontSize={12}>WHAT WE DO</Typography><Typography component="h2" variant="h2" sx={{ mt: 1, maxWidth: 650, fontSize: { xs: 38, md: 54 }, letterSpacing: '-.03em' }}>One company. More ways to move forward.</Typography></Box><Typography color="text.secondary" maxWidth={460} fontSize={18}>Choose the path that fits your goals today—and count on a team that understands where you want to go next.</Typography></Stack></Reveal>
+      <Reveal><Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'end' }} spacing={3} mb={5}><Box><Typography color="secondary" fontWeight={900} letterSpacing=".12em" fontSize={12}>{overview.section_label}</Typography><Typography component="h2" variant="h2" sx={{ mt: 1, maxWidth: 650, fontSize: { xs: 38, md: 54 }, letterSpacing: '-.03em' }}>{overview.title}</Typography></Box><Typography color="text.secondary" maxWidth={460} fontSize={18}>{overview.body}</Typography></Stack></Reveal>
       <Grid container spacing={3}>
         {services.map(([Icon, eyebrow, title, description, href, action], index) => {
           const external = href.startsWith('http')
@@ -114,7 +119,7 @@ export default function Home() {
 
     <Box sx={{ bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f6f7fb', py: { xs: 8, md: 11 } }}><Container><Grid container spacing={3}>{trustPoints.map(([title, description], index) => <Grid size={{ xs: 12, md: 4 }} key={title}><Stack direction="row" spacing={2.25}><Typography color="secondary" fontWeight={900} fontSize={14}>0{index + 1}</Typography><Box><Typography variant="h6" fontWeight={900}>{title}</Typography><Typography color="text.secondary" mt={1}>{description}</Typography></Box></Stack></Grid>)}</Grid></Container></Box>
 
-    <Box sx={{ py: { xs: 9, md: 12 } }}><Container><Paper sx={{ overflow: 'hidden', borderRadius: 5, color: 'white', bgcolor: '#0A005A', p: { xs: 4, md: 7 } }}><Grid container spacing={4} alignItems="center"><Grid size={{ xs: 12, md: 8 }}><SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 46 }} /><Typography component="h2" variant="h3" mt={2} sx={{ fontSize: { xs: 34, md: 48 } }}>Not sure which path is right for you?</Typography><Typography mt={2} color="rgba(255,255,255,.75)" fontSize={18}>Tell us what you’re working toward. We’ll help you identify the best next step.</Typography></Grid><Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { md: 'right' } }}><Button component={RouterLink} to="/consultants/" color="secondary" variant="contained" size="large" endIcon={<ArrowForwardRoundedIcon />}>Book a consultation</Button></Grid></Grid></Paper></Container></Box>
+    <Box sx={{ py: { xs: 9, md: 12 } }}><Container><Paper sx={{ overflow: 'hidden', borderRadius: 5, color: 'white', bgcolor: '#0A005A', p: { xs: 4, md: 7 } }}><Grid container spacing={4} alignItems="center"><Grid size={{ xs: 12, md: 8 }}><SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 46 }} /><Typography component="h2" variant="h3" mt={2} sx={{ fontSize: { xs: 34, md: 48 } }}>{cta.title}</Typography><Typography mt={2} color="rgba(255,255,255,.75)" fontSize={18}>{cta.body}</Typography></Grid><Grid size={{ xs: 12, md: 4 }} sx={{ textAlign: { md: 'right' } }}><Button component={RouterLink} to={cta.button_url || '/consultants/'} color="secondary" variant="contained" size="large" endIcon={<ArrowForwardRoundedIcon />}>{cta.button_text || 'Book a consultation'}</Button></Grid></Grid></Paper></Container></Box>
 
     <Box id="freight-dispatch-masterclass">
       <DispatchMasterclass embedded />
