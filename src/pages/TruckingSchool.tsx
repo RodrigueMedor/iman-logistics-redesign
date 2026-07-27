@@ -9,6 +9,7 @@ import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
 import { Seo } from '../components/common/Seo'
 import { Reveal } from '../components/common/Reveal'
 import { TRUCKING_SCHOOL_URL } from '../config/links'
+import { useContent } from '../contexts/ContentContext'
 
 const trainingFocus = [
   [ShieldOutlinedIcon, 'Safety first', 'Develop the awareness and responsible habits expected of transportation professionals.'],
@@ -24,6 +25,14 @@ const journey = [
 ] as const
 
 export default function TruckingSchool() {
+  const { content } = useContent()
+  const hero = content('iman-trucking-school', 'hero', {
+    section_label: 'IMAN TRUCKING SCHOOL',
+    title: 'Your road to a trucking career starts here.',
+    body: 'Explore a clear path toward the trucking and logistics industry through focused education, practical preparation, and guidance built around your future.',
+    button_text: 'Visit School Website',
+    button_url: TRUCKING_SCHOOL_URL,
+  })
   return <>
     <Seo title="Iman Trucking School | Career Training" canonical="/iman-trucking-school/" />
 
@@ -33,15 +42,15 @@ export default function TruckingSchool() {
         <Grid container spacing={6} alignItems="center">
           <Grid size={{ xs: 12, md: 7 }}>
             <Reveal>
-              <Chip label="IMAN TRUCKING SCHOOL" color="secondary" sx={{ mb: 3, fontWeight: 900, letterSpacing: '.09em' }} />
+              <Chip label={hero.section_label} color="secondary" sx={{ mb: 3, fontWeight: 900, letterSpacing: '.09em' }} />
               <Typography component="h1" sx={{ maxWidth: 820, fontSize: { xs: 45, sm: 58, md: 74 }, lineHeight: 1.02, fontWeight: 900, letterSpacing: '-.045em' }}>
-                Your road to a trucking career starts here.
+                {hero.title}
               </Typography>
               <Typography sx={{ maxWidth: 710, mt: 3, color: 'rgba(255,255,255,.8)', fontSize: { xs: 18, md: 21 }, lineHeight: 1.7 }}>
-                Explore a clear path toward the trucking and logistics industry through focused education, practical preparation, and guidance built around your future.
+                {hero.body}
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4}>
-                <Button component="a" href={TRUCKING_SCHOOL_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" endIcon={<ArrowOutwardRoundedIcon />}>Visit School Website</Button>
+                <Button component="a" href={hero.button_url || TRUCKING_SCHOOL_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" endIcon={<ArrowOutwardRoundedIcon />}>{hero.button_text}</Button>
                 <Button href="#training" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.58)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,.08)' } }}>Explore the training</Button>
               </Stack>
             </Reveal>

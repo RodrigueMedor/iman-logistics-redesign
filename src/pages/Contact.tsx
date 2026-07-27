@@ -41,6 +41,7 @@ import { useForm } from 'react-hook-form'
 import { Link as RouterLink } from 'react-router-dom'
 import { z } from 'zod'
 import { Seo } from '../components/common/Seo'
+import { useContent } from '../contexts/ContentContext'
 import { Reveal } from '../components/common/Reveal'
 import { submitContact } from '../services/contact'
 import mapImage from '../assets/images/mapusa-2048x1269.png'
@@ -85,6 +86,14 @@ const hours = [
 ] as const
 
 export default function Contact() {
+  const { content } = useContent()
+  const hero = content('contact-us', 'hero', {
+    section_label: 'LET’S START A CONVERSATION',
+    title: 'Questions deserve clear answers.',
+    body: 'Contact Iman Logistics for training information, consultation guidance, or help choosing your next step in freight and trucking.',
+    button_text: 'Send a message',
+    button_url: '#contact-form',
+  })
   const [sent, setSent] = useState(false)
   const [attachment, setAttachment] = useState<File>()
   const [fileError, setFileError] = useState('')
@@ -116,7 +125,7 @@ export default function Contact() {
       <Box sx={{ position: 'absolute', width: 420, height: 420, border: '1px solid rgba(255,255,255,.15)', borderRadius: '50%', right: -120, top: -180 }} />
       <Container sx={{ position: 'relative' }}>
         <Grid container spacing={6} alignItems="center">
-          <Grid size={{ xs: 12, md: 7 }}><Reveal><Chip label="Let’s start a conversation" sx={{ bgcolor: 'rgba(255,255,255,.13)', color: 'white', fontWeight: 800, mb: 3 }} /><Typography component="h1" variant="h1" sx={{ fontSize: { xs: 47, sm: 62, md: 76 }, lineHeight: 1.02, letterSpacing: '-.045em' }}>Questions deserve clear answers.</Typography><Typography fontSize={{ xs: 18, md: 21 }} color="rgba(255,255,255,.82)" mt={3} maxWidth={700}>Contact Iman Logistics for training information, consultation guidance, or help choosing your next step in freight and trucking.</Typography><Button href="#contact-form" color="secondary" variant="contained" size="large" endIcon={<ArrowForwardIcon />} sx={{ mt: 4 }}>Send a message</Button></Reveal></Grid>
+          <Grid size={{ xs: 12, md: 7 }}><Reveal><Chip label={hero.section_label} sx={{ bgcolor: 'rgba(255,255,255,.13)', color: 'white', fontWeight: 800, mb: 3 }} /><Typography component="h1" variant="h1" sx={{ fontSize: { xs: 47, sm: 62, md: 76 }, lineHeight: 1.02, letterSpacing: '-.045em' }}>{hero.title}</Typography><Typography fontSize={{ xs: 18, md: 21 }} color="rgba(255,255,255,.82)" mt={3} maxWidth={700}>{hero.body}</Typography><Button href={hero.button_url || '#contact-form'} color="secondary" variant="contained" size="large" endIcon={<ArrowForwardIcon />} sx={{ mt: 4 }}>{hero.button_text}</Button></Reveal></Grid>
           <Grid size={{ xs: 12, md: 5 }}><Reveal delay={130}><Paper sx={{ p: 3.5, borderRadius: 4, bgcolor: 'rgba(255,255,255,.11)', color: 'white', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,.2)' }}><Avatar sx={{ bgcolor: 'secondary.main', width: 58, height: 58, mb: 2.5 }}><HeadsetMicOutlinedIcon fontSize="large" /></Avatar><Typography variant="h5" fontWeight={900}>We’ll help route your request</Typography><Typography color="rgba(255,255,255,.78)" mt={1}>Select the service and contact method that fit your needs. The form is structured to give our team useful context from the start.</Typography><Stack direction="row" spacing={1} mt={3} flexWrap="wrap" useFlexGap><Chip label="Training" sx={heroChip} /><Chip label="Consultation" sx={heroChip} /><Chip label="General questions" sx={heroChip} /></Stack></Paper></Reveal></Grid>
         </Grid>
       </Container>

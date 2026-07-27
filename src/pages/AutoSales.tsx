@@ -16,6 +16,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { Reveal } from '../components/common/Reveal'
 import { VEHICLE_SALES_URL } from '../config/links'
+import { useContent } from '../contexts/ContentContext'
 
 const buyingSteps = [
   [DirectionsCarFilledOutlinedIcon, 'Explore available vehicles', 'Tell us the vehicle type, budget, and features that fit your needs.'],
@@ -24,6 +25,14 @@ const buyingSteps = [
 ] as const
 
 export default function AutoSales() {
+  const { content } = useContent()
+  const hero = content('car-auto-sales', 'hero', {
+    section_label: 'IMAN CAR & TRUCK SALES',
+    title: 'Find the right car or truck for your next move',
+    body: 'Explore our approach to car and commercial truck sales, then continue to our dedicated sales website to browse inventory and make an inquiry.',
+    button_text: 'Visit sales website',
+    button_url: VEHICLE_SALES_URL,
+  })
   return (
     <>
       <Seo title="Car & Truck Sales - Iman Logistics" canonical="/car-auto-sales/" />
@@ -38,15 +47,15 @@ export default function AutoSales() {
           <Grid container spacing={5} alignItems="center">
             <Grid size={{ xs: 12, md: 7 }}>
               <Reveal>
-                <Chip label="IMAN CAR & TRUCK SALES" color="secondary" sx={{ fontWeight: 800, mb: 2.5 }} />
+                <Chip label={hero.section_label} color="secondary" sx={{ fontWeight: 800, mb: 2.5 }} />
                 <Typography component="h1" variant="h2" sx={{ fontSize: { xs: 44, md: 70 }, lineHeight: 1.02 }}>
-                  Find the right car or truck for your next move
+                  {hero.title}
                 </Typography>
                 <Typography mt={3} fontSize={{ xs: 18, md: 21 }} color="rgba(255,255,255,.8)" maxWidth={730}>
-                  Explore our approach to car and commercial truck sales, then continue to our dedicated sales website to browse inventory and make an inquiry.
+                  {hero.body}
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4}>
-                  <Button component="a" href={VEHICLE_SALES_URL} target="_blank" rel="noopener noreferrer" size="large" color="secondary" variant="contained">Visit sales website ↗</Button>
+                  <Button component="a" href={hero.button_url || VEHICLE_SALES_URL} target="_blank" rel="noopener noreferrer" size="large" color="secondary" variant="contained">{hero.button_text} ↗</Button>
                   <Button component={RouterLink} to="/contact-us/" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.7)' }}>Contact our team</Button>
                 </Stack>
               </Reveal>

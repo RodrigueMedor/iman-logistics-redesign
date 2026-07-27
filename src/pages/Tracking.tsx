@@ -25,10 +25,19 @@ import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
+import { useContent } from '../contexts/ContentContext'
 import { Reveal } from '../components/common/Reveal'
 import { demoTrackingReferences, trackShipment, type ShipmentTracking } from '../services/tracking'
 
 export default function Tracking() {
+  const { content } = useContent()
+  const hero = content('tracking', 'hero', {
+    section_label: 'SHIPMENT VISIBILITY',
+    title: 'Know where your shipment stands.',
+    body: 'Enter your Iman tracking or load number to view the latest status, route progress, estimated delivery, and shipment milestones.',
+    button_text: 'Track shipment',
+    button_url: '#tracking-form',
+  })
   const [reference, setReference] = useState('')
   const [shipment, setShipment] = useState<ShipmentTracking | null>(null)
   const [loading, setLoading] = useState(false)
@@ -80,8 +89,8 @@ export default function Tracking() {
           <Grid size={{ xs: 12, md: 6 }}>
             <Reveal>
               <Chip label="REAL-TIME SHIPMENT VISIBILITY" color="secondary" sx={{ fontWeight: 900, mb: 2.5, letterSpacing: '.06em' }} />
-              <Typography component="h1" sx={{ maxWidth: 700, fontSize: { xs: 43, sm: 54, md: 68 }, lineHeight: 1.03, fontWeight: 900, letterSpacing: '-.04em' }}>Know where your shipment stands.</Typography>
-              <Typography mt={2.5} fontSize={{ xs: 18, md: 21 }} color="rgba(255,255,255,.8)" maxWidth={650}>Enter your Iman tracking or load number to view the latest status, route progress, estimated delivery, and shipment milestones.</Typography>
+              <Typography component="h1" sx={{ maxWidth: 700, fontSize: { xs: 43, sm: 54, md: 68 }, lineHeight: 1.03, fontWeight: 900, letterSpacing: '-.04em' }}>{hero.title}</Typography>
+              <Typography mt={2.5} fontSize={{ xs: 18, md: 21 }} color="rgba(255,255,255,.8)" maxWidth={650}>{hero.body}</Typography>
               <Stack direction="row" spacing={3} mt={4} flexWrap="wrap" useFlexGap>
                 {['Status updates', 'Route progress', 'Delivery estimate'].map(item => <Typography key={item} fontWeight={700} fontSize={14}>✓ {item}</Typography>)}
               </Stack>

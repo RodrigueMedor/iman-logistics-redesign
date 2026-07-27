@@ -33,6 +33,7 @@ import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined'
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
 import dayjs, { type Dayjs } from 'dayjs'
 import { Seo } from '../components/common/Seo'
+import { useContent } from '../contexts/ContentContext'
 import { BookingCalendar } from '../features/consultation/BookingCalendar'
 import { BookingForm, type BookingFormValues } from '../features/consultation/BookingForm'
 import { BookingSummary } from '../features/consultation/BookingSummary'
@@ -59,6 +60,14 @@ const faqs = [
 ] as const
 
 export default function Consultation() {
+  const { content } = useContent()
+  const hero = content('consultants', 'hero', {
+    section_label: 'PERSONALIZED GUIDANCE',
+    title: 'Schedule a Consultation with Our Experts',
+    body: 'Get practical, personalized guidance for your freight brokerage, trucking, dispatch, or CDL training goals. Choose your service and reserve a time in minutes.',
+    button_text: 'Book Consultation',
+    button_url: '#booking',
+  })
   const bookingRef = useRef<HTMLDivElement>(null)
   const [service, setService] = useState<ConsultationService>(services[0])
   const [date, setDate] = useState<Dayjs>(() => {
@@ -102,10 +111,10 @@ export default function Consultation() {
         <Grid container spacing={6} alignItems="center">
           <Grid size={{ xs: 12, md: 7 }}>
             <Chip label="Expert advice. Clear next steps." sx={{ bgcolor: 'rgba(255,255,255,.14)', color: 'white', fontWeight: 800, mb: 3 }} />
-            <Typography component="h1" variant="h1" sx={{ fontSize: { xs: 44, sm: 58, md: 72 }, lineHeight: 1.04, letterSpacing: '-.04em', maxWidth: 800 }}>Schedule a Consultation with Our Experts</Typography>
-            <Typography sx={{ fontSize: { xs: 18, md: 21 }, color: 'rgba(255,255,255,.85)', mt: 3, maxWidth: 720 }}>Get practical, personalized guidance for your freight brokerage, trucking, dispatch, or CDL training goals. Choose your service and reserve a time in minutes.</Typography>
+            <Typography component="h1" variant="h1" sx={{ fontSize: { xs: 44, sm: 58, md: 72 }, lineHeight: 1.04, letterSpacing: '-.04em', maxWidth: 800 }}>{hero.title}</Typography>
+            <Typography sx={{ fontSize: { xs: 18, md: 21 }, color: 'rgba(255,255,255,.85)', mt: 3, maxWidth: 720 }}>{hero.body}</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} gap={2} mt={4} alignItems={{ sm: 'center' }}>
-              <Button size="large" color="secondary" variant="contained" endIcon={<ArrowForwardIcon />} onClick={scrollToBooking}>Book Consultation</Button>
+              <Button size="large" color="secondary" variant="contained" endIcon={<ArrowForwardIcon />} onClick={scrollToBooking}>{hero.button_text}</Button>
               <Stack direction="row" spacing={1} alignItems="center"><ShieldOutlinedIcon /><Typography fontWeight={700}>Private · Secure · No obligation</Typography></Stack>
             </Stack>
           </Grid>

@@ -9,6 +9,7 @@ import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined'
 import { Seo } from '../components/common/Seo'
 import { Reveal } from '../components/common/Reveal'
 import { FREIGHT_BROKER_URL } from '../config/links'
+import { useContent } from '../contexts/ContentContext'
 
 const outcomes = [
   [BusinessCenterOutlinedIcon, 'Brokerage foundations', 'Understand the broker’s role, industry structure, and the steps involved in starting professionally.'],
@@ -27,6 +28,14 @@ const curriculum = [
 ] as const
 
 export default function Broker() {
+  const { content } = useContent()
+  const hero = content('freight-broker-masterclass', 'hero', {
+    section_label: 'FREIGHT BROKER MASTERCLASS',
+    title: 'Build the skills to connect freight with opportunity.',
+    body: 'A step-by-step introduction to freight brokerage for aspiring professionals ready to understand the industry, develop practical skills, and build a clear path forward.',
+    button_text: 'Visit Masterclass Website',
+    button_url: FREIGHT_BROKER_URL,
+  })
   return <>
     <Seo title="Freight Broker Masterclass - Iman Logistics" canonical="/freight-broker-masterclass/" />
 
@@ -35,16 +44,16 @@ export default function Broker() {
         <Grid container spacing={6} alignItems="center">
           <Grid size={{ xs: 12, md: 7 }}>
             <Reveal>
-              <Chip label="FREIGHT BROKER MASTERCLASS" color="secondary" sx={{ mb: 3, fontWeight: 900, letterSpacing: '.08em' }} />
+              <Chip label={hero.section_label} color="secondary" sx={{ mb: 3, fontWeight: 900, letterSpacing: '.08em' }} />
               <Typography component="h1" sx={{ maxWidth: 820, fontSize: { xs: 44, sm: 58, md: 72 }, lineHeight: 1.02, fontWeight: 900, letterSpacing: '-.045em' }}>
-                Build the skills to connect freight with opportunity.
+                {hero.title}
               </Typography>
               <Typography sx={{ maxWidth: 720, mt: 3, color: 'rgba(255,255,255,.8)', fontSize: { xs: 18, md: 21 }, lineHeight: 1.7 }}>
-                A step-by-step introduction to freight brokerage for aspiring professionals ready to understand the industry, develop practical skills, and build a clear path forward.
+                {hero.body}
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4}>
                 <Button component="a" href={FREIGHT_BROKER_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" endIcon={<ArrowOutwardRoundedIcon />}>
-                  Visit Masterclass Website
+                  {hero.button_text}
                 </Button>
                 <Button href="#curriculum" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.55)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,.08)' } }}>
                   View what you’ll learn

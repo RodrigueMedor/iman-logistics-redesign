@@ -12,6 +12,7 @@ import module2 from '../assets/images/2.png'
 import module3 from '../assets/images/3.png'
 import module4 from '../assets/images/4.png'
 import module5 from '../assets/images/5.png'
+import { useContent } from '../contexts/ContentContext'
 
 const benefits = [
   ['Master Your Earning Potential', 'Take command of your career. Your input, your schedule, and your success should directly benefit only you.'],
@@ -38,14 +39,22 @@ const modules = [
 const sectionHeading = { fontSize: { xs: 34, md: 52 }, color: 'primary.main', textAlign: 'center', mb: 5 }
 
 export default function DispatchMasterclass({ embedded = false }: { embedded?: boolean }) {
+  const { content } = useContent()
+  const heroContent = content('freight-dispatch-masterclass', 'hero', {
+    section_label: 'FREIGHT DISPATCH MASTERCLASS',
+    title: 'Become a Freight Dispatcher',
+    body: 'The Freight Dispatch Masterclass is a step-by-step training designed to teach you how to become a professional freight dispatcher from scratch. Explore the program overview here, then continue to our dedicated masterclass website when you’re ready to enroll.',
+    button_text: 'Enroll now',
+    button_url: '',
+  })
   return <>
     {!embedded && <Seo title="Freight Dispatch Masterclass - Iman Logistics" canonical="/freight-dispatch-masterclass/" />}
     <Box sx={{ bgcolor: '#0A005A', color: 'white', py: { xs: 7, md: 10 } }}>
       <Container>
         <Grid container spacing={6} alignItems="center">
           <Grid size={{ xs: 12, md: 6 }}>
-            <Typography component="h1" variant="h2" sx={{ fontSize: { xs: 42, md: 65 }, mb: 3 }}>Become a Freight Dispatcher</Typography>
-            <Typography fontSize={{ xs: 18, md: 21 }} mb={4}>The <strong>Freight Dispatch Masterclass</strong> is a step-by-step training designed to teach you how to become a professional freight dispatcher from scratch. Explore the program overview here, then continue to our dedicated masterclass website when you’re ready to enroll.</Typography>
+            <Typography component="h1" variant="h2" sx={{ fontSize: { xs: 42, md: 65 }, mb: 3 }}>{heroContent.title}</Typography>
+            <Typography fontSize={{ xs: 18, md: 21 }} mb={4}>{heroContent.body}</Typography>
             <BuyButton />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}><RotatingHeroOrbit><VideoPoster src={hero} alt="Freight Dispatch Masterclass" /></RotatingHeroOrbit></Grid>

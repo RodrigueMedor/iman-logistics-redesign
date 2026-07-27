@@ -27,6 +27,7 @@ import TrackChangesOutlinedIcon from '@mui/icons-material/TrackChangesOutlined'
 import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
+import { useContent } from '../contexts/ContentContext'
 import { Reveal } from '../components/common/Reveal'
 import { CountUp } from '../components/common/CountUp'
 import portrait from '../assets/images/POLO234-scaled.png'
@@ -61,6 +62,14 @@ const milestones = [
 ] as const
 
 export default function About() {
+  const { content } = useContent()
+  const hero = content('about-us', 'hero', {
+    section_label: 'ABOUT IMAN LOGISTICS',
+    title: 'Practical knowledge. Professional confidence. Real direction.',
+    body: 'Iman Logistics empowers aspiring logistics professionals with clear, step-by-step education and the confidence to take meaningful action.',
+    button_text: 'Schedule a consultation',
+    button_url: '/consultants/',
+  })
   return <>
     <Seo title="About Us - Iman Logistics" canonical="/about-us/" />
     <Box sx={{ position: 'relative', overflow: 'hidden', color: 'white', bgcolor: '#0A005A', py: { xs: 9, md: 15 }, backgroundImage: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,.14), transparent 27%), linear-gradient(135deg,#0A005A,#000081)' }}>
@@ -70,10 +79,10 @@ export default function About() {
           <Grid size={{ xs: 12, md: 7 }}>
             <Reveal>
               <Chip label="Building confidence for the road ahead" sx={{ bgcolor: 'rgba(255,255,255,.13)', color: 'white', fontWeight: 800, mb: 3 }} />
-              <Typography component="h1" variant="h1" sx={{ fontSize: { xs: 45, sm: 60, md: 76 }, lineHeight: 1.02, letterSpacing: '-.045em' }}>Practical knowledge. Professional confidence. Real direction.</Typography>
-              <Typography fontSize={{ xs: 18, md: 21 }} color="rgba(255,255,255,.82)" mt={3} maxWidth={720}>Iman Logistics empowers aspiring logistics professionals with clear, step-by-step education and the confidence to take meaningful action.</Typography>
+              <Typography component="h1" variant="h1" sx={{ fontSize: { xs: 45, sm: 60, md: 76 }, lineHeight: 1.02, letterSpacing: '-.045em' }}>{hero.title}</Typography>
+              <Typography fontSize={{ xs: 18, md: 21 }} color="rgba(255,255,255,.82)" mt={3} maxWidth={720}>{hero.body}</Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} gap={2} mt={4}>
-                <Button component={RouterLink} to="/consultants/" variant="contained" color="secondary" size="large">Schedule a consultation</Button>
+                <Button component={RouterLink} to={hero.button_url || '/consultants/'} variant="contained" color="secondary" size="large">{hero.button_text}</Button>
                 <Button component={RouterLink} to="/contact-us/" variant="outlined" size="large" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.55)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,.08)' } }}>Contact us</Button>
               </Stack>
             </Reveal>

@@ -9,6 +9,7 @@ import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
+import { useContent } from '../contexts/ContentContext'
 
 const benefits = [
   { icon: <GroupsOutlinedIcon />, title: 'People-first culture', copy: 'Join a team that values clear communication, accountability, and respect across every role.' },
@@ -146,6 +147,14 @@ const positions = [
 ]
 
 export default function Careers() {
+  const { content } = useContent()
+  const hero = content('careers', 'hero', {
+    section_label: 'BUILD YOUR CAREER WITH US',
+    title: 'Move freight. Build what’s next.',
+    body: 'Join a logistics team committed to safe transportation, dependable service, and meaningful opportunities for people ready to grow.',
+    button_text: 'View open positions',
+    button_url: '#open-positions',
+  })
   return <>
     <Seo title="Careers | Iman Logistics" canonical="/careers/" />
     <Box sx={{ position: 'relative', overflow: 'hidden', bgcolor: '#071a33', color: 'white', py: { xs: 9, md: 14 } }}>
@@ -153,11 +162,11 @@ export default function Careers() {
       <Container sx={{ position: 'relative' }}>
         <Grid container spacing={5} alignItems="center">
           <Grid size={{ xs: 12, md: 8 }}>
-            <Chip label="BUILD YOUR CAREER WITH US" color="secondary" sx={{ mb: 3, fontWeight: 900 }} />
-            <Typography component="h1" sx={{ fontSize: { xs: 48, md: 76 }, lineHeight: .98, fontWeight: 950, letterSpacing: '-.045em', maxWidth: 820 }}>Move freight.<br />Build what’s next.</Typography>
-            <Typography sx={{ maxWidth: 700, mt: 3, fontSize: { xs: 18, md: 21 }, color: 'rgba(255,255,255,.74)', lineHeight: 1.7 }}>Join a logistics team committed to safe transportation, dependable service, and meaningful opportunities for people ready to grow.</Typography>
+            <Chip label={hero.section_label} color="secondary" sx={{ mb: 3, fontWeight: 900 }} />
+            <Typography component="h1" sx={{ fontSize: { xs: 48, md: 76 }, lineHeight: .98, fontWeight: 950, letterSpacing: '-.045em', maxWidth: 820 }}>{hero.title}</Typography>
+            <Typography sx={{ maxWidth: 700, mt: 3, fontSize: { xs: 18, md: 21 }, color: 'rgba(255,255,255,.74)', lineHeight: 1.7 }}>{hero.body}</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mt={4} alignItems={{ xs: 'stretch', sm: 'center' }}>
-              <Button href="#open-positions" variant="contained" color="secondary" size="large" endIcon={<ArrowForwardRoundedIcon />}>View open positions</Button>
+              <Button href={hero.button_url || '#open-positions'} variant="contained" color="secondary" size="large" endIcon={<ArrowForwardRoundedIcon />}>{hero.button_text}</Button>
               <Button component={RouterLink} to="/contact-us/" variant="outlined" size="large" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.46)' }}>Contact recruiting</Button>
             </Stack>
           </Grid>
