@@ -70,6 +70,18 @@ export default function About() {
     button_text: 'Schedule a consultation',
     button_url: '/consultants/',
   })
+  const story = content('about-us', 'story', {
+    section_label: 'OUR STORY',
+    title: 'A clearer pathway into logistics',
+    body: 'Whether someone is completely new to trucking or searching for a flexible career opportunity, our role is to simplify the process, remove unnecessary confusion, and provide tools that can be applied with confidence.',
+  })
+  const cta = content('about-us', 'cta', {
+    section_label: 'NEXT STEP',
+    title: 'Ready to take your next step?',
+    body: 'Ask a question, explore a training path, or schedule focused guidance with Iman Logistics.',
+    button_text: 'Contact us today',
+    button_url: '/contact-us/',
+  })
   return <>
     <Seo title="About Us - Iman Logistics" canonical="/about-us/" />
     <Box sx={{ position: 'relative', overflow: 'hidden', color: 'white', bgcolor: '#0A005A', py: { xs: 9, md: 15 }, backgroundImage: 'radial-gradient(circle at 80% 20%, rgba(255,255,255,.14), transparent 27%), linear-gradient(135deg,#0A005A,#000081)' }}>
@@ -98,9 +110,9 @@ export default function About() {
       <Grid container spacing={{ xs: 5, md: 9 }} alignItems="center">
         <Grid size={{ xs: 12, md: 6 }}><Reveal><Box component="img" loading="lazy" src={dispatchImage} alt="Freight Dispatch Masterclass training" sx={{ width: '100%', borderRadius: 4, boxShadow: '0 24px 60px rgba(10,0,90,.18)' }} /></Reveal></Grid>
         <Grid size={{ xs: 12, md: 6 }}>
-          <Reveal delay={100}><Typography variant="h3" color="primary" fontWeight={900}>A clearer pathway into logistics</Typography>
+          <Reveal delay={100}><Typography variant="h3" color="primary" fontWeight={900}>{story.title}</Typography>
             <Typography mt={2} fontSize={18}>Iman Logistic is dedicated to empowering individuals with the skills and knowledge needed to succeed in the trucking and logistics industry. Our training provides a clear, practical, and step-by-step pathway to becoming a professional freight dispatcher from scratch.</Typography>
-            <Typography mt={2} color="text.secondary">Whether someone is completely new to trucking or searching for a flexible career opportunity, our role is to simplify the process, remove unnecessary confusion, and provide tools that can be applied with confidence.</Typography>
+            <Typography mt={2} color="text.secondary">{story.body}</Typography>
             <Grid container spacing={2} mt={2}>
               <Grid size={{ xs: 12, sm: 6 }}><StoryCard icon={<TrackChangesOutlinedIcon />} title="Our mission" text="Build independence, professional confidence, and practical opportunity through structured learning." /></Grid>
               <Grid size={{ xs: 12, sm: 6 }}><StoryCard icon={<PsychologyOutlinedIcon />} title="Our vision" text="A future where aspiring logistics professionals can begin with clarity instead of guesswork." /></Grid>
@@ -151,7 +163,7 @@ export default function About() {
       <Grid container spacing={3}>{[[training1, 'Clarity', 'Understand the role, the workflow, and the responsibilities before taking action.'], [training2, 'Confidence', 'Build professional habits through practical, structured guidance.'], [training3, 'Direction', 'Turn information into a step-by-step plan for moving forward.']].map(([image, title, text]) => <Grid size={{ xs: 12, md: 4 }} key={title}><Card variant="outlined" sx={cardSx}><Box component="img" loading="lazy" src={image} alt="" sx={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover' }} /><CardContent sx={{ p: 3 }}><Typography variant="h5" color="primary" fontWeight={900}>{title}</Typography><Typography color="text.secondary" mt={1}>{text}</Typography></CardContent></Card></Grid>)}</Grid>
     </Section>
 
-    <Box sx={{ bgcolor: '#0A005A', color: 'white', textAlign: 'center', py: { xs: 8, md: 11 } }}><Container maxWidth="md"><Typography variant="h2" fontSize={{ xs: 38, md: 56 }}>Ready to take your next step?</Typography><Typography mt={2} fontSize={19} color="rgba(255,255,255,.8)">Ask a question, explore a training path, or schedule focused guidance with Iman Logistics.</Typography><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="center" gap={2} mt={4}><Button component={RouterLink} to="/contact-us/" color="secondary" variant="contained" size="large">Contact us today</Button><Button component={RouterLink} to="/consultants/" variant="outlined" size="large" sx={{ color: 'white', borderColor: 'white' }}>Schedule consultation</Button></Stack></Container></Box>
+    <Box sx={{ bgcolor: '#0A005A', color: 'white', textAlign: 'center', py: { xs: 8, md: 11 } }}><Container maxWidth="md"><Typography variant="h2" fontSize={{ xs: 38, md: 56 }}>{cta.title}</Typography><Typography mt={2} fontSize={19} color="rgba(255,255,255,.8)">{cta.body}</Typography><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="center" gap={2} mt={4}><Button component={RouterLink} to={cta.button_url || '/contact-us/'} color="secondary" variant="contained" size="large">{cta.button_text}</Button><Button component={RouterLink} to="/consultants/" variant="outlined" size="large" sx={{ color: 'white', borderColor: 'white' }}>Schedule consultation</Button></Stack></Container></Box>
   </>
 }
 

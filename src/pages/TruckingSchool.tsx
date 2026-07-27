@@ -33,6 +33,23 @@ export default function TruckingSchool() {
     button_text: 'Visit School Website',
     button_url: TRUCKING_SCHOOL_URL,
   })
+  const training = content('iman-trucking-school', 'training', {
+    section_label: 'TRAIN FOR THE ROAD AHEAD',
+    title: 'Build a strong professional foundation.',
+    body: 'Our overview introduces the areas that matter when preparing for a responsible, opportunity-driven career in trucking.',
+  })
+  const journeySection = content('iman-trucking-school', 'journey', {
+    section_label: 'YOUR NEXT MILESTONE',
+    title: 'A simple path from interest to action.',
+    body: 'Start with this overview, then continue to the dedicated school website for the latest program and enrollment information.',
+  })
+  const cta = content('iman-trucking-school', 'cta', {
+    section_label: 'NEXT STEP',
+    title: 'Ready to explore trucking school?',
+    body: 'Visit the dedicated Iman Trucking School website for current training options, schedules, requirements, and enrollment information.',
+    button_text: 'Visit School Website',
+    button_url: TRUCKING_SCHOOL_URL,
+  })
   return <>
     <Seo title="Iman Trucking School | Career Training" canonical="/iman-trucking-school/" />
 
@@ -73,9 +90,9 @@ export default function TruckingSchool() {
 
     <Container id="training" sx={{ py: { xs: 9, md: 12 }, scrollMarginTop: 120 }}>
       <Reveal>
-        <Typography color="secondary" textAlign="center" fontSize={12} fontWeight={900} letterSpacing=".14em">TRAIN FOR THE ROAD AHEAD</Typography>
-        <Typography component="h2" variant="h2" textAlign="center" sx={{ mt: 1.5, mx: 'auto', maxWidth: 760, fontSize: { xs: 37, md: 52 }, letterSpacing: '-.03em' }}>Build a strong professional foundation.</Typography>
-        <Typography color="text.secondary" textAlign="center" mx="auto" maxWidth={720} fontSize={18} mt={2}>Our overview introduces the areas that matter when preparing for a responsible, opportunity-driven career in trucking.</Typography>
+        <Typography color="secondary" textAlign="center" fontSize={12} fontWeight={900} letterSpacing=".14em">{training.section_label}</Typography>
+        <Typography component="h2" variant="h2" textAlign="center" sx={{ mt: 1.5, mx: 'auto', maxWidth: 760, fontSize: { xs: 37, md: 52 }, letterSpacing: '-.03em' }}>{training.title}</Typography>
+        <Typography color="text.secondary" textAlign="center" mx="auto" maxWidth={720} fontSize={18} mt={2}>{training.body}</Typography>
       </Reveal>
       <Grid container spacing={3} mt={4}>
         {trainingFocus.map(([Icon, title, description], index) => <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={title}><Reveal delay={index * 70}><Paper sx={{ height: '100%', p: 3.5, borderRadius: 4, border: 1, borderColor: 'divider', boxShadow: '0 14px 40px rgba(10,0,90,.06)' }}><Box sx={{ display: 'grid', placeItems: 'center', width: 54, height: 54, borderRadius: 3, bgcolor: 'action.selected', color: 'primary.main' }}><Icon sx={{ fontSize: 30 }} /></Box><Typography variant="h5" fontWeight={900} mt={3}>{title}</Typography><Typography color="text.secondary" mt={1.25}>{description}</Typography></Paper></Reveal></Grid>)}
@@ -87,9 +104,9 @@ export default function TruckingSchool() {
         <Grid container spacing={{ xs: 6, md: 9 }} alignItems="center">
           <Grid size={{ xs: 12, md: 5 }}>
             <Reveal>
-              <Typography color="secondary" fontSize={12} fontWeight={900} letterSpacing=".14em">YOUR NEXT MILESTONE</Typography>
-              <Typography component="h2" variant="h2" sx={{ mt: 1.5, fontSize: { xs: 38, md: 52 }, letterSpacing: '-.03em' }}>A simple path from interest to action.</Typography>
-              <Typography color="text.secondary" fontSize={18} mt={2}>Start with this overview, then continue to the dedicated school website for the latest program and enrollment information.</Typography>
+              <Typography color="secondary" fontSize={12} fontWeight={900} letterSpacing=".14em">{journeySection.section_label}</Typography>
+              <Typography component="h2" variant="h2" sx={{ mt: 1.5, fontSize: { xs: 38, md: 52 }, letterSpacing: '-.03em' }}>{journeySection.title}</Typography>
+              <Typography color="text.secondary" fontSize={18} mt={2}>{journeySection.body}</Typography>
             </Reveal>
           </Grid>
           <Grid size={{ xs: 12, md: 7 }}>
@@ -105,9 +122,9 @@ export default function TruckingSchool() {
       <Container maxWidth="md">
         <Paper sx={{ p: { xs: 4, md: 6 }, borderRadius: 5, bgcolor: 'primary.main', color: 'white', textAlign: 'center' }}>
           <SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 50 }} />
-          <Typography component="h2" variant="h3" mt={2}>Ready to explore trucking school?</Typography>
-          <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>Visit the dedicated Iman Trucking School website for current training options, schedules, requirements, and enrollment information.</Typography>
-          <Button component="a" href={TRUCKING_SCHOOL_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" endIcon={<ArrowOutwardRoundedIcon />} sx={{ mt: 3 }}>Visit School Website</Button>
+          <Typography component="h2" variant="h3" mt={2}>{cta.title}</Typography>
+          <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>{cta.body}</Typography>
+          <Button component="a" href={cta.button_url || TRUCKING_SCHOOL_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" endIcon={<ArrowOutwardRoundedIcon />} sx={{ mt: 3 }}>{cta.button_text}</Button>
         </Paper>
       </Container>
     </Box>

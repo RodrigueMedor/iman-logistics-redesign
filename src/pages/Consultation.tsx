@@ -68,6 +68,21 @@ export default function Consultation() {
     button_text: 'Book Consultation',
     button_url: '#booking',
   })
+  const benefitsSection = content('consultants', 'benefits', {
+    section_label: 'WHY CONSULT',
+    title: 'Why book a consultation?',
+    body: 'One focused conversation can turn a complex challenge into a practical path forward.',
+  })
+  const servicesSection = content('consultants', 'services', {
+    section_label: 'CONSULTATION OPTIONS',
+    title: 'Choose your consultation',
+    body: 'Compare focused sessions designed around the decisions that matter most to you.',
+  })
+  const pricingSection = content('consultants', 'pricing', {
+    section_label: 'PRICING',
+    title: 'Simple, transparent pricing',
+    body: 'Every consultation includes expert preparation, your private session, and a clear set of next steps.',
+  })
   const bookingRef = useRef<HTMLDivElement>(null)
   const [service, setService] = useState<ConsultationService>(services[0])
   const [date, setDate] = useState<Dayjs>(() => {
@@ -131,13 +146,13 @@ export default function Consultation() {
       </Container>
     </Box>
 
-    <Section title="Why book a consultation?" subtitle="One focused conversation can turn a complex challenge into a practical path forward.">
+    <Section title={benefitsSection.title} subtitle={benefitsSection.body}>
       <Grid container spacing={3}>
         {benefits.map(([Icon, title, text]) => <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={title}><Card variant="outlined" sx={cardSx}><CardContent sx={{ p: 3.5 }}><Avatar sx={{ bgcolor: 'rgba(10,0,90,.08)', color: 'primary.main', mb: 2 }}><Icon /></Avatar><Typography variant="h6" color="primary" fontWeight={900}>{title}</Typography><Typography color="text.secondary" mt={1}>{text}</Typography></CardContent></Card></Grid>)}
       </Grid>
     </Section>
 
-    <Section title="Choose your consultation" subtitle="Compare focused sessions designed around the decisions that matter most to you." gray>
+    <Section title={servicesSection.title} subtitle={servicesSection.body} gray>
       <Grid container spacing={3}>
         {services.map(item => {
           const Icon = item.icon
@@ -160,7 +175,7 @@ export default function Consultation() {
       </Grid>
     </Section>
 
-    <Section title="Simple, transparent pricing" subtitle="Every consultation includes expert preparation, your private session, and a clear set of next steps.">
+    <Section title={pricingSection.title} subtitle={pricingSection.body}>
       <Grid container spacing={3}>
         {services.slice(0, 3).map((item, index) => <Grid size={{ xs: 12, md: 4 }} key={item.id}>
           <Paper elevation={index === 1 ? 8 : 0} variant={index === 1 ? undefined : 'outlined'} sx={{ p: 4, height: '100%', borderRadius: 3, borderTop: '5px solid', borderTopColor: index === 1 ? 'secondary.main' : 'primary.main' }}>

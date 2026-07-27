@@ -38,6 +38,19 @@ export default function Tracking() {
     button_text: 'Track shipment',
     button_url: '#tracking-form',
   })
+  const formContent = content('tracking', 'form', {
+    section_label: 'TRACKING FORM',
+    title: 'Track your shipment',
+    body: 'Use the reference from your confirmation.',
+    button_text: 'Track shipment',
+  })
+  const support = content('tracking', 'support', {
+    section_label: 'SHIPMENT SUPPORT',
+    title: 'Need help with a shipment?',
+    body: 'Our team can help verify your reference and latest status.',
+    button_text: 'Contact support',
+    button_url: '/contact-us/',
+  })
   const [reference, setReference] = useState('')
   const [shipment, setShipment] = useState<ShipmentTracking | null>(null)
   const [loading, setLoading] = useState(false)
@@ -102,7 +115,7 @@ export default function Tracking() {
               <Paper component="form" onSubmit={handleSubmit} noValidate sx={{ p: { xs: 3, sm: 4 }, borderRadius: 5, boxShadow: '0 28px 70px rgba(0,0,0,.24)' }}>
                 <Stack direction="row" alignItems="center" spacing={1.5} mb={2.5}>
                   <Box sx={{ display: 'grid', placeItems: 'center', width: 48, height: 48, borderRadius: 2.5, bgcolor: 'action.selected', color: 'primary.main' }}><LocalShippingOutlinedIcon /></Box>
-                  <Box><Typography variant="h5" fontWeight={900}>Track your shipment</Typography><Typography variant="body2" color="text.secondary">Use the reference from your confirmation.</Typography></Box>
+                  <Box><Typography variant="h5" fontWeight={900}>{formContent.title}</Typography><Typography variant="body2" color="text.secondary">{formContent.body}</Typography></Box>
                 </Stack>
                 <TextField
                   fullWidth
@@ -116,7 +129,7 @@ export default function Tracking() {
                   slotProps={{ htmlInput: { maxLength: 40 }, input: { startAdornment: <InputAdornment position="start"><SearchOutlinedIcon /></InputAdornment> } }}
                 />
                 <Button type="submit" disabled={loading} fullWidth size="large" variant="contained" sx={{ mt: 2, minHeight: 50 }}>
-                  {loading ? <><CircularProgress size={20} color="inherit" sx={{ mr: 1.25 }} /> Checking shipment…</> : 'Track shipment'}
+                  {loading ? <><CircularProgress size={20} color="inherit" sx={{ mr: 1.25 }} /> Checking shipment…</> : formContent.button_text}
                 </Button>
                 <Typography variant="caption" color="text.secondary" display="block" mt={2} mb={1}>Test references</Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -153,8 +166,8 @@ export default function Tracking() {
 
       <Paper sx={{ mt: 5, p: { xs: 3, md: 4 }, borderRadius: 4, border: 1, borderColor: 'divider' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ sm: 'center' }} justifyContent="space-between" spacing={2}>
-          <Stack direction="row" spacing={2} alignItems="center"><SupportAgentOutlinedIcon color="primary" sx={{ fontSize: 38 }} /><Box><Typography fontWeight={900}>Need help with a shipment?</Typography><Typography color="text.secondary">Our team can help verify your reference and latest status.</Typography></Box></Stack>
-          <Button component={RouterLink} to="/contact-us/" variant="outlined">Contact support</Button>
+          <Stack direction="row" spacing={2} alignItems="center"><SupportAgentOutlinedIcon color="primary" sx={{ fontSize: 38 }} /><Box><Typography fontWeight={900}>{support.title}</Typography><Typography color="text.secondary">{support.body}</Typography></Box></Stack>
+          <Button component={RouterLink} to={support.button_url || '/contact-us/'} variant="outlined">{support.button_text}</Button>
         </Stack>
       </Paper>
     </Container>

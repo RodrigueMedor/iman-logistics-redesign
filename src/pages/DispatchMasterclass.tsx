@@ -47,6 +47,23 @@ export default function DispatchMasterclass({ embedded = false }: { embedded?: b
     button_text: 'Enroll now',
     button_url: '',
   })
+  const benefitsSection = content('freight-dispatch-masterclass', 'benefits', {
+    section_label: 'WHY DISPATCH TRAINING',
+    title: 'Why Dispatch Training is the Best Choice',
+    body: 'Build earning potential, pursue your goals, improve your quality of life, and work with greater location freedom.',
+  })
+  const curriculumSection = content('freight-dispatch-masterclass', 'curriculum', {
+    section_label: 'WHAT YOU’LL LEARN',
+    title: 'Your Step-by-Step Training Guide',
+    body: 'Learn freight dispatch fundamentals, carrier relationships, rate negotiation, paperwork, compliance, professional communication, and how to manage multiple trucks.',
+  })
+  const cta = content('freight-dispatch-masterclass', 'cta', {
+    section_label: 'ENROLLMENT',
+    title: 'Success belongs to those who possess the right information and are prepared to execute',
+    body: 'Stop waiting. Secure your spot and take the next step.',
+    button_text: 'Secure your spot',
+    button_url: '',
+  })
   return <>
     {!embedded && <Seo title="Freight Dispatch Masterclass - Iman Logistics" canonical="/freight-dispatch-masterclass/" />}
     <Box sx={{ bgcolor: '#0A005A', color: 'white', py: { xs: 7, md: 10 } }}>
@@ -64,7 +81,7 @@ export default function DispatchMasterclass({ embedded = false }: { embedded?: b
 
     <Box sx={{ py: { xs: 8, md: 12 } }}>
       <Container>
-        <Typography component="h2" variant="h2" sx={sectionHeading}>Why Dispatch Training is the Best Choice</Typography>
+        <Typography component="h2" variant="h2" sx={sectionHeading}>{benefitsSection.title}</Typography>
         <Grid container spacing={4}>
           {benefits.map(([title, text]) => <Grid size={{ xs: 12, sm: 6 }} key={title}><Box sx={{ p: 4, height: '100%', border: 1, borderColor: 'divider', bgcolor: 'background.paper', boxShadow: '0 5px 18px rgba(0,0,0,.08)' }}><Typography variant="h3" color="primary" fontSize={28} mb={2}>{title}</Typography><Typography fontSize={18}>{text}</Typography></Box></Grid>)}
         </Grid>
@@ -108,7 +125,7 @@ export default function DispatchMasterclass({ embedded = false }: { embedded?: b
 
     <Box sx={{ bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f6f6f6', py: { xs: 8, md: 12 } }}>
       <Container>
-        <Typography component="h2" variant="h2" sx={sectionHeading}>Your Step-by-Step Training Guide</Typography>
+        <Typography component="h2" variant="h2" sx={sectionHeading}>{curriculumSection.title}</Typography>
         <Stack spacing={5}>
           {modules.map(([image, title, text], i) => <Grid container spacing={5} alignItems="center" direction={{ xs: 'column', md: i % 2 ? 'row-reverse' : 'row' }} key={title}>
             <Grid size={{ xs: 12, md: 5 }}><Box component="img" loading="lazy" src={image} alt="" sx={{ width: '100%' }} /></Grid>
@@ -126,8 +143,8 @@ export default function DispatchMasterclass({ embedded = false }: { embedded?: b
     </Box>
     <Box sx={{ bgcolor: '#0A005A', color: 'white', py: { xs: 8, md: 11 }, textAlign: 'center' }}>
       <Container maxWidth="md">
-        <Typography component="h2" variant="h2" fontSize={{ xs: 36, md: 52 }} mb={3}>Success belongs to those who possess the right information and are prepared to execute</Typography>
-        <Typography component="h2" variant="h3" fontSize={{ xs: 24, md: 35 }} mb={4}>Stop waiting. Hit the button below to secure your spot instantly.</Typography>
+        <Typography component="h2" variant="h2" fontSize={{ xs: 36, md: 52 }} mb={3}>{cta.title}</Typography>
+        <Typography component="h2" variant="h3" fontSize={{ xs: 24, md: 35 }} mb={4}>{cta.body}</Typography>
         <BuyButton />
       </Container>
     </Box>

@@ -94,6 +94,18 @@ export default function Contact() {
     button_text: 'Send a message',
     button_url: '#contact-form',
   })
+  const formContent = content('contact-us', 'form', {
+    section_label: 'TELL US HOW WE CAN HELP',
+    title: 'Send a detailed message',
+    body: 'Required fields help us understand your request and respond through your preferred method.',
+  })
+  const cta = content('contact-us', 'cta', {
+    section_label: 'CONTACT IMAN LOGISTICS',
+    title: 'Let’s make your next step clearer.',
+    body: 'Send your questions today or reserve a focused consultation when you’re ready for personalized guidance.',
+    button_text: 'Contact Iman Logistics',
+    button_url: '#contact-form',
+  })
   const [sent, setSent] = useState(false)
   const [attachment, setAttachment] = useState<File>()
   const [fileError, setFileError] = useState('')
@@ -137,7 +149,7 @@ export default function Contact() {
 
     <Box component="section" id="contact-form" sx={{ py: { xs: 8, md: 12 }, bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f7f8fb', scrollMarginTop: 24 }}>
       <Container>
-        <Reveal textAlign="center" maxWidth={780} mx="auto" mb={6}><Typography variant="overline" color="secondary" fontWeight={900} letterSpacing={1.4}>Tell us how we can help</Typography><Typography component="h2" variant="h2" color="primary" fontSize={{ xs: 38, md: 55 }} mt={1}>Send a detailed message</Typography><Typography color="text.secondary" fontSize={18} mt={1.5}>Required fields help us understand your request and respond through your preferred method.</Typography></Reveal>
+        <Reveal textAlign="center" maxWidth={780} mx="auto" mb={6}><Typography variant="overline" color="secondary" fontWeight={900} letterSpacing={1.4}>{formContent.section_label}</Typography><Typography component="h2" variant="h2" color="primary" fontSize={{ xs: 38, md: 55 }} mt={1}>{formContent.title}</Typography><Typography color="text.secondary" fontSize={18} mt={1.5}>{formContent.body}</Typography></Reveal>
         <Grid container spacing={4} alignItems="flex-start">
           <Grid size={{ xs: 12, lg: 8 }}>
             <Reveal><Paper component="form" onSubmit={handleSubmit(onSubmit)} noValidate variant="outlined" sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: 4 }}>
@@ -191,7 +203,7 @@ export default function Contact() {
 
     <Alert severity="info" icon={<HeadsetMicOutlinedIcon />} sx={{ borderRadius: 0, py: 2, justifyContent: 'center' }}>For urgent safety situations or emergencies, contact the appropriate local emergency service. Iman Logistics does not advertise an emergency-response line.</Alert>
 
-    <Box sx={{ bgcolor: '#0A005A', color: 'white', textAlign: 'center', py: { xs: 8, md: 11 } }}><Container maxWidth="md"><Typography variant="h2" fontSize={{ xs: 39, md: 56 }}>Let’s make your next step clearer.</Typography><Typography fontSize={19} color="rgba(255,255,255,.8)" mt={2}>Send your questions today or reserve a focused consultation when you’re ready for personalized guidance.</Typography><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="center" gap={2} mt={4}><Button href="#contact-form" color="secondary" variant="contained" size="large">Contact Iman Logistics</Button><Button component={RouterLink} to="/consultants/" variant="outlined" size="large" sx={{ color: 'white', borderColor: 'white' }}>Schedule consultation</Button></Stack></Container></Box>
+    <Box sx={{ bgcolor: '#0A005A', color: 'white', textAlign: 'center', py: { xs: 8, md: 11 } }}><Container maxWidth="md"><Typography variant="h2" fontSize={{ xs: 39, md: 56 }}>{cta.title}</Typography><Typography fontSize={19} color="rgba(255,255,255,.8)" mt={2}>{cta.body}</Typography><Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="center" gap={2} mt={4}><Button href={cta.button_url || '#contact-form'} color="secondary" variant="contained" size="large">{cta.button_text}</Button><Button component={RouterLink} to="/consultants/" variant="outlined" size="large" sx={{ color: 'white', borderColor: 'white' }}>Schedule consultation</Button></Stack></Container></Box>
   </>
 }
 

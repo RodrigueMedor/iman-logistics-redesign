@@ -155,6 +155,23 @@ export default function Careers() {
     button_text: 'View open positions',
     button_url: '#open-positions',
   })
+  const intro = content('careers', 'intro', {
+    section_label: 'WHY IMAN LOGISTICS',
+    title: 'A workplace built around progress',
+    body: 'Bring your experience, curiosity, and drive. We’ll provide a team environment where your contribution matters.',
+  })
+  const positionsSection = content('careers', 'positions', {
+    section_label: 'CAREER OPPORTUNITIES',
+    title: 'Available positions',
+    body: 'Explore current areas of interest and contact our team to confirm availability in your location.',
+  })
+  const cta = content('careers', 'cta', {
+    section_label: 'JOIN OUR TEAM',
+    title: 'Don’t see the right role?',
+    body: 'Introduce yourself to our recruiting team. We welcome interest from qualified transportation and logistics professionals.',
+    button_text: 'Send your information',
+    button_url: '/contact-us/',
+  })
   return <>
     <Seo title="Careers | Iman Logistics" canonical="/careers/" />
     <Box sx={{ position: 'relative', overflow: 'hidden', bgcolor: '#071a33', color: 'white', py: { xs: 9, md: 14 } }}>
@@ -182,13 +199,13 @@ export default function Careers() {
     </Box>
 
     <Container sx={{ py: { xs: 7, md: 10 } }}>
-      <Box textAlign="center" maxWidth={720} mx="auto" mb={5}><Typography color="secondary.main" fontWeight={900} letterSpacing={1.4} fontSize={13}>WHY IMAN LOGISTICS</Typography><Typography variant="h3" mt={1.5} fontWeight={950}>A workplace built around progress</Typography><Typography color="text.secondary" mt={2} fontSize={17}>Bring your experience, curiosity, and drive. We’ll provide a team environment where your contribution matters.</Typography></Box>
+      <Box textAlign="center" maxWidth={720} mx="auto" mb={5}><Typography color="secondary.main" fontWeight={900} letterSpacing={1.4} fontSize={13}>{intro.section_label}</Typography><Typography variant="h3" mt={1.5} fontWeight={950}>{intro.title}</Typography><Typography color="text.secondary" mt={2} fontSize={17}>{intro.body}</Typography></Box>
       <Grid container spacing={3}>{benefits.map(item => <Grid key={item.title} size={{ xs: 12, md: 4 }}><Paper sx={{ p: 4, height: '100%', borderRadius: 4, border: 1, borderColor: 'divider' }}><Box sx={{ width: 52, height: 52, display: 'grid', placeItems: 'center', borderRadius: 3, bgcolor: 'action.selected', color: 'primary.main' }}>{item.icon}</Box><Typography variant="h5" fontWeight={900} mt={2.5}>{item.title}</Typography><Typography color="text.secondary" mt={1.25}>{item.copy}</Typography></Paper></Grid>)}</Grid>
     </Container>
 
     <Box id="open-positions" sx={{ bgcolor: 'action.hover', py: { xs: 7, md: 10 }, scrollMarginTop: 110 }}>
       <Container>
-        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'flex-end' }} spacing={2} mb={5}><Box><Typography color="secondary.main" fontWeight={900} letterSpacing={1.4} fontSize={13}>CAREER OPPORTUNITIES</Typography><Typography variant="h3" fontWeight={950} mt={1}>Available positions</Typography></Box><Typography color="text.secondary" maxWidth={460}>Explore current areas of interest and contact our team to confirm availability in your location.</Typography></Stack>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'flex-end' }} spacing={2} mb={5}><Box><Typography color="secondary.main" fontWeight={900} letterSpacing={1.4} fontSize={13}>{positionsSection.section_label}</Typography><Typography variant="h3" fontWeight={950} mt={1}>{positionsSection.title}</Typography></Box><Typography color="text.secondary" maxWidth={460}>{positionsSection.body}</Typography></Stack>
         <Stack spacing={3}>{positions.map((position, index) => <Paper key={position.title} sx={{ p: { xs: 3, md: 5 }, borderRadius: 5, border: 1, borderColor: 'divider' }}>
           <Grid container spacing={4}>
             <Grid size={{ xs: 12, lg: 4 }}><Chip label={`0${index + 1}`} color="primary" sx={{ fontWeight: 900 }} /><Typography variant="h4" fontWeight={950} mt={2}>{position.title}</Typography><Typography color="text.secondary" mt={1.5}>{position.intro}</Typography><Stack direction="row" flexWrap="wrap" useFlexGap gap={1} mt={2.5}><Chip label={position.department} variant="outlined" /><Chip label={position.location} variant="outlined" /><Chip label={position.type} variant="outlined" /></Stack></Grid>
@@ -199,6 +216,6 @@ export default function Careers() {
       </Container>
     </Box>
 
-    <Box sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', py: { xs: 7, md: 9 } }}><Container><Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={3}><Box><Typography variant="h3" fontWeight={950}>Don’t see the right role?</Typography><Typography sx={{ color: 'rgba(255,255,255,.72)', mt: 1.5, maxWidth: 650 }}>Introduce yourself to our recruiting team. We welcome interest from qualified transportation and logistics professionals.</Typography></Box><Button component={RouterLink} to="/contact-us/" size="large" variant="contained" color="secondary">Send your information</Button></Stack></Container></Box>
+    <Box sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', py: { xs: 7, md: 9 } }}><Container><Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={3}><Box><Typography variant="h3" fontWeight={950}>{cta.title}</Typography><Typography sx={{ color: 'rgba(255,255,255,.72)', mt: 1.5, maxWidth: 650 }}>{cta.body}</Typography></Box><Button component={RouterLink} to={cta.button_url || '/contact-us/'} size="large" variant="contained" color="secondary">{cta.button_text}</Button></Stack></Container></Box>
   </>
 }

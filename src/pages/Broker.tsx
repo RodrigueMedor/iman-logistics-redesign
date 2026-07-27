@@ -36,6 +36,23 @@ export default function Broker() {
     button_text: 'Visit Masterclass Website',
     button_url: FREIGHT_BROKER_URL,
   })
+  const foundation = content('freight-broker-masterclass', 'foundation', {
+    section_label: 'YOUR BROKERAGE FOUNDATION',
+    title: 'Learn the business from every angle.',
+    body: 'Build a working understanding of the people, processes, and decisions behind successful freight movement.',
+  })
+  const curriculumSection = content('freight-broker-masterclass', 'curriculum', {
+    section_label: 'WHAT YOU’LL LEARN',
+    title: 'A practical roadmap for freight brokerage.',
+    body: 'Review the program here, then continue to the dedicated masterclass website for enrollment details and full access.',
+  })
+  const cta = content('freight-broker-masterclass', 'cta', {
+    section_label: 'NEXT STEP',
+    title: 'Ready to explore freight brokerage?',
+    body: 'Continue to the dedicated Freight Broker Masterclass website for program access and enrollment information.',
+    button_text: 'Visit Masterclass Website',
+    button_url: FREIGHT_BROKER_URL,
+  })
   return <>
     <Seo title="Freight Broker Masterclass - Iman Logistics" canonical="/freight-broker-masterclass/" />
 
@@ -79,9 +96,9 @@ export default function Broker() {
 
     <Container sx={{ py: { xs: 9, md: 12 } }}>
       <Reveal>
-        <Typography color="secondary" textAlign="center" fontSize={12} fontWeight={900} letterSpacing=".14em">YOUR BROKERAGE FOUNDATION</Typography>
-        <Typography component="h2" variant="h2" textAlign="center" sx={{ mt: 1.5, mx: 'auto', maxWidth: 760, fontSize: { xs: 36, md: 52 }, letterSpacing: '-.03em' }}>Learn the business from every angle.</Typography>
-        <Typography color="text.secondary" textAlign="center" mx="auto" maxWidth={700} fontSize={18} mt={2}>Build a working understanding of the people, processes, and decisions behind successful freight movement.</Typography>
+        <Typography color="secondary" textAlign="center" fontSize={12} fontWeight={900} letterSpacing=".14em">{foundation.section_label}</Typography>
+        <Typography component="h2" variant="h2" textAlign="center" sx={{ mt: 1.5, mx: 'auto', maxWidth: 760, fontSize: { xs: 36, md: 52 }, letterSpacing: '-.03em' }}>{foundation.title}</Typography>
+        <Typography color="text.secondary" textAlign="center" mx="auto" maxWidth={700} fontSize={18} mt={2}>{foundation.body}</Typography>
       </Reveal>
       <Grid container spacing={3} mt={4}>
         {outcomes.map(([Icon, title, description], index) => <Grid size={{ xs: 12, sm: 6 }} key={title}><Reveal delay={index * 70}><Paper sx={{ height: '100%', p: 4, borderRadius: 4, border: 1, borderColor: 'divider', boxShadow: '0 14px 40px rgba(10,0,90,.06)' }}><Box sx={{ display: 'grid', placeItems: 'center', width: 54, height: 54, borderRadius: 3, bgcolor: 'action.selected', color: 'primary.main' }}><Icon sx={{ fontSize: 30 }} /></Box><Typography variant="h5" fontWeight={900} mt={3}>{title}</Typography><Typography color="text.secondary" mt={1.25}>{description}</Typography></Paper></Reveal></Grid>)}
@@ -93,9 +110,9 @@ export default function Broker() {
         <Grid container spacing={{ xs: 6, md: 9 }} alignItems="center">
           <Grid size={{ xs: 12, md: 5 }}>
             <Reveal>
-              <Typography color="secondary" fontSize={12} fontWeight={900} letterSpacing=".14em">WHAT YOU’LL LEARN</Typography>
-              <Typography component="h2" variant="h2" sx={{ mt: 1.5, fontSize: { xs: 38, md: 52 }, letterSpacing: '-.03em' }}>A practical roadmap for freight brokerage.</Typography>
-              <Typography color="text.secondary" fontSize={18} mt={2}>Review the program here, then continue to the dedicated masterclass website for enrollment details and full access.</Typography>
+              <Typography color="secondary" fontSize={12} fontWeight={900} letterSpacing=".14em">{curriculumSection.section_label}</Typography>
+              <Typography component="h2" variant="h2" sx={{ mt: 1.5, fontSize: { xs: 38, md: 52 }, letterSpacing: '-.03em' }}>{curriculumSection.title}</Typography>
+              <Typography color="text.secondary" fontSize={18} mt={2}>{curriculumSection.body}</Typography>
             </Reveal>
           </Grid>
           <Grid size={{ xs: 12, md: 7 }}>
@@ -115,10 +132,10 @@ export default function Broker() {
       <Container maxWidth="md">
         <Paper sx={{ p: { xs: 4, md: 6 }, borderRadius: 5, bgcolor: 'primary.main', color: 'white', textAlign: 'center' }}>
           <SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 50 }} />
-          <Typography component="h2" variant="h3" mt={2}>Ready to explore freight brokerage?</Typography>
-          <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>Continue to the dedicated Freight Broker Masterclass website for program access and enrollment information.</Typography>
-          <Button component="a" href={FREIGHT_BROKER_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" endIcon={<ArrowOutwardRoundedIcon />} sx={{ mt: 3 }}>
-            Visit Masterclass Website
+          <Typography component="h2" variant="h3" mt={2}>{cta.title}</Typography>
+          <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>{cta.body}</Typography>
+          <Button component="a" href={cta.button_url || FREIGHT_BROKER_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" endIcon={<ArrowOutwardRoundedIcon />} sx={{ mt: 3 }}>
+            {cta.button_text}
           </Button>
         </Paper>
       </Container>

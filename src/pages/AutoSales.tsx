@@ -33,6 +33,18 @@ export default function AutoSales() {
     button_text: 'Visit sales website',
     button_url: VEHICLE_SALES_URL,
   })
+  const buying = content('car-auto-sales', 'buying-process', {
+    section_label: 'BUY WITH CONFIDENCE',
+    title: 'A simpler way to buy',
+    body: 'Personal guidance at every stage of your vehicle search.',
+  })
+  const cta = content('car-auto-sales', 'cta', {
+    section_label: 'VEHICLE SALES',
+    title: 'Tell us what you’re looking for',
+    body: 'Continue to our dedicated sales website to explore vehicles and connect with the sales team.',
+    button_text: 'Visit Car & Truck Sales',
+    button_url: VEHICLE_SALES_URL,
+  })
   return (
     <>
       <Seo title="Car & Truck Sales - Iman Logistics" canonical="/car-auto-sales/" />
@@ -76,8 +88,9 @@ export default function AutoSales() {
       </Box>
 
       <Container sx={{ py: { xs: 8, md: 11 } }}>
-        <Typography variant="h3" textAlign="center" color="primary" fontWeight={900}>A simpler way to buy</Typography>
-        <Typography textAlign="center" color="text.secondary" fontSize={18} mt={1.5}>Personal guidance at every stage of your vehicle search.</Typography>
+        <Typography color="secondary" textAlign="center" fontWeight={900} letterSpacing=".12em" fontSize={12}>{buying.section_label}</Typography>
+        <Typography variant="h3" textAlign="center" color="primary" fontWeight={900} mt={1}>{buying.title}</Typography>
+        <Typography textAlign="center" color="text.secondary" fontSize={18} mt={1.5}>{buying.body}</Typography>
         <Grid container spacing={3} mt={3}>
           {buyingSteps.map(([Icon, title, description], index) => (
             <Grid size={{ xs: 12, md: 4 }} key={title}>
@@ -96,9 +109,9 @@ export default function AutoSales() {
       <Box sx={{ bgcolor: 'primary.main', color: 'white', py: { xs: 7, md: 9 }, textAlign: 'center' }}>
         <Container maxWidth="md">
           <SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 52 }} />
-          <Typography variant="h3" mt={1.5}>Tell us what you’re looking for</Typography>
-          <Typography color="rgba(255,255,255,.78)" fontSize={18} mt={1.5}>Continue to our dedicated sales website to explore vehicles and connect with the sales team.</Typography>
-          <Button component="a" href={VEHICLE_SALES_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" sx={{ mt: 3 }}>Visit Car & Truck Sales ↗</Button>
+          <Typography variant="h3" mt={1.5}>{cta.title}</Typography>
+          <Typography color="rgba(255,255,255,.78)" fontSize={18} mt={1.5}>{cta.body}</Typography>
+          <Button component="a" href={cta.button_url || VEHICLE_SALES_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" sx={{ mt: 3 }}>{cta.button_text} ↗</Button>
         </Container>
       </Box>
     </>
