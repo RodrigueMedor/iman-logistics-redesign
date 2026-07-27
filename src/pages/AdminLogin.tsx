@@ -6,6 +6,8 @@ import { Seo } from '../components/common/Seo'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
+const passwordRecoveryEmail = 'rodriguemedor@yahoo.fr'
+
 export default function AdminLogin() {
   const { configured, user, profile, signIn } = useAuth()
   const navigate = useNavigate()
@@ -44,7 +46,9 @@ export default function AdminLogin() {
     const resetEmail = email.trim()
     setError('')
     setNotice('')
-    if (!resetEmail || !resetEmail.includes('@')) return setError('Enter your account email address first.')
+    if (resetEmail.toLowerCase() !== passwordRecoveryEmail) {
+      return setError('Password recovery is restricted to the authorized super-admin account.')
+    }
     if (!supabase) return setError('Password recovery is not configured.')
     setSubmitting(true)
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
@@ -70,7 +74,7 @@ export default function AdminLogin() {
             <TextField required type={import.meta.env.DEV ? 'text' : 'email'} label={import.meta.env.DEV ? 'Username or email' : 'Email address'} autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} />
             <TextField required type="password" label="Password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} />
             <Button type="submit" size="large" variant="contained" disabled={!configured || submitting}>{submitting ? 'Signing in…' : 'Sign in securely'}</Button>
-            <Button type="button" onClick={() => void resetPassword()} disabled={!configured || submitting}>Forgot password?</Button>
+            <Button type="button" onClick={() => void resetPassword()} disabled={!configured || submitting}>Super admin password recovery</Button>
           </Stack>
         </Paper>
       </Container>
