@@ -1,5 +1,5 @@
-import { useRef, useState, type FormEvent } from 'react'
-import { Alert, Box, Button, Container, Paper, Stack, TextField, Typography } from '@mui/material'
+import { useState, type FormEvent } from 'react'
+import { Alert, Box, Button, Container, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, TextField, Typography } from '@mui/material'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
@@ -17,7 +17,8 @@ export default function AdminLogin() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState(() => (location.state as { passwordReset?: boolean } | null)?.passwordReset ? 'Password updated successfully. You can now sign in.' : '')
   const [submitting, setSubmitting] = useState(false)
-  const emailInput = useRef<HTMLInputElement>(null)
+  const [recoveryOpen, setRecoveryOpen] = useState(false)
+  const [recoveryEmail, setRecoveryEmail] = useState('')
 
   if (user && profile) return <Navigate to={profile.role === 'super_admin' ? '/tracking/admin/work-orders/' : '/tracking/team/work-orders/'} replace />
 
@@ -44,7 +45,7 @@ export default function AdminLogin() {
   }
 
   const resetPassword = async () => {
-    const resetEmail = (emailInput.current?.value || email)
+    const resetEmail = recoveryEmail
       .normalize('NFKC')
       .replace(/[\s\u200B-\u200D\uFEFF]/g, '')
       .toLowerCase()
@@ -61,6 +62,8 @@ export default function AdminLogin() {
     setSubmitting(false)
     if (resetError) return setError(resetError.message)
     setNotice('Password reset email sent. Open the secure link in that email to choose a new password.')
+    setRecoveryOpen(false)
+    setRecoveryEmail('')
   }
 
   return <>
@@ -75,13 +78,25 @@ export default function AdminLogin() {
             {import.meta.env.DEV && <Alert severity="info"><strong>Local test access</strong><br />Username: superadmin<br />Password: Admin123!</Alert>}
             {error && <Alert severity="error">{error}</Alert>}
             {notice && <Alert severity="success">{notice}</Alert>}
-            <TextField inputRef={emailInput} required type={import.meta.env.DEV ? 'text' : 'email'} label={import.meta.env.DEV ? 'Username or email' : 'Email address'} autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} />
+            <TextField required type={import.meta.env.DEV ? 'text' : 'email'} label={import.meta.env.DEV ? 'Username or email' : 'Email address'} autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} />
             <TextField required type="password" label="Password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} />
             <Button type="submit" size="large" variant="contained" disabled={!configured || submitting}>{submitting ? 'Signing in…' : 'Sign in securely'}</Button>
-            <Button type="button" onClick={() => void resetPassword()} disabled={!configured || submitting}>Super admin password recovery</Button>
+            <Button type="button" onClick={() => { setError(''); setRecoveryEmail(''); setRecoveryOpen(true) }} disabled={!configured || submitting}>Super admin password recovery</Button>
           </Stack>
         </Paper>
       </Container>
     </Box>
+    <Dialog open={recoveryOpen} onClose={() => !submitting && setRecoveryOpen(false)} fullWidth maxWidth="xs">
+      <DialogTitle sx={{ fontWeight: 900, pt: 3.5, px: 3.5 }}>Reset super-admin password</DialogTitle>
+      <DialogContent sx={{ px: 3.5 }}>
+        <Typography color="text.secondary" mb={2.5}>Enter the authorized super-admin email. We’ll send a secure password-reset link.</Typography>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        <TextField autoFocus fullWidth required type="email" label="Super-admin email" autoComplete="email" value={recoveryEmail} onChange={event => setRecoveryEmail(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); void resetPassword() } }} />
+      </DialogContent>
+      <DialogActions sx={{ px: 3.5, pb: 3.5 }}>
+        <Button onClick={() => setRecoveryOpen(false)} disabled={submitting}>Cancel</Button>
+        <Button variant="contained" onClick={() => void resetPassword()} disabled={submitting || !recoveryEmail.trim()}>{submitting ? 'Sending…' : 'Send reset link'}</Button>
+      </DialogActions>
+    </Dialog>
   </>
 }
