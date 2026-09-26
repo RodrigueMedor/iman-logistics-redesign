@@ -18,6 +18,19 @@ export const config = {
   // Public form submissions allowed per IP address per 15 minutes.
   submissionRateLimit: Number(process.env.RATE_LIMIT_SUBMISSIONS || 20),
   swaggerEnabled: process.env.SWAGGER_ENABLED !== 'false',
+  // Email via Resend and SMS via Twilio; each is skipped until configured.
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  emailFrom: process.env.EMAIL_FROM || 'Iman Logistics <info@imanlogistics.com>',
+  freightBrokerEmailFrom: process.env.FREIGHT_BROKER_EMAIL_FROM || process.env.EMAIL_FROM || 'Iman Logistics <info@imanlogistics.com>',
+  // Department inbox told about every paid Freight Broker Masterclass registration.
+  freightBrokerNotifyEmail: process.env.FREIGHT_BROKER_NOTIFY_EMAIL || 'info@imanlogistics.com',
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    fromNumber: process.env.TWILIO_FROM_NUMBER || '',
+    // Only for local testing against a mock server.
+    apiBaseUrl: (process.env.TWILIO_API_BASE_URL || 'https://api.twilio.com').replace(/\/+$/, ''),
+  },
   // Only for local testing against stripe-mock.
   stripeApi: process.env.STRIPE_API_HOST ? { host: process.env.STRIPE_API_HOST, port: Number(process.env.STRIPE_API_PORT || 443), protocol: (process.env.STRIPE_API_PROTOCOL || 'https') as 'http' | 'https' } : null,
 }

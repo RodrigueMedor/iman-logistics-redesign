@@ -26,7 +26,9 @@ export const resources: Record<string, Resource> = {
   'contact-submissions': { table: 'contact_submissions', id: 'id', orderBy: { column: 'created_at' }, search: ['reference', 'full_name', 'email', 'subject', 'company', 'phone'], filters: ['status'], updatable: ['status', 'admin_notes'], deletable: true, roles: backOffice },
   bookings: { table: 'consultation_bookings', id: 'id', orderBy: { column: 'booking_date' }, search: ['reference', 'full_name', 'email', 'service_name', 'company', 'phone'], filters: ['status', 'payment_status'], updatable: ['status', 'payment_status', 'admin_notes'], deletable: true, roles: backOffice },
   'job-applications': { table: 'job_applications', id: 'id', orderBy: { column: 'created_at' }, search: ['reference', 'full_name', 'email', 'position', 'location', 'phone'], filters: ['status'], updatable: ['status', 'admin_notes'], deletable: true, roles: backOffice },
-  payments: { table: 'payments', id: 'id', select: '*, booking:consultation_bookings(reference)', orderBy: { column: 'created_at' }, search: ['reference', 'payer_name', 'payer_email', 'description', 'provider_reference'], filters: ['status', 'method'], updatable: ['status', 'admin_notes'], deletable: true, roles: backOffice },
+  payments: { table: 'payments', id: 'id', select: '*, booking:consultation_bookings(reference), registration:freight_broker_registrations!payments_broker_registration_id_fkey(registration_no)', orderBy: { column: 'created_at' }, search: ['reference', 'payer_name', 'payer_email', 'description', 'provider_reference'], filters: ['status', 'method'], updatable: ['status', 'admin_notes'], deletable: true, roles: backOffice },
+  'freight-broker-registrations': { table: 'freight_broker_registrations', id: 'id', select: '*, class:freight_broker_classes(name, starts_at, ends_at, location)', orderBy: { column: 'created_at' }, search: ['registration_no', 'first_name', 'last_name', 'email', 'phone'], filters: ['status', 'payment_status'], updatable: ['status', 'staff_notes'], deletable: true, roles: backOffice },
+  'notification-log': { table: 'notification_log', id: 'id', orderBy: { column: 'created_at' }, search: ['recipient', 'template', 'subject', 'entity_id'], filters: ['status', 'channel'], updatable: [], roles: backOffice },
   customers: { table: 'customers', id: 'email', orderBy: { column: 'last_seen_at' }, search: ['email', 'full_name', 'phone'], filters: [], updatable: [], roles: backOffice },
   'audit-logs': { table: 'audit_logs', id: 'id', orderBy: { column: 'occurred_at' }, search: ['action', 'entity_id', 'actor_email', 'actor_role'], filters: ['entity_type'], updatable: [], roles: superAdminOnly },
 }
@@ -70,14 +72,15 @@ adminRoutes.get('/files/signed-url', requireRole(backOffice), async (req, res) =
 adminRoutes.get('/customers/:email/activity', requireRole(backOffice), async (req, res) => {
   const { db } = staff(req)
   const email = String(req.params.email).toLowerCase()
-  const [contacts, bookings, applications, payments] = await Promise.all([
+  const [contacts, bookings, applications, payments, registrations] = await Promise.all([
     db.from('contact_submissions').select('reference, subject, status, created_at').eq('email', email).order('created_at', { ascending: false }),
     db.from('consultation_bookings').select('reference, service_name, booking_date, status, payment_status, created_at').eq('email', email).order('created_at', { ascending: false }),
     db.from('job_applications').select('reference, position, status, created_at').eq('email', email).order('created_at', { ascending: false }),
     db.from('payments').select('reference, description, amount_cents, currency, status, created_at').eq('payer_email', email).order('created_at', { ascending: false }),
+    db.from('freight_broker_registrations').select('reference:registration_no, status, payment_status, created_at, class:freight_broker_classes(name)').eq('email', email).order('created_at', { ascending: false }),
   ])
-  for (const result of [contacts, bookings, applications, payments]) if (result.error) throw result.error
-  res.json({ contacts: contacts.data, bookings: bookings.data, applications: applications.data, payments: payments.data })
+  for (const result of [contacts, bookings, applications, payments, registrations]) if (result.error) throw result.error
+  res.json({ contacts: contacts.data, bookings: bookings.data, applications: applications.data, payments: payments.data, registrations: registrations.data })
 })
 
 // ---------------------------------------------------------------------------

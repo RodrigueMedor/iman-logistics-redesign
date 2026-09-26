@@ -1,6 +1,7 @@
 import Stripe from 'stripe'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { config } from '../config'
+import { sendRegistrationPaidNotifications } from './freightBroker'
 import { HttpError } from './http'
 
 // Mirrors the Iman Trucking School payment server (server-express.js):
@@ -39,6 +40,7 @@ export function checkoutReturnUrl(pathname: string, params: Record<string, strin
 type PaymentRow = {
   id: string
   booking_id: string | null
+  broker_registration_id?: string | null
   amount_cents: number
   currency: string
   status: string
@@ -78,12 +80,17 @@ export async function finalizeSuccessfulPayment(db: SupabaseClient, payment: Pay
     await setStatus(db, payment.id, { status: 'failed', error_message: `Payment mismatch: expected ${expectedAmount} ${expectedCurrency}, received ${paidAmount} ${paidCurrency}` })
     return
   }
-  await setStatus(db, payment.id, {
+  // Conditional update: when Stripe delivers several success events at once,
+  // only the one that actually marks the payment paid sends notifications.
+  const { data: won, error } = await db.from('payments').update({
     status: 'paid',
     paid_at: new Date().toISOString(),
     error_message: '',
     ...(paymentIntentId ? { stripe_payment_intent_id: paymentIntentId, provider_reference: paymentIntentId } : {}),
-  })
+  }).eq('id', payment.id).not('status', 'in', '(paid,refunded)').select('id, broker_registration_id, amount_cents')
+  if (error) throw error
+  const paid = won?.[0]
+  if (paid?.broker_registration_id) await sendRegistrationPaidNotifications(db, paid.broker_registration_id, paid.amount_cents)
 }
 
 async function findPaymentByIntent(db: SupabaseClient, stripe: Stripe, paymentIntentId: string) {

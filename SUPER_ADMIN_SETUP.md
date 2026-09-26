@@ -43,7 +43,24 @@ API documentation (Swagger UI): `http://localhost:3001/api/docs`
    `payment_intent.payment_failed`, and `charge.refunded`; put its signing
    secret in `STRIPE_WEBHOOK_SECRET`. Confirm the payment policy wording in
    `src/features/consultation/serviceCatalog.ts` first.
-8. Sign in at `/admin/login/`.
+8. Email and SMS: set `RESEND_API_KEY` (with a verified sender domain for
+   `FREIGHT_BROKER_EMAIL_FROM`), `FREIGHT_BROKER_NOTIFY_EMAIL`, and optionally
+   the three `TWILIO_*` values. Every attempt appears under Notifications.
+9. Sign in at `/admin/login/`.
+
+## Freight Broker Masterclass registration
+
+Adapted from the Iman Trucking School Dispatcher Class Registration (redesign
+branch). Flow: `/freight-broker-masterclass/#register` → step 1 creates a
+`SUBMITTED` registration (`FBM-2026-…`) → step 2 signs the payment policy and
+opens Stripe Checkout at the class session's price → the Stripe webhook marks
+the payment paid, a database trigger sets the registration `CONFIRMED`, and
+the API sends the registrant email, department email, and registrant SMS.
+
+- Class sessions (dates, price, location, seats): `/admin/freight-broker/classes/`
+- Registrations, signed policies, and notifications sent: `/admin/freight-broker/`
+- All emails and SMS: `/admin/notifications/`
+- Policy wording (confirm before going live): `src/features/freightBroker/program.ts`
 
 ## Roles
 
@@ -62,8 +79,9 @@ npx supabase start          # local Postgres, Auth, Storage (Docker)
 npx supabase db reset       # apply migrations + supabase/seed.sql
 npm run dev:api             # API on http://localhost:3001 (Swagger at /api/docs)
 npm run dev                 # website on http://localhost:5173 (proxies /api)
-# optional, for Stripe without real keys:
+# optional, for Stripe, email, and SMS without real accounts:
 docker run -d -p 12111:12111 stripe/stripe-mock
+node scripts/mock-notifications.mjs   # captures Resend/Twilio requests on :4010
 ```
 
 Put the local URL and keys printed by `npx supabase status` in

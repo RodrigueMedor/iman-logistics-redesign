@@ -7,6 +7,7 @@ import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
 import WorkOutlineRoundedIcon from '@mui/icons-material/WorkOutlineRounded'
+import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../../components/common/Seo'
 import { useAuth } from '../../contexts/AuthContext'
@@ -43,6 +44,7 @@ export default function Dashboard() {
         <StatTile icon={<MailOutlineRoundedIcon />} label="New messages" value={stats?.contacts.new} detail={stats && `${stats.contacts.last7Days} in the last 7 days · ${stats.contacts.total} total`} to="/admin/contacts/" />
         <StatTile icon={<EventAvailableOutlinedIcon />} label="Upcoming bookings" value={stats?.bookings.upcoming} detail={stats && `${stats.bookings.pending} awaiting confirmation · ${stats.bookings.unpaid} unpaid`} to="/admin/bookings/" />
         <StatTile icon={<WorkOutlineRoundedIcon />} label="New applications" value={stats?.applications.new} detail={stats && `${stats.applications.inProgress} in review · ${stats.applications.total} total`} to="/admin/applications/" />
+        <StatTile icon={<SchoolOutlinedIcon />} label="Freight Broker registrations" value={stats?.brokerRegistrations.confirmed} detail={stats && `confirmed · ${stats.brokerRegistrations.awaitingPayment} awaiting payment · ${stats.brokerRegistrations.total} total`} to="/admin/freight-broker/" />
         <StatTile icon={<PaymentsOutlinedIcon />} label="Paid, last 30 days" value={stats && formatMoney(stats.payments.paidLast30DaysCents)} detail={stats && `${formatMoney(stats.payments.paidCents)} all time · ${stats.payments.pending} pending`} to="/admin/payments/" />
         <StatTile icon={<LocalShippingOutlinedIcon />} label="Shipments in transit" value={stats?.shipments.inTransit} detail={stats && `${stats.shipments.exceptions} exceptions · ${stats.shipments.total} total`} to="/admin/shipments/" />
         <StatTile icon={<PeopleAltOutlinedIcon />} label="Customers" value={stats?.customers} detail="Unique people across all forms" to="/admin/customers/" />
@@ -52,7 +54,7 @@ export default function Dashboard() {
         <Grid size={{ xs: 12, lg: 7 }}>
           <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: 1, borderColor: 'divider' }}>
             <Typography fontWeight={900}>Website submissions per day</Typography>
-            <Typography variant="body2" color="text.secondary">Messages, bookings, and applications · last 14 days{stats ? ` · ${stats.daily.reduce((sum, item) => sum + item.count, 0)} total` : ''}</Typography>
+            <Typography variant="body2" color="text.secondary">Messages, bookings, applications, and registrations · last 14 days{stats ? ` · ${stats.daily.reduce((sum, item) => sum + item.count, 0)} total` : ''}</Typography>
             {stats && <DailyChart data={stats.daily} />}
           </Paper>
         </Grid>

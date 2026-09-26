@@ -1,4 +1,5 @@
 import { Box, Button, Chip, Container, Grid, Paper, Stack, Typography } from '@mui/material'
+import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
 import ArrowOutwardRoundedIcon from '@mui/icons-material/ArrowOutwardRounded'
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined'
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
@@ -10,6 +11,10 @@ import { Seo } from '../components/common/Seo'
 import { Reveal } from '../components/common/Reveal'
 import { FREIGHT_BROKER_URL } from '../config/links'
 import { useContent } from '../contexts/ContentContext'
+import { FreightBrokerRegistration } from '../features/freightBroker/FreightBrokerRegistration'
+
+// Main buttons register on this page; a full URL in the content editor still opens it in a new tab.
+const isExternal = (url?: string) => Boolean(url && /^https?:\/\//.test(url))
 
 const outcomes = [
   [BusinessCenterOutlinedIcon, 'Brokerage foundations', 'Understand the broker’s role, industry structure, and the steps involved in starting professionally.'],
@@ -33,8 +38,8 @@ export default function Broker() {
     section_label: 'FREIGHT BROKER MASTERCLASS',
     title: 'Build the skills to connect freight with opportunity.',
     body: 'A step-by-step introduction to freight brokerage for aspiring professionals ready to understand the industry, develop practical skills, and build a clear path forward.',
-    button_text: 'Visit Masterclass Website',
-    button_url: FREIGHT_BROKER_URL,
+    button_text: 'Register now',
+    button_url: '#register',
   })
   const foundation = content('freight-broker-masterclass', 'foundation', {
     section_label: 'YOUR BROKERAGE FOUNDATION',
@@ -44,14 +49,14 @@ export default function Broker() {
   const curriculumSection = content('freight-broker-masterclass', 'curriculum', {
     section_label: 'WHAT YOU’LL LEARN',
     title: 'A practical roadmap for freight brokerage.',
-    body: 'Review the program here, then continue to the dedicated masterclass website for enrollment details and full access.',
+    body: 'Review the program here, then register below to reserve your seat.',
   })
   const cta = content('freight-broker-masterclass', 'cta', {
     section_label: 'NEXT STEP',
     title: 'Ready to explore freight brokerage?',
-    body: 'Continue to the dedicated Freight Broker Masterclass website for program access and enrollment information.',
-    button_text: 'Visit Masterclass Website',
-    button_url: FREIGHT_BROKER_URL,
+    body: 'Reserve your seat in the Freight Broker Masterclass. You will review your details and sign the registration policy before secure payment.',
+    button_text: 'Register now',
+    button_url: '#register',
   })
   return <>
     <Seo title="Freight Broker Masterclass - Iman Logistics" canonical="/freight-broker-masterclass/" />
@@ -69,7 +74,7 @@ export default function Broker() {
                 {hero.body}
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4}>
-                <Button component="a" href={FREIGHT_BROKER_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" endIcon={<ArrowOutwardRoundedIcon />}>
+                <Button component="a" href={hero.button_url || '#register'} {...(isExternal(hero.button_url) ? { target: '_blank', rel: 'noopener noreferrer' } : {})} color="secondary" variant="contained" size="large" endIcon={isExternal(hero.button_url) ? <ArrowOutwardRoundedIcon /> : <ArrowDownwardRoundedIcon />}>
                   {hero.button_text}
                 </Button>
                 <Button href="#curriculum" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.55)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,.08)' } }}>
@@ -128,15 +133,30 @@ export default function Broker() {
       </Container>
     </Box>
 
+    <Box id="register" component="section" sx={{ py: { xs: 8, md: 12 }, scrollMarginTop: 110 }}>
+      <Container maxWidth="lg">
+        <Reveal>
+          <Typography color="secondary" textAlign="center" fontSize={12} fontWeight={900} letterSpacing=".14em">REGISTRATION</Typography>
+          <Typography component="h2" variant="h2" textAlign="center" sx={{ mt: 1.5, mb: 5, fontSize: { xs: 36, md: 52 }, letterSpacing: '-.03em' }}>Reserve your seat</Typography>
+        </Reveal>
+        <FreightBrokerRegistration />
+      </Container>
+    </Box>
+
     <Box sx={{ py: { xs: 8, md: 10 } }}>
       <Container maxWidth="md">
         <Paper sx={{ p: { xs: 4, md: 6 }, borderRadius: 5, bgcolor: 'primary.main', color: 'white', textAlign: 'center' }}>
           <SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 50 }} />
           <Typography component="h2" variant="h3" mt={2}>{cta.title}</Typography>
           <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>{cta.body}</Typography>
-          <Button component="a" href={cta.button_url || FREIGHT_BROKER_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" endIcon={<ArrowOutwardRoundedIcon />} sx={{ mt: 3 }}>
-            {cta.button_text}
-          </Button>
+          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="center" gap={1.5} mt={3}>
+            <Button component="a" href={cta.button_url || '#register'} {...(isExternal(cta.button_url) ? { target: '_blank', rel: 'noopener noreferrer' } : {})} color="secondary" variant="contained" size="large" endIcon={isExternal(cta.button_url) ? <ArrowOutwardRoundedIcon /> : <ArrowDownwardRoundedIcon />}>
+              {cta.button_text}
+            </Button>
+            <Button component="a" href={FREIGHT_BROKER_URL} target="_blank" rel="noopener noreferrer" size="large" variant="outlined" endIcon={<ArrowOutwardRoundedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.55)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,.08)' } }}>
+              Visit Masterclass Website
+            </Button>
+          </Stack>
         </Paper>
       </Container>
     </Box>

@@ -14,6 +14,9 @@ import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
+import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
+import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined'
+import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded'
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth, type AppRole } from '../../contexts/AuthContext'
 
@@ -25,9 +28,12 @@ const navigation = [
   { label: 'Contact messages', path: '/admin/contacts/', icon: <MailOutlineRoundedIcon />, roles: everyone },
   { label: 'Bookings', path: '/admin/bookings/', icon: <EventAvailableOutlinedIcon />, roles: everyone },
   { label: 'Applications', path: '/admin/applications/', icon: <WorkOutlineRoundedIcon />, roles: everyone },
+  { label: 'Freight Broker registrations', path: '/admin/freight-broker/', icon: <SchoolOutlinedIcon />, roles: everyone, exact: true },
+  { label: 'Freight Broker classes', path: '/admin/freight-broker/classes/', icon: <EventNoteOutlinedIcon />, roles: everyone },
   { label: 'Payments', path: '/admin/payments/', icon: <PaymentsOutlinedIcon />, roles: everyone },
   { label: 'Customers', path: '/admin/customers/', icon: <PeopleAltOutlinedIcon />, roles: everyone },
   { label: 'Shipments', path: '/admin/shipments/', icon: <LocalShippingOutlinedIcon />, roles: everyone },
+  { label: 'Notifications', path: '/admin/notifications/', icon: <NotificationsNoneRoundedIcon />, roles: everyone },
   { label: 'Work orders', path: '/admin/work-orders/', icon: <AssignmentOutlinedIcon />, roles: superOnly },
   { label: 'Users & roles', path: '/admin/users/', icon: <GroupOutlinedIcon />, roles: superOnly },
   { label: 'Audit log', path: '/admin/audit/', icon: <HistoryRoundedIcon />, roles: superOnly },
@@ -51,7 +57,7 @@ export function AdminLayout() {
     </Box>
     <List sx={{ px: 1.5, pt: .5 }}>
       {navigation.filter(item => profile && item.roles.includes(profile.role)).map(item => {
-        const selected = item.path === '/admin/' ? pathname === item.path : pathname.startsWith(item.path)
+        const selected = item.path === '/admin/' || ('exact' in item && item.exact) ? pathname === item.path : pathname.startsWith(item.path)
         return <ListItemButton key={item.path} component={RouterLink} to={item.path} selected={selected} onClick={() => setMobileOpen(false)} sx={{ borderRadius: 2.5, mb: .75, color: 'rgba(255,255,255,.72)', '&.Mui-selected': { bgcolor: 'rgba(218,168,47,.16)', color: '#f2ca67' }, '&.Mui-selected:hover': { bgcolor: 'rgba(218,168,47,.22)' } }}>
           <ListItemIcon sx={{ color: 'inherit', minWidth: 42 }}>{item.icon}</ListItemIcon>
           <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 800 }} />

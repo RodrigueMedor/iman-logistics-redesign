@@ -197,6 +197,7 @@ export const paymentsBaseConfig: RecordsConfig = {
     { key: 'method', label: 'Method' },
     { key: 'provider', label: 'Recorded by', render: row => row.provider === 'stripe' ? 'Stripe Checkout' : 'Staff (manual)' },
     { key: 'booking', label: 'Booking', render: row => String((row.booking as { reference?: string } | null)?.reference ?? '—') },
+    { key: 'registration', label: 'Freight Broker registration', render: row => String((row.registration as { registration_no?: string } | null)?.registration_no ?? '—') },
     { key: 'provider_reference', label: 'Receipt / Stripe payment ID' },
     { key: 'error_message', label: 'Payment error' },
     { key: 'paid_at', label: 'Paid at', render: row => formatDateTime(row.paid_at) },
@@ -212,7 +213,7 @@ export const paymentsBaseConfig: RecordsConfig = {
   csvName: 'iman-payments',
 }
 
-export const auditEntities: Option[] = ['contact_submissions', 'consultation_bookings', 'job_applications', 'payments', 'shipments', 'work_orders', 'site_content', 'profiles']
+export const auditEntities: Option[] = ['contact_submissions', 'freight_broker_registrations', 'freight_broker_classes', 'consultation_bookings', 'job_applications', 'payments', 'shipments', 'work_orders', 'site_content', 'profiles']
   .map(value => ({ value, label: value.replaceAll('_', ' ') }))
 
 export const auditConfig: RecordsConfig = {
@@ -256,6 +257,7 @@ export const customersConfig: RecordsConfig = {
     { key: 'contact_count', label: 'Messages', hideOnMobile: true },
     { key: 'booking_count', label: 'Bookings', hideOnMobile: true },
     { key: 'application_count', label: 'Applications', hideOnMobile: true },
+    { key: 'registration_count', label: 'Registrations', hideOnMobile: true },
     { key: 'total_paid_cents', label: 'Paid', render: row => formatMoney(Number(row.total_paid_cents)) },
     { key: 'last_seen_at', label: 'Last activity', render: row => formatDateTime(row.last_seen_at) },
   ],
@@ -267,4 +269,104 @@ export const customersConfig: RecordsConfig = {
     { key: 'last_seen_at', label: 'Last activity', render: row => formatDateTime(row.last_seen_at) },
   ],
   csvName: 'iman-customers',
+}
+
+// Freight Broker Masterclass registrations (the school's DispatcherRegistrations page)
+export const brokerStatuses: Option[] = [
+  { value: 'SUBMITTED', label: 'Submitted', color: 'warning' },
+  { value: 'CONFIRMED', label: 'Confirmed', color: 'success' },
+  { value: 'CANCELED', label: 'Canceled', color: 'error' },
+]
+
+export const brokerPaymentStatuses: Option[] = [
+  { value: 'pending', label: 'Pending', color: 'warning' },
+  { value: 'processing', label: 'Processing', color: 'info' },
+  { value: 'paid', label: 'Paid', color: 'success' },
+  { value: 'failed', label: 'Failed', color: 'error' },
+  { value: 'canceled', label: 'Canceled', color: 'error' },
+  { value: 'refunded', label: 'Refunded' },
+  { value: 'not_required', label: 'Not required' },
+]
+
+type BrokerClassJoin = { name?: string; starts_at?: string; ends_at?: string; location?: string } | null
+const brokerClass = (row: RecordRow) => row.class as BrokerClassJoin
+
+export const brokerRegistrationsConfig: RecordsConfig = {
+  table: 'freight_broker_registrations',
+  title: 'Freight Broker registrations',
+  subtitle: 'Freight Broker Masterclass registrations, payments, and signed policies.',
+  canonical: '/admin/freight-broker/',
+  titleKey: 'registration_no',
+  searchPlaceholder: 'Search name, email, phone, registration number',
+  columns: [
+    { key: 'registration_no', label: 'Registration', render: strong('registration_no') },
+    { key: 'first_name', label: 'Registrant', render: row => `${String(row.first_name)} ${String(row.last_name)}` },
+    { key: 'class', label: 'Class', render: row => brokerClass(row)?.name ?? '—', hideOnMobile: true },
+    { key: 'status', label: 'Status', render: row => <StatusChip value={row.status} options={brokerStatuses} /> },
+    { key: 'payment_status', label: 'Payment', render: row => <StatusChip value={row.payment_status} options={brokerPaymentStatuses} /> },
+    { key: 'submitted_at', label: 'Submitted', render: row => formatDateTime(row.submitted_at), hideOnMobile: true },
+  ],
+  details: [
+    { key: 'registration_no', label: 'Registration number' },
+    { key: 'first_name', label: 'Name', render: row => `${String(row.first_name)} ${String(row.last_name)}` },
+    email,
+    phone,
+    { key: 'address_line1', label: 'Address', render: row => `${String(row.address_line1)}${row.address_line2 ? `, ${String(row.address_line2)}` : ''}, ${String(row.city)}, ${String(row.state)} ${String(row.zip_code)}` },
+    { key: 'class', label: 'Class session', render: row => brokerClass(row)?.name ?? '—' },
+    { key: 'class_dates', label: 'Class dates', render: row => brokerClass(row)?.starts_at ? `${formatDate(brokerClass(row)?.starts_at)} – ${formatDate(brokerClass(row)?.ends_at)}` : '—' },
+    { key: 'payment_status', label: 'Payment status', render: row => <StatusChip value={row.payment_status} options={brokerPaymentStatuses} /> },
+    { key: 'payment_policy_signature', label: 'Policy signed by' },
+    { key: 'payment_policy_accepted_at', label: 'Policy accepted at', render: row => formatDateTime(row.payment_policy_accepted_at) },
+    { key: 'payment_policy_version', label: 'Policy version' },
+    { key: 'submitted_at', label: 'Submitted', render: row => formatDateTime(row.submitted_at) },
+    updated,
+  ],
+  filters: [
+    { key: 'status', label: 'Status', options: brokerStatuses, editable: true },
+    { key: 'payment_status', label: 'Payment', options: brokerPaymentStatuses },
+  ],
+  notes: true,
+  notesKey: 'staff_notes',
+  deletable: true,
+  csvName: 'iman-freight-broker-registrations',
+}
+
+export const notificationStatuses: Option[] = [
+  { value: 'sent', label: 'Sent', color: 'success' },
+  { value: 'skipped', label: 'Skipped', color: 'warning' },
+  { value: 'failed', label: 'Failed', color: 'error' },
+]
+
+export const notificationLogConfig: RecordsConfig = {
+  table: 'notification_log',
+  title: 'Notifications',
+  subtitle: 'Every email and text message the website sent, skipped, or failed to send.',
+  canonical: '/admin/notifications/',
+  titleKey: 'subject',
+  searchPlaceholder: 'Search recipient, template, subject',
+  columns: [
+    { key: 'created_at', label: 'When', render: row => formatDateTime(row.created_at) },
+    { key: 'channel', label: 'Channel', render: row => String(row.channel).toUpperCase() },
+    { key: 'recipient', label: 'Recipient' },
+    { key: 'template', label: 'Message', hideOnMobile: true },
+    { key: 'status', label: 'Status', render: row => <StatusChip value={row.status} options={notificationStatuses} /> },
+  ],
+  details: [
+    { key: 'created_at', label: 'When', render: row => formatDateTime(row.created_at) },
+    { key: 'channel', label: 'Channel' },
+    { key: 'recipient', label: 'Recipient' },
+    { key: 'subject', label: 'Subject' },
+    { key: 'template', label: 'Template' },
+    { key: 'status', label: 'Status', render: row => <StatusChip value={row.status} options={notificationStatuses} /> },
+    { key: 'provider', label: 'Provider' },
+    { key: 'provider_id', label: 'Provider message ID' },
+    { key: 'error', label: 'Error / reason' },
+    { key: 'entity_type', label: 'Record type' },
+    { key: 'entity_id', label: 'Record ID' },
+  ],
+  filters: [
+    { key: 'status', label: 'Status', options: notificationStatuses },
+    { key: 'channel', label: 'Channel', options: [{ value: 'email', label: 'Email' }, { value: 'sms', label: 'SMS' }] },
+  ],
+  csvName: 'iman-notifications',
 }

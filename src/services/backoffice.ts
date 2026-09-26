@@ -1,6 +1,6 @@
 import { api } from './api'
 
-export type BackOfficeTable = 'contact_submissions' | 'consultation_bookings' | 'job_applications' | 'payments' | 'customers' | 'audit_logs'
+export type BackOfficeTable = 'contact_submissions' | 'consultation_bookings' | 'job_applications' | 'freight_broker_registrations' | 'payments' | 'customers' | 'notification_log' | 'audit_logs'
 export type RecordRow = Record<string, unknown> & { id?: string | number }
 
 // API resource for each back-office table.
@@ -8,6 +8,8 @@ const resource: Record<BackOfficeTable, string> = {
   contact_submissions: 'contact-submissions',
   consultation_bookings: 'bookings',
   job_applications: 'job-applications',
+  freight_broker_registrations: 'freight-broker-registrations',
+  notification_log: 'notification-log',
   payments: 'payments',
   customers: 'customers',
   audit_logs: 'audit-logs',
@@ -65,13 +67,41 @@ export async function recordsForEmail(email: string) {
     bookings: Activity<{ service_name: string; booking_date: string; payment_status: string }>
     applications: Activity<{ position: string }>
     payments: Activity<{ description: string; amount_cents: number; currency: string }>
+    registrations?: Activity<{ payment_status: string; class: { name: string } | null }>
   }>(`/admin/customers/${encodeURIComponent(email)}/activity`, { auth: true })
 }
+
+export type BrokerClassRow = {
+  id: string
+  name: string
+  description: string | null
+  price_cents: number
+  starts_at: string
+  ends_at: string
+  location: string | null
+  schedule_notes: string | null
+  seat_capacity: number | null
+  open: boolean
+  seats_taken: number
+  seats_remaining: number | null
+}
+export type BrokerClassInput = Omit<BrokerClassRow, 'id' | 'seats_taken' | 'seats_remaining'>
+
+export const listBrokerClassesAdmin = () => api<BrokerClassRow[]>('/admin/freight-broker/classes', { auth: true })
+export async function saveBrokerClass(values: BrokerClassInput, id?: string) {
+  if (id) await api(`/admin/freight-broker/classes/${id}`, { method: 'PUT', body: values, auth: true })
+  else await api('/admin/freight-broker/classes', { body: values, auth: true })
+}
+export const deleteBrokerClass = (id: string) => api(`/admin/freight-broker/classes/${id}`, { method: 'DELETE', auth: true })
+
+export type NotificationRow = { id: number; created_at: string; channel: string; template: string; recipient: string; subject: string; status: string; provider: string; error: string }
+export const registrationNotifications = (id: string) => api<NotificationRow[]>(`/admin/freight-broker/registrations/${id}/notifications`, { auth: true })
 
 export type DashboardStats = {
   contacts: { total: number; new: number; last7Days: number }
   bookings: { total: number; pending: number; upcoming: number; unpaid: number }
   applications: { total: number; new: number; inProgress: number }
+  brokerRegistrations: { total: number; confirmed: number; awaitingPayment: number }
   payments: { paidCents: number; paidLast30DaysCents: number; pending: number }
   shipments: { total: number; inTransit: number; exceptions: number }
   customers: number

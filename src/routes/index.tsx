@@ -33,6 +33,10 @@ const ApplicationsPage = lazy(() => recordPages().then(module => ({ default: mod
 const PaymentsPage = lazy(() => recordPages().then(module => ({ default: module.PaymentsPage })))
 const CustomersPage = lazy(() => recordPages().then(module => ({ default: module.CustomersPage })))
 const AuditPage = lazy(() => recordPages().then(module => ({ default: module.AuditPage })))
+const brokerPages = () => import('../pages/admin/FreightBrokerPages')
+const BrokerRegistrationsPage = lazy(() => brokerPages().then(module => ({ default: module.BrokerRegistrationsPage })))
+const BrokerClassesPage = lazy(() => brokerPages().then(module => ({ default: module.BrokerClassesPage })))
+const NotificationsPage = lazy(() => brokerPages().then(module => ({ default: module.NotificationsPage })))
 
 function Loading() { return <Stack alignItems="center" justifyContent="center" minHeight="50vh"><CircularProgress /></Stack> }
 export function AppRoutes() {
@@ -48,6 +52,9 @@ export function AppRoutes() {
         <Route path="admin/contacts/" element={<ContactsPage />} />
         <Route path="admin/bookings/" element={<BookingsPage />} />
         <Route path="admin/applications/" element={<ApplicationsPage />} />
+        <Route path="admin/freight-broker/" element={<BrokerRegistrationsPage />} />
+        <Route path="admin/freight-broker/classes/" element={<BrokerClassesPage />} />
+        <Route path="admin/notifications/" element={<NotificationsPage />} />
         <Route path="admin/payments/" element={<PaymentsPage />} />
         <Route path="admin/customers/" element={<CustomersPage />} />
         <Route path="admin/shipments/" element={<TrackingAdmin />} />

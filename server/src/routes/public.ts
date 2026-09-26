@@ -8,6 +8,7 @@ import { createUploadSlot, enforceEmailLimit } from '../lib/submissions'
 import { publicClient, serviceClient } from '../lib/supabase'
 import { BOOKING_PAYMENT_POLICY_TEXT, BOOKING_PAYMENT_POLICY_VERSION, checkoutReturnUrl, reconcileSession, stripeClient, stripeConfigured } from '../lib/stripe'
 import { booking, bookingCheckout, contactSubmission, jobApplication, passwordReset } from '../schemas'
+import { loadRegistration, registrationDetails } from '../lib/freightBroker'
 
 export const publicRoutes = Router()
 
@@ -149,10 +150,13 @@ publicRoutes.get('/payments/status', lookups, async (req, res) => {
   const { data: row } = payment.booking_id
     ? await db.from('consultation_bookings').select('reference, service_name, duration_minutes, booking_date, booking_time, time_zone, meeting_type, full_name, email, status, payment_status').eq('id', payment.booking_id).maybeSingle()
     : { data: null }
+  const registration = payment.broker_registration_id ? await loadRegistration(db, payment.broker_registration_id) : null
   res.json({
     status: publicStatus[payment.status] ?? 'pending',
     amount_cents: payment.amount_cents,
     currency: payment.currency,
+    payment_type: payment.metadata?.payment_type ?? (payment.booking_id ? 'consultation' : 'other'),
+    registration: registration && registrationDetails(registration),
     booking: row && {
       reference: row.reference, serviceName: row.service_name, duration: row.duration_minutes, date: row.booking_date, time: row.booking_time,
       timeZone: row.time_zone, meetingType: row.meeting_type, fullName: row.full_name, email: row.email, status: row.status, paymentStatus: row.payment_status,

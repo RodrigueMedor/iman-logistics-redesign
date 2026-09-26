@@ -69,12 +69,14 @@ export const listQuery = z.object({
   payment_status: z.string().max(40).optional(),
   method: z.string().max(40).optional(),
   entity_type: z.string().max(60).optional(),
+  channel: z.string().max(20).optional(),
 })
 
 export const recordUpdate = z.object({
   status: z.string().max(40).optional(),
   payment_status: z.string().max(40).optional(),
   admin_notes: z.string().max(5000).optional(),
+  staff_notes: z.string().max(5000).optional(),
 }).refine(value => Object.keys(value).length > 0, 'Nothing to update.').meta({ id: 'RecordUpdateInput', description: 'Staff can change only status fields and internal notes.' })
 
 export const paymentInput = z.object({
@@ -173,3 +175,38 @@ export const imageUpload = z.object({
   type: z.enum(['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'], 'Images must be PNG, JPG, WEBP, GIF, or AVIF.'),
   size: z.number().int().positive().max(5 * 1024 * 1024, 'Images must be 5 MB or smaller.'),
 }).meta({ id: 'ImageUploadInput' })
+
+// Freight Broker Masterclass registration (adapted from Dispatcher Class Registration)
+const requiredText = (label: string, max: number) => z.string().trim().min(1, `${label} is required.`).max(max)
+export const freightBrokerRegistration = z.object({
+  firstName: requiredText('First name', 80).meta({ example: 'Jordan' }),
+  lastName: requiredText('Last name', 80).meta({ example: 'Customer' }),
+  email: z.email('Enter a valid email address').max(254),
+  phone: z.string().trim().max(30).regex(/^$|^[+()\d\s.-]{7,20}$/, 'Enter a valid phone number').optional().default('').meta({ example: '+1 555 010 2000' }),
+  address1: requiredText('Address', 200).meta({ example: '100 Main St' }),
+  address2: z.string().trim().max(200).optional().default(''),
+  city: requiredText('City', 120).meta({ example: 'Orlando' }),
+  state: requiredText('State', 60).meta({ example: 'FL' }),
+  zip: requiredText('ZIP code', 20).meta({ example: '32801' }),
+  classId: z.string().trim().min(1, 'Select a class session.').max(80).meta({ description: 'A class session id from GET /freight-broker/classes.' }),
+  website: z.string().max(0).optional().meta({ description: 'Leave empty. Bots that fill it in are rejected.' }),
+}).meta({ id: 'FreightBrokerRegistrationInput' })
+
+export const freightBrokerCheckout = z.object({
+  email: z.email().max(254).meta({ description: 'Must match the registration.' }),
+  classId: z.string().max(80).optional().meta({ description: 'If sent, must match the registration’s class.' }),
+  paymentPolicyAccepted: z.literal(true, 'You must accept the Freight Broker Masterclass registration policy before checkout.'),
+  paymentPolicySignature: z.string().trim().min(2, 'Type your full legal name to sign the policy.').max(160).meta({ description: 'Full legal name exactly as entered on the registration.', example: 'Jordan Customer' }),
+}).meta({ id: 'FreightBrokerCheckoutInput' })
+
+export const freightBrokerClassInput = z.object({
+  name: z.string().trim().min(2).max(200),
+  description: z.string().trim().max(2000).nullable().default(null),
+  price_cents: z.number().int().positive('Price must be greater than zero.').max(1_000_000),
+  starts_at: z.string().refine(value => !Number.isNaN(Date.parse(value)), 'Enter a valid start date.'),
+  ends_at: z.string().refine(value => !Number.isNaN(Date.parse(value)), 'Enter a valid end date.'),
+  location: z.string().trim().max(200).nullable().default(null),
+  schedule_notes: z.string().trim().max(500).nullable().default(null),
+  seat_capacity: z.number().int().min(0).nullable().default(null).meta({ description: 'null = unlimited seats.' }),
+  open: z.boolean().default(true),
+}).refine(value => Date.parse(value.ends_at) >= Date.parse(value.starts_at), 'The class must end after it starts.').meta({ id: 'FreightBrokerClassInput' })

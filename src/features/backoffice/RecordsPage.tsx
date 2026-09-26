@@ -49,6 +49,8 @@ export type RecordsConfig = {
   details: Column[]
   filters?: Filter[]
   notes?: boolean
+  // Column holding internal notes (default admin_notes).
+  notesKey?: string
   file?: { pathKey: string; nameKey: string; label: string }
   deletable?: boolean
   csvName: string
@@ -158,7 +160,8 @@ export function RecordsPage(config: RecordsConfig) {
 
 function RecordDetail({ config, row, idKey, canDelete, onClose, onChanged }: { config: RecordsConfig; row: RecordRow; idKey: string; canDelete: boolean; onClose: () => void; onChanged: () => Promise<void> }) {
   const editableFilters = config.filters?.filter(filter => filter.editable) ?? []
-  const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries([...editableFilters.map(filter => [filter.key, String(row[filter.key] ?? '')]), ...(config.notes ? [['admin_notes', String(row.admin_notes ?? '')]] : [])]))
+  const notesKey = config.notesKey ?? 'admin_notes'
+  const [draft, setDraft] = useState<Record<string, string>>(() => Object.fromEntries([...editableFilters.map(filter => [filter.key, String(row[filter.key] ?? '')]), ...(config.notes ? [[notesKey, String(row[notesKey] ?? '')]] : [])]))
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -212,7 +215,7 @@ function RecordDetail({ config, row, idKey, canDelete, onClose, onChanged }: { c
         {editableFilters.map(filter => <TextField key={filter.key} select size="small" label={filter.label} value={draft[filter.key] ?? ''} onChange={event => setDraft(current => ({ ...current, [filter.key]: event.target.value }))}>
           {filter.options.map(option => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
         </TextField>)}
-        {config.notes && <TextField multiline minRows={3} label="Internal notes" value={draft.admin_notes ?? ''} onChange={event => setDraft(current => ({ ...current, admin_notes: event.target.value }))} helperText="Visible only to staff." />}
+        {config.notes && <TextField multiline minRows={3} label="Internal notes" value={draft[notesKey] ?? ''} onChange={event => setDraft(current => ({ ...current, [notesKey]: event.target.value }))} helperText="Visible only to staff." />}
         <Stack direction="row" spacing={1}>
           <Button variant="contained" startIcon={<SaveOutlinedIcon />} disabled={!changed || saving} onClick={() => void save()}>{saving ? 'Saving…' : 'Save changes'}</Button>
           {canDelete && <Button color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => void remove()}>Delete</Button>}

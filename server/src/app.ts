@@ -6,6 +6,7 @@ import { config, databaseConfigured } from './config'
 import { errorHandler, notFound } from './lib/http'
 import { openApiDocument } from './openapi'
 import { adminRoutes } from './routes/admin'
+import { freightBrokerAdminRoutes, freightBrokerRoutes } from './routes/freightBroker'
 import { publicRoutes } from './routes/public'
 import { siteContentAdminRoutes, siteContentRoutes } from './routes/siteContent'
 import { stripeWebhookRoutes } from './routes/stripeWebhook'
@@ -39,8 +40,10 @@ export function createApp() {
   app.use('/api', publicRoutes)
   app.use('/api', siteContentRoutes)
   app.use('/api/work-orders', workOrderRoutes)
+  app.use('/api/freight-broker', freightBrokerRoutes)
   // Before adminRoutes, whose generic /:resource route would otherwise match.
   app.use('/api/admin/site-content', siteContentAdminRoutes)
+  app.use('/api/admin/freight-broker', freightBrokerAdminRoutes)
   app.use('/api/admin', adminRoutes)
   app.use(notFound)
   app.use(errorHandler)

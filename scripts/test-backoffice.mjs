@@ -279,6 +279,114 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('retrying checkout cancels the earlier open session', superseded.status === 'canceled' && superseded.metadata.superseded === true, `${second.status} ${superseded.status} ${second.text}`)
   await sendEvent('checkout.session.expired', session(retried, { payment_status: 'unpaid', status: 'expired' }))
   check('the replaced session expiring does not release the booking', (await bookingRow(retried.reference)).status === 'pending')
+
+  section('Freight Broker Masterclass: page → registration → payment → notifications → back office')
+  const mockUrl = process.env.MOCK_NOTIFICATIONS_URL || 'http://localhost:4010'
+  const captured = async () => (await fetch(`${mockUrl}/captured`)).json()
+  await fetch(`${mockUrl}/captured`, { method: 'DELETE' })
+
+  const classes = await call('/freight-broker/classes')
+  const rolling = classes.json?.find(item => item.name.startsWith('Freight Broker Masterclass'))
+  check('the page lists open Freight Broker class sessions with price', classes.status === 200 && rolling?.price_cents === 52000, classes.text.slice(0, 200))
+  check('public class data exposes no registrations', rolling && !('registrations' in rolling) && 'seats_remaining' in rolling)
+
+  const registrant = { firstName: 'Taylor', lastName: `Broker <b>${run}</b>`, email: `broker-${run}@example.test`, phone: '+1 555 010 7000', address1: '100 Main St', address2: 'Suite 5', city: 'Orlando', state: 'FL', zip: '32801', classId: rolling.id }
+  check('registration requires the address fields (400)', (await call('/freight-broker/registrations', { body: { ...registrant, address1: '' } })).status === 400)
+  check('registration rejects bots (400)', (await call('/freight-broker/registrations', { body: { ...registrant, website: 'spam' } })).status === 400)
+  const reg = await call('/freight-broker/registrations', { body: registrant })
+  check('step 1 creates a registration with an FBM number', reg.status === 201 && /^FBM-\d{4}-/.test(reg.json?.registration_no) && reg.json.class_id === rolling.id, reg.text)
+  const regRow = async () => (await service.from('freight_broker_registrations').select('*').eq('id', reg.json.id).single()).data
+  const initial = await regRow()
+  check('the registration is SUBMITTED with payment pending', initial.status === 'SUBMITTED' && initial.payment_status === 'pending' && initial.email === registrant.email)
+  check('anonymous users cannot read registrations directly', !((await anon.from('freight_broker_registrations').select('id').limit(1)).data?.length))
+
+  const signature = `taylor  broker <b>${run}</b>`
+  const checkoutBody = { email: registrant.email, classId: rolling.id, paymentPolicyAccepted: true, paymentPolicySignature: signature }
+  check('checkout requires accepting the policy (400)', (await call(`/freight-broker/registrations/${reg.json.id}/checkout`, { body: { ...checkoutBody, paymentPolicyAccepted: false } })).status === 400)
+  check('checkout requires the signature to match the registrant (400)', (await call(`/freight-broker/registrations/${reg.json.id}/checkout`, { body: { ...checkoutBody, paymentPolicySignature: 'Someone Else' } })).status === 400)
+  check('checkout rejects a mismatched email (400)', (await call(`/freight-broker/registrations/${reg.json.id}/checkout`, { body: { ...checkoutBody, email: 'other@example.test' } })).status === 400)
+  check('checkout rejects a different class than registered (409)', (await call(`/freight-broker/registrations/${reg.json.id}/checkout`, { body: { ...checkoutBody, classId: crypto.randomUUID() } })).status === 409)
+  const brokerCheckout = await call(`/freight-broker/registrations/${reg.json.id}/checkout`, { body: checkoutBody })
+  check('step 2 returns a Stripe Checkout URL', brokerCheckout.status === 200 && brokerCheckout.json?.url?.startsWith('https://'), brokerCheckout.text)
+  const { data: brokerPayment } = await service.from('payments').select('*').eq('broker_registration_id', reg.json.id).eq('status', 'pending').single()
+  check('the payment is priced from the class and tagged Freight Broker Masterclass', brokerPayment?.amount_cents === 52000 && brokerPayment.provider === 'stripe' && brokerPayment.metadata.program === 'freight_broker_masterclass' && brokerPayment.metadata.registration_no === reg.json.registration_no && brokerPayment.description.startsWith('Freight Broker Masterclass'), JSON.stringify(brokerPayment?.metadata))
+  const afterCheckout = await regRow()
+  check('the signed policy is recorded on the registration', afterCheckout.payment_policy_signature === signature && afterCheckout.payment_policy_version === 'v1-freight-broker-nonrefundable-credit-schoolcancel' && Boolean(afterCheckout.payment_policy_accepted_at))
+  const brokerSession = `cs_test_${crypto.randomUUID().replaceAll('-', '')}`
+  await service.from('payments').update({ stripe_checkout_session_id: brokerSession }).eq('id', brokerPayment.id)
+  const brokerEvent = { id: brokerSession, object: 'checkout.session', payment_status: 'paid', status: 'complete', amount_total: 52000, currency: 'usd', payment_intent: `pi_${brokerPayment.id.replaceAll('-', '')}`, metadata: { payment_id: brokerPayment.id, program: 'freight_broker_masterclass' } }
+  check('the Stripe webhook accepts the paid session', (await sendEvent('checkout.session.completed', brokerEvent)).status === 200)
+  const confirmedReg = await regRow()
+  check('payment confirms the registration (CONFIRMED + paid)', confirmedReg.status === 'CONFIRMED' && confirmedReg.payment_status === 'paid' && confirmedReg.payment_id === brokerPayment.id, `${confirmedReg.status} ${confirmedReg.payment_status}`)
+  await sendEvent('payment_intent.succeeded', { id: brokerEvent.payment_intent, object: 'payment_intent', amount: 52000, amount_received: 52000, currency: 'usd' })
+  await sendEvent('checkout.session.completed', brokerEvent)
+
+  const messages = await captured()
+  const customerEmail = messages.find(message => message.channel === 'email' && message.to === registrant.email)
+  const staffEmail = messages.find(message => message.channel === 'email' && message.to === process.env.FREIGHT_BROKER_NOTIFY_EMAIL)
+  const sms = messages.find(message => message.channel === 'sms')
+  check('the registrant receives a confirmation email', customerEmail?.subject === `Freight Broker Masterclass Registration Confirmed - ${reg.json.registration_no}` && customerEmail.html.includes('$520.00') && customerEmail.html.includes('Freight Broker Masterclass'), customerEmail?.subject)
+  check('the email includes the signed policy', customerEmail?.html.includes('Electronically signed by') && customerEmail.html.includes('v1-freight-broker-nonrefundable-credit-schoolcancel'))
+  check('registrant-typed HTML is escaped in emails', customerEmail && !customerEmail.html.includes(`<b>${run}</b>`) && customerEmail.html.includes(`&lt;b&gt;${run}&lt;/b&gt;`))
+  check('the department receives a paid-registration email', staffEmail?.subject === `New Freight Broker Masterclass Registration Paid - ${reg.json.registration_no}` && staffEmail.html.includes(registrant.email) && staffEmail.html.includes('/admin/freight-broker/'), staffEmail?.subject)
+  check('the registrant receives an SMS confirmation', sms?.to === registrant.phone && sms.body.includes(reg.json.registration_no) && sms.body.includes('Freight Broker Masterclass'), sms?.body)
+  check('duplicate Stripe events do not send duplicate notifications', messages.length === 3, String(messages.length))
+  const { data: logged } = await service.from('notification_log').select('channel, status, template').eq('entity_id', reg.json.id)
+  check('all three notifications are logged as sent', logged?.length === 3 && logged.every(row => row.status === 'sent'), JSON.stringify(logged))
+
+  const returnPage = await call(`/payments/status?session_id=${brokerSession}`)
+  check('the return page shows the confirmed registration', returnPage.json?.status === 'succeeded' && returnPage.json.payment_type === 'freight_broker_masterclass' && returnPage.json.registration?.registrationNo === reg.json.registration_no && returnPage.json.registration.className === rolling.name, returnPage.text.slice(0, 300))
+  check('a paid registration cannot be charged again (400)', (await call(`/freight-broker/registrations/${reg.json.id}/checkout`, { body: checkoutBody })).status === 400)
+
+  const adminList = await call(`/admin/freight-broker-registrations?search=${encodeURIComponent(reg.json.registration_no)}`, { token: admin.token })
+  check('the back office lists the registration with its class', adminList.json?.data?.[0]?.id === reg.json.id && adminList.json.data[0].class?.name === rolling.name, adminList.text.slice(0, 200))
+  check('staff can filter registrations by payment status', (await call('/admin/freight-broker-registrations?payment_status=paid', { token: admin.token })).json?.data?.every(row => row.payment_status === 'paid'))
+  const review = await call(`/admin/freight-broker-registrations/${reg.json.id}`, { method: 'PATCH', body: { staff_notes: 'Sent course access.' }, token: admin.token })
+  check('staff can add notes to a registration', review.status === 200 && review.json.staff_notes === 'Sent course access.', review.text)
+  check('staff cannot change payment fields (400)', (await call(`/admin/freight-broker-registrations/${reg.json.id}`, { method: 'PATCH', body: { payment_status: 'refunded' }, token: admin.token })).status === 400)
+  check('employees cannot see registrations (403)', (await call('/admin/freight-broker-registrations', { token: employee.token })).status === 403)
+  const regNotifications = await call(`/admin/freight-broker/registrations/${reg.json.id}/notifications`, { token: admin.token })
+  check('staff can see the notifications sent for the registration', regNotifications.json?.length === 3)
+  check('the notification log is searchable in the back office', (await call(`/admin/notification-log?search=${encodeURIComponent(registrant.email)}`, { token: admin.token })).json?.total === 1)
+  const brokerPaymentAdmin = await call(`/admin/payments/${brokerPayment.id}`, { token: admin.token })
+  check('the payment shows its Freight Broker registration in the back office', brokerPaymentAdmin.json?.registration?.registration_no === reg.json.registration_no && brokerPaymentAdmin.json.status === 'paid')
+  const brokerCustomer = await call(`/admin/customers/${encodeURIComponent(registrant.email)}`, { token: admin.token })
+  check('the customer record counts the registration and payment', brokerCustomer.json?.registration_count === 1 && Number(brokerCustomer.json.total_paid_cents) === 52000, brokerCustomer.text)
+  const brokerStats = await call('/admin/stats', { token: admin.token })
+  check('dashboard statistics include Freight Broker registrations', brokerStats.json?.brokerRegistrations?.confirmed >= 1)
+  const brokerAudit = await call(`/admin/audit-logs?search=${reg.json.id}&entity_type=freight_broker_registrations`, { token: superAdmin.token })
+  check('registration changes are in the audit log', ['insert', 'update'].every(action => brokerAudit.json?.data?.some(row => row.action === action)))
+
+  // Seats: a one-seat class fills after one paid registration.
+  const seatClass = await call('/admin/freight-broker/classes', { body: { name: `Test cohort ${run}`, price_cents: 49900, starts_at: '2026-11-02T14:00:00Z', ends_at: '2026-11-20T22:00:00Z', location: 'Online', schedule_notes: 'Mon–Thu evenings', seat_capacity: 1, open: true }, token: admin.token })
+  check('staff create a class session with seats', seatClass.status === 201, seatClass.text)
+  check('employees cannot manage class sessions (403)', (await call('/admin/freight-broker/classes', { token: employee.token })).status === 403)
+  const firstSeat = await call('/freight-broker/registrations', { body: { ...registrant, email: `seat1-${run}@example.test`, lastName: 'One', classId: seatClass.json.id } })
+  const secondSeat = await call('/freight-broker/registrations', { body: { ...registrant, email: `seat2-${run}@example.test`, lastName: 'Two', classId: seatClass.json.id } })
+  await call(`/freight-broker/registrations/${firstSeat.json.id}/checkout`, { body: { email: `seat1-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: 'Taylor One' } })
+  const { data: seatPayment } = await service.from('payments').select('*').eq('broker_registration_id', firstSeat.json.id).eq('status', 'pending').single()
+  check('checkout charges that session’s own price', seatPayment?.amount_cents === 49900)
+  const seatSession = `cs_test_${crypto.randomUUID().replaceAll('-', '')}`
+  await service.from('payments').update({ stripe_checkout_session_id: seatSession }).eq('id', seatPayment.id)
+  await sendEvent('checkout.session.completed', { id: seatSession, object: 'checkout.session', payment_status: 'paid', status: 'complete', amount_total: 49900, currency: 'usd', payment_intent: `pi_${seatPayment.id.replaceAll('-', '')}`, metadata: { payment_id: seatPayment.id } })
+  const seatList = (await call('/freight-broker/classes')).json?.find(item => item.id === seatClass.json.id)
+  check('seats remaining drop to 0 after the paid registration', seatList?.seats_remaining === 0, JSON.stringify(seatList))
+  check('checkout is refused once the class is full (409)', (await call(`/freight-broker/registrations/${secondSeat.json.id}/checkout`, { body: { email: `seat2-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: 'Taylor Two' } })).status === 409)
+
+  // Abandoned checkout: the registration stays SUBMITTED, payment canceled.
+  const abandonedReg = await call('/freight-broker/registrations', { body: { ...registrant, email: `abandon-${run}@example.test`, classId: rolling.id } })
+  await call(`/freight-broker/registrations/${abandonedReg.json.id}/checkout`, { body: { email: `abandon-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: signature } })
+  const { data: abandonedPayment } = await service.from('payments').select('*').eq('broker_registration_id', abandonedReg.json.id).eq('status', 'pending').single()
+  const abandonedSession = `cs_test_${crypto.randomUUID().replaceAll('-', '')}`
+  await service.from('payments').update({ stripe_checkout_session_id: abandonedSession }).eq('id', abandonedPayment.id)
+  await sendEvent('checkout.session.expired', { id: abandonedSession, object: 'checkout.session', payment_status: 'unpaid', status: 'expired', amount_total: 52000, currency: 'usd', payment_intent: null, metadata: { payment_id: abandonedPayment.id } })
+  const abandonedRow = (await service.from('freight_broker_registrations').select('status, payment_status').eq('id', abandonedReg.json.id).single()).data
+  check('an expired checkout marks the registration payment canceled', abandonedRow.status === 'SUBMITTED' && abandonedRow.payment_status === 'canceled', JSON.stringify(abandonedRow))
+  check('the registrant can retry payment after canceling', (await call(`/freight-broker/registrations/${abandonedReg.json.id}/checkout`, { body: { email: `abandon-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: signature } })).status === 200)
+  check('no notifications are sent for unpaid registrations', (await service.from('notification_log').select('id').eq('entity_id', abandonedReg.json.id)).data?.length === 0)
+  check('the consultation booking flow is unaffected', (await call('/public-config')).json?.onlinePayments === true)
+  // Close the throwaway class so it does not show on the public page.
+  await call(`/admin/freight-broker/classes/${seatClass.json.id}`, { method: 'PUT', body: { name: `Test cohort ${run}`, price_cents: 49900, starts_at: '2026-11-02T14:00:00Z', ends_at: '2026-11-20T22:00:00Z', seat_capacity: 1, open: false }, token: admin.token })
 } else {
   console.log('\n(Stripe checks skipped: STRIPE_SECRET_KEY is not set.)')
 }

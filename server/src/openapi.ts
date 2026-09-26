@@ -25,8 +25,9 @@ const listParams = [
   queryParam('payment_status', 'Filter bookings by payment status.'),
   queryParam('method', 'Filter payments by method.'),
   queryParam('entity_type', 'Filter audit logs by record type.'),
+  queryParam('channel', 'Filter the notification log by channel (email, sms).'),
 ]
-const resourceParam = { name: 'resource', in: 'path', required: true, schema: { type: 'string', enum: ['contact-submissions', 'bookings', 'job-applications', 'payments', 'customers', 'audit-logs'] }, description: '`audit-logs` requires super_admin. `customers` is read-only and keyed by email.' }
+const resourceParam = { name: 'resource', in: 'path', required: true, schema: { type: 'string', enum: ['contact-submissions', 'bookings', 'job-applications', 'freight-broker-registrations', 'payments', 'customers', 'notification-log', 'audit-logs'] }, description: '`audit-logs` requires super_admin. `customers` is read-only and keyed by email.' }
 
 export const openApiDocument = {
   openapi: '3.1.0',
@@ -46,6 +47,7 @@ export const openApiDocument = {
     { name: 'Health' },
     { name: 'Website forms', description: 'Public submissions from the website.' },
     { name: 'Bookings & payments', description: 'Consultation booking and Stripe Checkout.' },
+    { name: 'Freight Broker Masterclass', description: 'Registration, signed policy, and Stripe Checkout (adapted from Dispatcher Class Registration).' },
     { name: 'Tracking' },
     { name: 'Auth' },
     { name: 'Back office', description: 'Records, dashboard statistics, and files. Staff only.' },
@@ -72,6 +74,18 @@ export const openApiDocument = {
     '/bookings/{reference}/checkout': { post: { tags: ['Bookings & payments'], summary: 'Start Stripe Checkout for a booking', description: 'Creates a pending payment and a Stripe Checkout Session (expires in 30 minutes). Redirect the customer to `url`.', parameters: [pathParam('reference', 'Booking reference', 'BKG-2609-A1B2C3')], requestBody: body(schemas.bookingCheckout), responses: { 200: ok('Checkout session', { type: 'object', properties: { sessionId: { type: 'string' }, url: { type: 'string' } } }), ...errors(400, 404, 409, 503) } } },
     '/payments/status': { get: { tags: ['Bookings & payments'], summary: 'Payment status after returning from Stripe', parameters: [queryParam('session_id', 'Stripe Checkout Session id (cs_…)', { type: 'string' }, true)], responses: { 200: ok('Status'), ...errors(400, 404) } } },
     '/stripe/webhook': { post: { tags: ['Bookings & payments'], summary: 'Stripe webhook receiver', description: 'Called by Stripe only. Verified with the `Stripe-Signature` header and `STRIPE_WEBHOOK_SECRET`. Also available at `/stripe-webhook`.', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } }, responses: { 200: ok('Received'), ...errors(400, 500) } } },
+    '/freight-broker/classes': { get: { tags: ['Freight Broker Masterclass'], summary: 'Open, upcoming class sessions with seats remaining', responses: { 200: ok('Class sessions', { type: 'array', items: { type: 'object' } }) } } },
+    '/freight-broker/registrations': { post: { tags: ['Freight Broker Masterclass'], summary: 'Register (step 1 of 2)', description: 'Creates a SUBMITTED registration with payment pending. Returns the id used for checkout.', requestBody: body(schemas.freightBrokerRegistration), responses: { 201: ok('Registration', { type: 'object', properties: { id: { type: 'string' }, registration_no: { type: 'string', example: 'FBM-2026-MG7X2ABC123' }, class_id: { type: 'string' } } }), ...errors(400, 404, 429) } } },
+    '/freight-broker/registrations/{id}/checkout': { post: { tags: ['Freight Broker Masterclass'], summary: 'Sign the policy and start Stripe Checkout (step 2 of 2)', description: 'Checks the email, class, seats, and signature; charges the class price stored on the server. On payment the webhook confirms the registration and sends the email and SMS notifications.', parameters: [pathParam('id', 'Registration id')], requestBody: body(schemas.freightBrokerCheckout), responses: { 200: ok('Checkout session', { type: 'object', properties: { sessionId: { type: 'string' }, url: { type: 'string' } } }), ...errors(400, 404, 409, 503) } } },
+    '/admin/freight-broker/classes': {
+      get: { tags: ['Freight Broker Masterclass'], summary: 'All class sessions with seat counts (staff)', security: secured, responses: { 200: ok('Class sessions', { type: 'array', items: { type: 'object' } }), ...errors(401, 403) } },
+      post: { tags: ['Freight Broker Masterclass'], summary: 'Create a class session (staff)', security: secured, requestBody: body(schemas.freightBrokerClassInput), responses: { 201: ok('Class session'), ...errors(400, 401, 403) } },
+    },
+    '/admin/freight-broker/classes/{id}': {
+      put: { tags: ['Freight Broker Masterclass'], summary: 'Update a class session (staff)', security: secured, parameters: [pathParam('id', 'Class id')], requestBody: body(schemas.freightBrokerClassInput), responses: { 200: ok('Class session'), ...errors(400, 401, 403, 404) } },
+      delete: { tags: ['Freight Broker Masterclass'], summary: 'Delete a class session (super admin)', security: secured, parameters: [pathParam('id', 'Class id')], responses: { 204: { description: 'Deleted' }, ...errors(401, 403, 404) } },
+    },
+    '/admin/freight-broker/registrations/{id}/notifications': { get: { tags: ['Freight Broker Masterclass'], summary: 'Emails and SMS sent for a registration (staff)', security: secured, parameters: [pathParam('id', 'Registration id')], responses: { 200: ok('Notifications', { type: 'array', items: { type: 'object' } }), ...errors(401, 403) } } },
     '/tracking/{reference}': { get: { tags: ['Tracking'], summary: 'Public shipment tracking', description: 'Returns customer-safe fields only.', parameters: [pathParam('reference', 'Tracking reference', 'IMAN-12345')], responses: { 200: ok('Shipment'), ...errors(404) } } },
     '/auth/password-reset': { post: { tags: ['Auth'], summary: 'Request a super-admin password reset email', description: 'Always returns the same reply, whether or not the account exists.', requestBody: body(schemas.passwordReset), responses: { 200: ok('Accepted'), ...errors(400, 429) } } },
 
