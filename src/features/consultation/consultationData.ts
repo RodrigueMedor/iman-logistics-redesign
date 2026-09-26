@@ -2,6 +2,7 @@ import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlin
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
+import { consultationSlots } from './serviceCatalog'
 
 export type ConsultationService = {
   id: string
@@ -52,12 +53,4 @@ export const services: ConsultationService[] = [
   },
 ]
 
-export const availableSlots = [
-  { time: '9:00 AM', available: true },
-  { time: '9:30 AM', available: true },
-  { time: '10:00 AM', available: true },
-  { time: '11:00 AM', available: false },
-  { time: '1:00 PM', available: true },
-  { time: '2:30 PM', available: true },
-  { time: '4:00 PM', available: true },
-]
+export const availableSlots = consultationSlots.map(time => ({ time, available: true }))

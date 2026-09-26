@@ -134,15 +134,15 @@ export default function WorkOrders() {
   const counts = statusOptions.map(status => [status, orders.filter(item => item.status === status).length] as const)
 
   return <>
-    <Seo title="Work Orders | Iman Logistics" canonical="/tracking/admin/work-orders/" />
+    <Seo title="Work Orders | Iman Logistics" canonical="/admin/work-orders/" />
     <Box sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', py: { xs: 6, md: 8 } }}>
       <Container>
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={3}>
           <Box><Chip label="SUPER ADMIN · SECURE ACCESS" color="secondary" sx={{ mb: 2, fontWeight: 900 }} /><Typography component="h1" variant="h2" sx={{ fontSize: { xs: 40, md: 58 } }}>Work order dashboard</Typography><Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>{profile?.full_name ? `Signed in as ${profile.full_name}. ` : ''}Create assignments, connect them to shipments, and keep the team’s operational work moving.</Typography></Box>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
             <Button component={RouterLink} to="/tracking/team/work-orders/" variant="contained" color="secondary" startIcon={<PersonOutlineRoundedIcon />}>Employee view</Button>
-            <Button component={RouterLink} to="/tracking/admin/users/" variant="outlined" startIcon={<GroupOutlinedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.6)' }}>Manage users</Button>
-            <Button component={RouterLink} to="/tracking/admin/" variant="outlined" startIcon={<ArrowBackRoundedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.6)' }}>Shipment dashboard</Button>
+            <Button component={RouterLink} to="/admin/users/" variant="outlined" startIcon={<GroupOutlinedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.6)' }}>Manage users</Button>
+            <Button component={RouterLink} to="/admin/shipments/" variant="outlined" startIcon={<ArrowBackRoundedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.6)' }}>Shipment dashboard</Button>
             <Button onClick={() => void signOut()} variant="text" startIcon={<LogoutRoundedIcon />} sx={{ color: 'white' }}>Sign out</Button>
           </Stack>
         </Stack>

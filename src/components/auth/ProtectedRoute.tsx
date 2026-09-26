@@ -11,7 +11,7 @@ export function ProtectedRoute({ roles }: { roles: AppRole[] }) {
   if (loading) return <Box minHeight="55vh" display="grid" sx={{ placeItems: 'center' }}><CircularProgress /></Box>
   if (!user) return <Navigate to="/admin/login/" replace state={{ from: location.pathname }} />
   if (!profile?.active || !profile.role || !roles.includes(profile.role)) {
-    return <Container sx={{ py: 10 }}><Paper sx={{ p: 5, maxWidth: 650, mx: 'auto', borderRadius: 4 }}><Stack spacing={2}><Typography variant="h4" fontWeight={900}>Access restricted</Typography><Typography color="text.secondary">Your account does not have permission to open this dashboard.</Typography><Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}><Button component={RouterLink} to="/tracking/team/work-orders/" variant="contained">Go to My Work Orders</Button><Button onClick={() => void signOut()} variant="outlined">Sign out</Button></Stack></Stack></Paper></Container>
+    return <Container sx={{ py: 10 }}><Paper sx={{ p: 5, maxWidth: 650, mx: 'auto', borderRadius: 4 }}><Stack spacing={2}><Typography variant="h4" fontWeight={900}>Access restricted</Typography><Typography color="text.secondary">Your account does not have permission to open this dashboard.</Typography><Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>{profile?.active && profile.role === 'admin' ? <Button component={RouterLink} to="/admin/" variant="contained">Back to dashboard</Button> : <Button component={RouterLink} to="/tracking/team/work-orders/" variant="contained">Go to My Work Orders</Button>}<Button onClick={() => void signOut()} variant="outlined">Sign out</Button></Stack></Stack></Paper></Container>
   }
   return <Outlet />
 }

@@ -7,16 +7,33 @@ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import DashboardCustomizeOutlinedIcon from '@mui/icons-material/DashboardCustomizeOutlined'
+import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded'
+import EventAvailableOutlinedIcon from '@mui/icons-material/EventAvailableOutlined'
+import WorkOutlineRoundedIcon from '@mui/icons-material/WorkOutlineRounded'
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
+import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined'
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth, type AppRole } from '../../contexts/AuthContext'
 
 const drawerWidth = 270
+const everyone: AppRole[] = ['super_admin', 'admin']
+const superOnly: AppRole[] = ['super_admin']
 const navigation = [
-  { label: 'Shipment management', path: '/tracking/admin/', icon: <DashboardOutlinedIcon /> },
-  { label: 'Work orders', path: '/tracking/admin/work-orders/', icon: <AssignmentOutlinedIcon /> },
-  { label: 'Employees', path: '/tracking/admin/users/', icon: <GroupOutlinedIcon /> },
-  { label: 'Website content', path: '/content-admin/', icon: <DashboardCustomizeOutlinedIcon /> },
+  { label: 'Dashboard', path: '/admin/', icon: <DashboardOutlinedIcon />, roles: everyone },
+  { label: 'Contact messages', path: '/admin/contacts/', icon: <MailOutlineRoundedIcon />, roles: everyone },
+  { label: 'Bookings', path: '/admin/bookings/', icon: <EventAvailableOutlinedIcon />, roles: everyone },
+  { label: 'Applications', path: '/admin/applications/', icon: <WorkOutlineRoundedIcon />, roles: everyone },
+  { label: 'Payments', path: '/admin/payments/', icon: <PaymentsOutlinedIcon />, roles: everyone },
+  { label: 'Customers', path: '/admin/customers/', icon: <PeopleAltOutlinedIcon />, roles: everyone },
+  { label: 'Shipments', path: '/admin/shipments/', icon: <LocalShippingOutlinedIcon />, roles: everyone },
+  { label: 'Work orders', path: '/admin/work-orders/', icon: <AssignmentOutlinedIcon />, roles: superOnly },
+  { label: 'Users & roles', path: '/admin/users/', icon: <GroupOutlinedIcon />, roles: superOnly },
+  { label: 'Audit log', path: '/admin/audit/', icon: <HistoryRoundedIcon />, roles: superOnly },
+  { label: 'Website content', path: '/content-admin/', icon: <DashboardCustomizeOutlinedIcon />, roles: superOnly },
 ]
+const roleLabels: Record<AppRole, string> = { super_admin: 'SUPER ADMIN', admin: 'ADMIN', employee: 'EMPLOYEE' }
 
 export function AdminLayout() {
   const { pathname } = useLocation()
@@ -30,11 +47,11 @@ export function AdminLayout() {
     </Box>
     <Divider sx={{ borderColor: 'rgba(255,255,255,.1)' }} />
     <Box sx={{ p: 2 }}>
-      <Chip label="SUPER ADMIN" size="small" sx={{ bgcolor: 'rgba(218,168,47,.16)', color: '#f2ca67', fontWeight: 900 }} />
+      <Chip label={profile ? roleLabels[profile.role] : 'STAFF'} size="small" sx={{ bgcolor: 'rgba(218,168,47,.16)', color: '#f2ca67', fontWeight: 900 }} />
     </Box>
     <List sx={{ px: 1.5, pt: .5 }}>
-      {navigation.map(item => {
-        const selected = item.path === '/tracking/admin/' ? pathname === item.path : pathname.startsWith(item.path)
+      {navigation.filter(item => profile && item.roles.includes(profile.role)).map(item => {
+        const selected = item.path === '/admin/' ? pathname === item.path : pathname.startsWith(item.path)
         return <ListItemButton key={item.path} component={RouterLink} to={item.path} selected={selected} onClick={() => setMobileOpen(false)} sx={{ borderRadius: 2.5, mb: .75, color: 'rgba(255,255,255,.72)', '&.Mui-selected': { bgcolor: 'rgba(218,168,47,.16)', color: '#f2ca67' }, '&.Mui-selected:hover': { bgcolor: 'rgba(218,168,47,.22)' } }}>
           <ListItemIcon sx={{ color: 'inherit', minWidth: 42 }}>{item.icon}</ListItemIcon>
           <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 800 }} />
@@ -53,7 +70,7 @@ export function AdminLayout() {
         <Box sx={{ flexGrow: 1 }}><Typography fontWeight={900}>Administration</Typography><Typography variant="caption" color="text.secondary">Secure logistics operations portal</Typography></Box>
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Avatar sx={{ bgcolor: 'primary.main', width: 38, height: 38 }}>{profile?.full_name?.charAt(0) || 'A'}</Avatar>
-          <Box sx={{ display: { xs: 'none', sm: 'block' } }}><Typography fontWeight={900} fontSize={14}>{profile?.full_name || 'Super Admin'}</Typography><Typography variant="caption" color="text.secondary">Full access</Typography></Box>
+          <Box sx={{ display: { xs: 'none', sm: 'block' } }}><Typography fontWeight={900} fontSize={14}>{profile?.full_name || 'Staff'}</Typography><Typography variant="caption" color="text.secondary">{profile?.role === 'super_admin' ? 'Full access' : 'Back-office access'}</Typography></Box>
           <Tooltip title="Sign out"><IconButton onClick={() => void signOut()} aria-label="Sign out"><LogoutRoundedIcon /></IconButton></Tooltip>
         </Stack>
       </Toolbar>

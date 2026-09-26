@@ -27,7 +27,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { useContent } from '../contexts/ContentContext'
 import { Reveal } from '../components/common/Reveal'
-import { demoTrackingReferences, trackShipment, type ShipmentTracking } from '../services/tracking'
+import { demoTrackingReferences, shipmentsAreShared, trackShipment, type ShipmentTracking } from '../services/tracking'
 
 export default function Tracking() {
   const { content } = useContent()
@@ -131,10 +131,12 @@ export default function Tracking() {
                 <Button type="submit" disabled={loading} fullWidth size="large" variant="contained" sx={{ mt: 2, minHeight: 50 }}>
                   {loading ? <><CircularProgress size={20} color="inherit" sx={{ mr: 1.25 }} /> Checking shipment…</> : formContent.button_text}
                 </Button>
-                <Typography variant="caption" color="text.secondary" display="block" mt={2} mb={1}>Test references</Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  {demoTrackingReferences.map(item => <Chip key={item} label={item} clickable onClick={() => useDemoReference(item)} color={reference === item ? 'primary' : 'default'} />)}
-                </Stack>
+                {!shipmentsAreShared && <>
+                  <Typography variant="caption" color="text.secondary" display="block" mt={2} mb={1}>Test references</Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {demoTrackingReferences.map(item => <Chip key={item} label={item} clickable onClick={() => useDemoReference(item)} color={reference === item ? 'primary' : 'default'} />)}
+                  </Stack>
+                </>}
               </Paper>
             </Reveal>
           </Grid>

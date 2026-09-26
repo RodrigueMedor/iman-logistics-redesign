@@ -95,6 +95,7 @@ export default function Consultation() {
   const [step, setStep] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [reference, setReference] = useState('')
+  const [bookingError, setBookingError] = useState('')
   const timeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York', [])
 
   const scrollToBooking = () => bookingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -104,11 +105,19 @@ export default function Consultation() {
   const confirm = async () => {
     if (!payload) return
     setSubmitting(true)
-    const result = await createBooking(payload)
-    setReference(result.reference)
-    setStep(3)
-    setSubmitting(false)
-    setTimeout(scrollToBooking, 0)
+    setBookingError('')
+    try {
+      const result = await createBooking(payload)
+      setReference(result.reference)
+      setStep(3)
+      setTimeout(scrollToBooking, 0)
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Your booking could not be completed. Please try again.'
+      setBookingError(message)
+      if (message.includes('just booked')) { setTime(''); setStep(0) }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return <>
@@ -202,6 +211,7 @@ export default function Consultation() {
         {step < 3 && <Stepper activeStep={step} alternativeLabel sx={{ maxWidth: 760, mx: 'auto', mb: 5 }}>
           {['Date & time', 'Your details', 'Review'].map(label => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}
         </Stepper>}
+        {bookingError && step < 3 && <Alert severity="error" sx={{ maxWidth: 900, mx: 'auto', mb: 3 }}>{bookingError}</Alert>}
         {step === 0 && <>
           <BookingCalendar date={date} time={time} onDateChange={value => { setDate(value); setTime('') }} onTimeChange={setTime} />
           <Stack direction="row" justifyContent="flex-end" mt={3}><Button size="large" variant="contained" disabled={!time} onClick={() => setStep(1)}>Continue to details</Button></Stack>

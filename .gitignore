@@ -11,3 +11,4 @@ vite.config.d.ts
 !.env.example
 .netlify/
 .idea/
+deno.lock

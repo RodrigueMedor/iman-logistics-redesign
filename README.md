@@ -9,6 +9,12 @@ npm install
 npm run dev
 ```
 
+## Back office and database
+
+Website forms (Contact, Consultation booking, Careers applications) are saved
+to Supabase through Netlify Functions in `netlify/functions/`, and managed at
+`/admin/`. See `SUPER_ADMIN_SETUP.md` for database, role, and local setup.
+
 ## Production build
 
 ```bash

@@ -5,6 +5,7 @@ import { SiteLayout } from '../components/layout/SiteLayout'
 import { ProtectedRoute } from '../components/auth/ProtectedRoute'
 import { AdminLayout } from '../components/layout/AdminLayout'
 import { ContentAdminLayout } from '../components/layout/ContentAdminLayout'
+import { backOfficeRoles } from '../contexts/AuthContext'
 
 const Home = lazy(() => import('../pages/Home'))
 const DispatchMasterclass = lazy(() => import('../pages/DispatchMasterclass'))
@@ -24,17 +25,39 @@ const Careers = lazy(() => import('../pages/Careers'))
 const AdminContent = lazy(() => import('../pages/AdminContent'))
 const AdminResetPassword = lazy(() => import('../pages/AdminResetPassword'))
 const ContentDashboard = lazy(() => import('../pages/ContentDashboard'))
+const Dashboard = lazy(() => import('../pages/admin/Dashboard'))
+const recordPages = () => import('../pages/admin/RecordPages')
+const ContactsPage = lazy(() => recordPages().then(module => ({ default: module.ContactsPage })))
+const BookingsPage = lazy(() => recordPages().then(module => ({ default: module.BookingsPage })))
+const ApplicationsPage = lazy(() => recordPages().then(module => ({ default: module.ApplicationsPage })))
+const PaymentsPage = lazy(() => recordPages().then(module => ({ default: module.PaymentsPage })))
+const CustomersPage = lazy(() => recordPages().then(module => ({ default: module.CustomersPage })))
+const AuditPage = lazy(() => recordPages().then(module => ({ default: module.AuditPage })))
 
 function Loading() { return <Stack alignItems="center" justifyContent="center" minHeight="50vh"><CircularProgress /></Stack> }
 export function AppRoutes() {
   return <Suspense fallback={<Loading />}><Routes>
     <Route path="admin/login/" element={<AdminLogin />} />
     <Route path="admin/reset-password/" element={<AdminResetPassword />} />
+    <Route path="tracking/admin/" element={<Navigate to="/admin/shipments/" replace />} />
+    <Route path="tracking/admin/work-orders/" element={<Navigate to="/admin/work-orders/" replace />} />
+    <Route path="tracking/admin/users/" element={<Navigate to="/admin/users/" replace />} />
+    <Route element={<ProtectedRoute roles={backOfficeRoles} />}>
+      <Route element={<AdminLayout />}>
+        <Route path="admin/" element={<Dashboard />} />
+        <Route path="admin/contacts/" element={<ContactsPage />} />
+        <Route path="admin/bookings/" element={<BookingsPage />} />
+        <Route path="admin/applications/" element={<ApplicationsPage />} />
+        <Route path="admin/payments/" element={<PaymentsPage />} />
+        <Route path="admin/customers/" element={<CustomersPage />} />
+        <Route path="admin/shipments/" element={<TrackingAdmin />} />
+      </Route>
+    </Route>
     <Route element={<ProtectedRoute roles={['super_admin']} />}>
       <Route element={<AdminLayout />}>
-        <Route path="tracking/admin/" element={<TrackingAdmin />} />
-        <Route path="tracking/admin/work-orders/" element={<WorkOrders />} />
-        <Route path="tracking/admin/users/" element={<AdminUsers />} />
+        <Route path="admin/work-orders/" element={<WorkOrders />} />
+        <Route path="admin/users/" element={<AdminUsers />} />
+        <Route path="admin/audit/" element={<AuditPage />} />
       </Route>
       <Route path="tracking/admin/content/" element={<Navigate to="/content-admin/content/" replace />} />
       <Route element={<ContentAdminLayout />}>

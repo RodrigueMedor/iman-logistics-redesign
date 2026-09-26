@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Box, Button, Chip, Grid, Paper, Stack, Typography } from '@mui/material'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -5,6 +6,7 @@ import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { availableSlots } from './consultationData'
+import { getBookedSlots } from './bookingService'
 
 export function BookingCalendar({
   date,
@@ -17,6 +19,12 @@ export function BookingCalendar({
   onDateChange: (value: Dayjs) => void
   onTimeChange: (value: string) => void
 }) {
+  const [bookedSlots, setBookedSlots] = useState<string[]>([])
+  useEffect(() => {
+    let current = true
+    void getBookedSlots(date).then(slots => { if (current) setBookedSlots(slots) })
+    return () => { current = false }
+  }, [date])
   const disableDate = (value: Dayjs) => value.day() === 0 || value.day() === 6 || value.isBefore(dayjs(), 'day')
   return (
     <Grid container spacing={3}>
@@ -47,7 +55,7 @@ export function BookingCalendar({
                 key={slot.time}
                 role="radio"
                 aria-checked={time === slot.time}
-                disabled={!slot.available}
+                disabled={!slot.available || bookedSlots.includes(slot.time)}
                 variant={time === slot.time ? 'contained' : 'outlined'}
                 onClick={() => onTimeChange(slot.time)}
                 sx={{ py: 1.25 }}

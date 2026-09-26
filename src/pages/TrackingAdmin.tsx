@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -26,8 +26,9 @@ import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import {
-  getManagedShipments,
-  saveManagedShipment,
+  listShipments,
+  saveShipment,
+  shipmentsAreShared,
   type ShipmentStatus,
   type ShipmentTracking,
   type TrackingEvent,
@@ -60,7 +61,10 @@ const emptyForm: FormState = {
 const statusOptions: ShipmentStatus[] = ['Pending pickup', 'In transit', 'Delivered', 'Exception']
 
 export default function TrackingAdmin() {
-  const [shipments, setShipments] = useState(() => getManagedShipments())
+  const [shipments, setShipments] = useState<ShipmentTracking[]>([])
+  const [loadError, setLoadError] = useState('')
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { listShipments().then(setShipments).catch(() => setLoadError('Shipments could not be loaded. Refresh to try again.')) }, [])
   const [form, setForm] = useState<FormState>(emptyForm)
   const [query, setQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -72,7 +76,7 @@ export default function TrackingAdmin() {
     const normalized = query.trim().toLowerCase()
     const searched = !normalized ? shipments : shipments.filter(item => [item.reference, item.origin, item.destination, item.status, item.customer ?? '', item.carrier ?? ''].some(value => value.toLowerCase().includes(normalized)))
     const filtered = statusFilter === 'All' ? searched : searched.filter(item => item.status === statusFilter)
-    return [...filtered].sort((a, b) => sortBy === 'reference' ? a.reference.localeCompare(b.reference) : sortBy === 'progress' ? b.progress - a.progress : b.lastUpdated.localeCompare(a.lastUpdated))
+    return [...filtered].sort((a, b) => sortBy === 'reference' ? a.reference.localeCompare(b.reference) : sortBy === 'progress' ? b.progress - a.progress : 0)
   }, [query, shipments, sortBy, statusFilter])
 
   const updateField = (field: keyof FormState, value: string) => setForm(current => ({ ...current, [field]: value }))
@@ -100,7 +104,7 @@ export default function TrackingAdmin() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     const reference = form.reference.trim().toUpperCase()
     const progress = Math.min(100, Math.max(0, Number(form.progress)))
@@ -123,10 +127,17 @@ export default function TrackingAdmin() {
       carrier: form.carrier.trim(),
       internalNotes: form.internalNotes.trim(),
     }
-    setShipments(saveManagedShipment(saved))
-    setEditingReference(reference)
-    setForm(current => ({ ...current, reference }))
-    setMessage(`Shipment ${reference} saved. It is now available in the customer tracker.`)
+    setSaving(true)
+    try {
+      setShipments(await saveShipment(saved, !editingReference))
+      setEditingReference(reference)
+      setForm(current => ({ ...current, reference }))
+      setMessage(`Shipment ${reference} saved. It is now available in the customer tracker.`)
+    } catch (caught) {
+      setMessage(`Could not save: ${caught instanceof Error ? caught.message : 'please try again.'}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const counts = statusOptions.map(status => [status, shipments.filter(item => item.status === status).length] as const)
@@ -151,17 +162,17 @@ export default function TrackingAdmin() {
   }
 
   return <>
-    <Seo title="Tracking Administration | Iman Logistics" canonical="/tracking/admin/" />
+    <Seo title="Tracking Administration | Iman Logistics" canonical="/admin/shipments/" />
     <Box sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', py: { xs: 6, md: 8 } }}>
       <Container>
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={3}>
           <Box>
-            <Chip label="SUPER ADMIN · SECURE ACCESS" color="secondary" sx={{ mb: 2, fontWeight: 900 }} />
+            <Chip label="BACK OFFICE · SECURE ACCESS" color="secondary" sx={{ mb: 2, fontWeight: 900 }} />
             <Typography component="h1" variant="h2" sx={{ fontSize: { xs: 40, md: 58 } }}>Shipment administration</Typography>
-            <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>Create and update shipment records used by the customer-facing tracker on this device.</Typography>
+            <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>Create and update shipment records used by the customer-facing tracker.</Typography>
           </Box>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-            <Button component={RouterLink} to="/tracking/admin/work-orders/" variant="contained" color="secondary" startIcon={<AssignmentOutlinedIcon />}>Work orders</Button>
+            <Button component={RouterLink} to="/admin/work-orders/" variant="contained" color="secondary" startIcon={<AssignmentOutlinedIcon />}>Work orders</Button>
             <Button component={RouterLink} to="/tracking/" variant="outlined" endIcon={<OpenInNewRoundedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.6)' }}>Open customer tracker</Button>
           </Stack>
         </Stack>
@@ -169,9 +180,10 @@ export default function TrackingAdmin() {
     </Box>
 
     <Container sx={{ py: { xs: 6, md: 8 } }}>
-      <Alert severity="warning" sx={{ mb: 4, borderRadius: 3 }}>
-        This dashboard stores demonstration records only in this browser. Add authentication and a secure database before using it for real customer shipments.
-      </Alert>
+      {!shipmentsAreShared && <Alert severity="warning" sx={{ mb: 4, borderRadius: 3 }}>
+        Local demo mode: shipments are stored only in this browser. Configure Supabase to share them with customers.
+      </Alert>}
+      {loadError && <Alert severity="error" sx={{ mb: 4, borderRadius: 3 }}>{loadError}</Alert>}
 
       <Grid container spacing={4} alignItems="flex-start">
         <Grid size={{ xs: 12, lg: 4 }}>
@@ -191,9 +203,9 @@ export default function TrackingAdmin() {
               <TextField required type="number" label="Route progress (%)" value={form.progress} onChange={event => updateField('progress', event.target.value)} slotProps={{ htmlInput: { min: 0, max: 100 } }} />
               <TextField label="Customer or company" placeholder="Customer name" value={form.customer} onChange={event => updateField('customer', event.target.value)} />
               <TextField label="Carrier or driver" placeholder="Assigned carrier" value={form.carrier} onChange={event => updateField('carrier', event.target.value)} />
-              <TextField multiline minRows={3} label="Internal notes" placeholder="Visible only in this admin dashboard" value={form.internalNotes} onChange={event => updateField('internalNotes', event.target.value)} />
-              <Button type="submit" variant="contained" size="large" startIcon={<SaveOutlinedIcon />}>{editingReference ? 'Save changes' : 'Create shipment'}</Button>
-              {message && <Alert severity={message.startsWith('Complete') ? 'error' : 'success'}>{message}</Alert>}
+              <TextField multiline minRows={3} label="Internal notes" placeholder="Visible only to staff" value={form.internalNotes} onChange={event => updateField('internalNotes', event.target.value)} />
+              <Button type="submit" variant="contained" size="large" disabled={saving} startIcon={<SaveOutlinedIcon />}>{editingReference ? 'Save changes' : 'Create shipment'}</Button>
+              {message && <Alert severity={message.startsWith('Complete') || message.startsWith('Could not') ? 'error' : 'success'}>{message}</Alert>}
             </Stack>
           </Paper>
         </Grid>

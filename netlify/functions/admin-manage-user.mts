@@ -1,37 +1,56 @@
-import { createClient } from '@supabase/supabase-js'
+import { z } from 'zod'
+import { adminClient, audit, handleError, HttpError, json, readJson, requireRole } from '../lib/server'
+
+const schema = z.object({
+  id: z.uuid(),
+  fullName: z.string().trim().min(2).max(120).optional(),
+  email: z.email().max(254).optional(),
+  password: z.string().min(10, 'Passwords must be at least 10 characters.').max(128).optional(),
+  active: z.boolean().optional(),
+  role: z.enum(['employee', 'admin']).optional(),
+})
 
 export default async (request: Request) => {
-  if (!['PATCH', 'DELETE'].includes(request.method)) return Response.json({ error: 'Method not allowed.' }, { status: 405 })
-  const url = process.env.SUPABASE_URL
-  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY
-  const secretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
-  const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '')
-  if (!url || !publishableKey || !secretKey) return Response.json({ error: 'Server authentication is not configured.' }, { status: 500 })
-  if (!token) return Response.json({ error: 'Sign in is required.' }, { status: 401 })
+  if (!['PATCH', 'DELETE'].includes(request.method)) return json({ error: 'Method not allowed.' }, 405)
+  try {
+    const { profile: requester } = await requireRole(request, ['super_admin'])
+    const parsed = schema.safeParse(await readJson(request))
+    if (!parsed.success) throw new HttpError(400, parsed.error.issues[0]?.message || 'Invalid request.')
+    const body = parsed.data
+    if (body.id === requester.id) throw new HttpError(400, 'Your own super-admin account cannot be changed here.')
 
-  const userClient = createClient(url, publishableKey, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } })
-  const { data: authData } = await userClient.auth.getUser(token)
-  const { data: requester } = authData.user
-    ? await userClient.from('profiles').select('role, active').eq('id', authData.user.id).single()
-    : { data: null }
-  if (!authData.user || requester?.role !== 'super_admin' || !requester.active) return Response.json({ error: 'Only a super admin can manage employees.' }, { status: 403 })
+    const admin = adminClient()
+    const { data: target } = await admin.from('profiles').select('id, email, role').eq('id', body.id).maybeSingle()
+    if (!target) throw new HttpError(404, 'User not found.')
+    if (target.role === 'super_admin') throw new HttpError(403, 'Super-admin accounts cannot be changed here.')
+    const actor = { actorId: requester.id, actorEmail: requester.email, actorRole: requester.role, entityType: 'profiles', entityId: body.id }
 
-  const body = await request.json() as { id?: string; fullName?: string; email?: string; password?: string; active?: boolean }
-  if (!body.id || body.id === authData.user.id) return Response.json({ error: 'The super-admin account cannot be changed here.' }, { status: 400 })
-  const admin = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    if (request.method === 'DELETE') {
+      const { error } = await admin.auth.admin.deleteUser(body.id)
+      if (error?.message.includes('foreign key') || error?.message.includes('Database error')) throw new HttpError(409, 'This user still has work orders. Reassign them or suspend the account instead.')
+      if (error) throw new HttpError(400, error.message)
+      await audit(admin, { ...actor, action: 'user.delete', metadata: { email: target.email } })
+      return json({ message: 'User deleted.' })
+    }
 
-  if (request.method === 'DELETE') {
-    const { error } = await admin.auth.admin.deleteUser(body.id)
-    return error ? Response.json({ error: error.message }, { status: 400 }) : Response.json({ message: 'Employee deleted.' })
+    const email = body.email?.toLowerCase()
+    const authUpdates: { email?: string; password?: string; user_metadata?: { full_name: string }; ban_duration?: string } = {}
+    if (email) authUpdates.email = email
+    if (body.password) authUpdates.password = body.password
+    if (body.fullName) authUpdates.user_metadata = { full_name: body.fullName }
+    if (typeof body.active === 'boolean') authUpdates.ban_duration = body.active ? 'none' : '876000h'
+    const { error } = await admin.auth.admin.updateUserById(body.id, authUpdates)
+    if (error) throw new HttpError(400, error.message)
+
+    const profileUpdates = Object.fromEntries(Object.entries({ full_name: body.fullName, email, active: body.active, role: body.role }).filter(([, value]) => value !== undefined))
+    if (Object.keys(profileUpdates).length) {
+      const { error: profileError } = await admin.from('profiles').update(profileUpdates).eq('id', body.id)
+      if (profileError) throw profileError
+    }
+
+    await audit(admin, { ...actor, action: 'user.update', metadata: { fields: Object.keys(profileUpdates), passwordChanged: Boolean(body.password) } })
+    return json({ message: 'User updated.' })
+  } catch (error) {
+    return handleError(error)
   }
-
-  const authUpdates: { email?: string; password?: string; user_metadata?: { full_name: string }; ban_duration?: string } = {}
-  if (body.email) authUpdates.email = body.email
-  if (body.password) authUpdates.password = body.password
-  if (body.fullName) authUpdates.user_metadata = { full_name: body.fullName }
-  if (typeof body.active === 'boolean') authUpdates.ban_duration = body.active ? 'none' : '876000h'
-  const { error } = await admin.auth.admin.updateUserById(body.id, authUpdates)
-  if (error) return Response.json({ error: error.message }, { status: 400 })
-  await admin.from('profiles').update({ full_name: body.fullName, email: body.email, active: body.active }).eq('id', body.id)
-  return Response.json({ message: 'Employee updated.' })
 }

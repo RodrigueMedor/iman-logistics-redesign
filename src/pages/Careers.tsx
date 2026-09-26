@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Box, Button, Chip, Container, Grid, Paper, Stack, Typography } from '@mui/material'
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
@@ -10,6 +11,7 @@ import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { useContent } from '../contexts/ContentContext'
+import { ApplicationForm } from '../features/careers/ApplicationForm'
 
 const benefits = [
   { icon: <GroupsOutlinedIcon />, title: 'People-first culture', copy: 'Join a team that values clear communication, accountability, and respect across every role.' },
@@ -148,6 +150,8 @@ const positions = [
 
 export default function Careers() {
   const { content } = useContent()
+  const [appliedPosition, setAppliedPosition] = useState<string>(positions[0].title)
+  const applyFor = (title: string) => { setAppliedPosition(title); document.getElementById('apply')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
   const hero = content('careers', 'hero', {
     section_label: 'BUILD YOUR CAREER WITH US',
     title: 'Move freight. Build what’s next.',
@@ -208,11 +212,18 @@ export default function Careers() {
         <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'flex-end' }} spacing={2} mb={5}><Box><Typography color="secondary.main" fontWeight={900} letterSpacing={1.4} fontSize={13}>{positionsSection.section_label}</Typography><Typography variant="h3" fontWeight={950} mt={1}>{positionsSection.title}</Typography></Box><Typography color="text.secondary" maxWidth={460}>{positionsSection.body}</Typography></Stack>
         <Stack spacing={3}>{positions.map((position, index) => <Paper key={position.title} sx={{ p: { xs: 3, md: 5 }, borderRadius: 5, border: 1, borderColor: 'divider' }}>
           <Grid container spacing={4}>
-            <Grid size={{ xs: 12, lg: 4 }}><Chip label={`0${index + 1}`} color="primary" sx={{ fontWeight: 900 }} /><Typography variant="h4" fontWeight={950} mt={2}>{position.title}</Typography><Typography color="text.secondary" mt={1.5}>{position.intro}</Typography><Stack direction="row" flexWrap="wrap" useFlexGap gap={1} mt={2.5}><Chip label={position.department} variant="outlined" /><Chip label={position.location} variant="outlined" /><Chip label={position.type} variant="outlined" /></Stack></Grid>
+            <Grid size={{ xs: 12, lg: 4 }}><Chip label={`0${index + 1}`} color="primary" sx={{ fontWeight: 900 }} /><Typography variant="h4" fontWeight={950} mt={2}>{position.title}</Typography><Typography color="text.secondary" mt={1.5}>{position.intro}</Typography><Stack direction="row" flexWrap="wrap" useFlexGap gap={1} mt={2.5}><Chip label={position.department} variant="outlined" /><Chip label={position.location} variant="outlined" /><Chip label={position.type} variant="outlined" /></Stack><Button variant="contained" onClick={() => applyFor(position.title)} endIcon={<ArrowForwardRoundedIcon />} sx={{ mt: 3 }}>Apply for this role</Button></Grid>
             <Grid size={{ xs: 12, md: 6, lg: 4 }}><Stack direction="row" spacing={1.25} alignItems="center" mb={2}><RouteOutlinedIcon color="primary" /><Typography variant="h6" fontWeight={900}>Responsibilities</Typography></Stack><Stack spacing={1.25}>{position.responsibilities.map(item => <Stack direction="row" spacing={1.25} key={item}><CheckCircleRoundedIcon color="success" sx={{ mt: .35, fontSize: 19, flexShrink: 0 }} /><Typography color="text.secondary">{item}</Typography></Stack>)}</Stack></Grid>
             <Grid size={{ xs: 12, md: 6, lg: 4 }}><Stack direction="row" spacing={1.25} alignItems="center" mb={2}><SupportAgentOutlinedIcon color="primary" /><Typography variant="h6" fontWeight={900}>Qualifications</Typography></Stack><Stack spacing={1.25}>{position.qualifications.map(item => <Stack direction="row" spacing={1.25} key={item}><CheckCircleRoundedIcon color="success" sx={{ mt: .35, fontSize: 19, flexShrink: 0 }} /><Typography color="text.secondary">{item}</Typography></Stack>)}</Stack><Button component={RouterLink} to="/contact-us/" state={{ subject: `Career application: ${position.title}` }} variant="contained" endIcon={<ArrowForwardRoundedIcon />} sx={{ mt: 3 }}>Apply for this role</Button></Grid>
           </Grid>
         </Paper>)}</Stack>
+      </Container>
+    </Box>
+
+    <Box id="apply" component="section" sx={{ py: { xs: 7, md: 10 }, scrollMarginTop: 110 }}>
+      <Container maxWidth="md">
+        <Box textAlign="center" mb={5}><Typography color="secondary.main" fontWeight={900} letterSpacing={1.4} fontSize={13}>APPLY ONLINE</Typography><Typography variant="h3" fontWeight={950} mt={1}>Start your application</Typography><Typography color="text.secondary" mt={2} fontSize={17}>Send your details and resume. Our recruiting team reviews every application.</Typography></Box>
+        <ApplicationForm positions={positions.map(item => item.title)} position={appliedPosition} onPositionChange={setAppliedPosition} />
       </Container>
     </Box>
 

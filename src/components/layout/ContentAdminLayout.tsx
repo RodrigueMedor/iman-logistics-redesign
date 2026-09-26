@@ -36,7 +36,7 @@ export function ContentAdminLayout() {
       })}
     </List>
     <Box sx={{ mt: 'auto', p: 2 }}>
-      <Button component={RouterLink} to="/tracking/admin/" fullWidth startIcon={<SettingsSuggestOutlinedIcon />} sx={{ color: 'rgba(255,255,255,.68)', justifyContent: 'flex-start' }}>Operations portal</Button>
+      <Button component={RouterLink} to="/admin/" fullWidth startIcon={<SettingsSuggestOutlinedIcon />} sx={{ color: 'rgba(255,255,255,.68)', justifyContent: 'flex-start' }}>Operations portal</Button>
       <Button component={RouterLink} to="/" target="_blank" fullWidth startIcon={<OpenInNewRoundedIcon />} sx={{ color: 'rgba(255,255,255,.68)', justifyContent: 'flex-start' }}>View public website</Button>
     </Box>
   </Box>

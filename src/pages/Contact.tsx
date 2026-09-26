@@ -70,7 +70,7 @@ const faqs = [
   ['Which program is right for me?', 'Tell us about your current experience and goals. We can help direct you toward dispatch training, freight broker training, trucking school, or a focused consultation.'],
   ['How quickly will I receive a response?', 'Response times depend on message volume. Providing a clear subject, preferred contact method, and detailed message helps us respond efficiently.'],
   ['Can I schedule a consultation online?', 'Yes. The Consultation page lets you select a service, available business day, time slot, and meeting preference.'],
-  ['Can I attach supporting information?', 'Yes. The form accepts one optional file up to 5 MB for context. Backend file delivery can be connected to your preferred storage provider.'],
+  ['Can I attach supporting information?', 'Yes. The form accepts one optional file up to 5 MB for context. Files are stored privately and are only visible to the Iman Logistics team.'],
   ['What should I include in my message?', 'Share your current situation, the service that interests you, your main questions, and the result you hope to achieve.'],
   ['Are in-person meetings available?', 'In-person availability is confirmed individually. Location details are shared only after an eligible appointment is confirmed.'],
 ] as const
@@ -106,7 +106,9 @@ export default function Contact() {
     button_text: 'Contact Iman Logistics',
     button_url: '#contact-form',
   })
-  const [sent, setSent] = useState(false)
+  const [sent, setSent] = useState('')
+  const [submitError, setSubmitError] = useState('')
+  const [honeypot, setHoneypot] = useState('')
   const [attachment, setAttachment] = useState<File>()
   const [fileError, setFileError] = useState('')
   const today = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date())
@@ -123,9 +125,14 @@ export default function Contact() {
     setAttachment(file)
   }
   const onSubmit = async (values: ContactValues) => {
-    setSent(false)
-    await submitContact({ name: values.fullName, email: values.email, subject: values.subject, message: values.message })
-    setSent(true)
+    setSent('')
+    setSubmitError('')
+    try {
+      setSent(await submitContact({ ...values, website: honeypot }, attachment))
+    } catch (caught) {
+      setSubmitError(caught instanceof Error ? caught.message : 'Your message could not be sent. Please try again.')
+      return
+    }
     setAttachment(undefined)
     reset()
     document.getElementById('contact-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -153,7 +160,9 @@ export default function Contact() {
         <Grid container spacing={4} alignItems="flex-start">
           <Grid size={{ xs: 12, lg: 8 }}>
             <Reveal><Paper component="form" onSubmit={handleSubmit(onSubmit)} noValidate variant="outlined" sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: 4 }}>
-              {sent && <Alert severity="success" icon={<CheckCircleIcon />} sx={{ mb: 3 }}><strong>Message submitted.</strong> Thank you for contacting Iman Logistics.</Alert>}
+              {sent && <Alert severity="success" icon={<CheckCircleIcon />} sx={{ mb: 3 }}><strong>Message submitted.</strong> Thank you for contacting Iman Logistics. Your reference is {sent}.</Alert>}
+              {submitError && <Alert severity="error" sx={{ mb: 3 }}>{submitError}</Alert>}
+              <Box component="input" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={honeypot} onChange={event => setHoneypot(event.target.value)} sx={{ position: 'absolute', left: '-10000px', width: 1, height: 1, opacity: 0 }} />
               <Grid container spacing={2.5}>
                 <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Full Name" autoComplete="name" {...register('fullName')} error={!!errors.fullName} helperText={errors.fullName?.message} /></Grid>
                 <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Company (optional)" autoComplete="organization" {...register('company')} error={!!errors.company} helperText={errors.company?.message} /></Grid>

@@ -1,5 +1,20 @@
-import axios from 'axios'
-export type ContactPayload = { name: string; email: string; subject: string; message: string }
-export async function submitContact(payload: ContactPayload) {
-  await axios.post('/api/contact', payload).catch(async () => { await new Promise(resolve => setTimeout(resolve, 700)) })
+import { callFunction, fileMeta, uploadToSlot } from './api'
+
+export type ContactPayload = {
+  fullName: string
+  company?: string
+  email: string
+  phone: string
+  subject: string
+  message: string
+  preferredMethod: string
+  service: string
+  consent: boolean
+  website?: string
+}
+
+export async function submitContact(payload: ContactPayload, attachment?: File) {
+  const result = await callFunction<{ reference: string; upload: { path: string; token: string } | null }>('submit-contact', { ...payload, attachment: fileMeta(attachment) })
+  await uploadToSlot(result.upload, attachment)
+  return result.reference
 }

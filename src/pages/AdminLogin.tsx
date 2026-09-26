@@ -3,10 +3,9 @@ import { Alert, Box, Button, Container, Dialog, DialogActions, DialogContent, Di
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth, type AppRole } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-
-const passwordRecoveryEmail = 'rodriguemedor@yahoo.fr'
+import { callFunction } from '../services/api'
 
 export default function AdminLogin() {
   const { configured, user, profile, signIn } = useAuth()
@@ -20,7 +19,7 @@ export default function AdminLogin() {
   const [recoveryOpen, setRecoveryOpen] = useState(false)
   const [recoveryEmail, setRecoveryEmail] = useState('')
 
-  if (user && profile) return <Navigate to={profile.role === 'super_admin' ? '/tracking/admin/work-orders/' : '/tracking/team/work-orders/'} replace />
+  if (user && profile) return <Navigate to={profile.role === 'employee' ? '/tracking/team/work-orders/' : '/admin/'} replace />
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -30,18 +29,18 @@ export default function AdminLogin() {
     setSubmitting(false)
     if (message) return setError(message)
     const normalizedLogin = email.trim().toLowerCase()
-    let role: 'super_admin' | 'employee' = ['superadmin', 'superadmin@imanlogistics.com'].includes(normalizedLogin) && import.meta.env.DEV
+    let role: AppRole = ['superadmin', 'superadmin@imanlogistics.com'].includes(normalizedLogin) && import.meta.env.DEV
       ? 'super_admin'
       : 'employee'
     if (supabase) {
       const { data: authData } = await supabase.auth.getUser()
       if (authData.user) {
         const { data: signedInProfile } = await supabase.from('profiles').select('role').eq('id', authData.user.id).single()
-        role = signedInProfile?.role === 'super_admin' ? 'super_admin' : 'employee'
+        role = signedInProfile?.role === 'super_admin' || signedInProfile?.role === 'admin' ? signedInProfile.role : 'employee'
       }
     }
     const requested = (location.state as { from?: string } | null)?.from
-    navigate(role === 'super_admin' ? requested || '/tracking/admin/work-orders/' : '/tracking/team/work-orders/', { replace: true })
+    navigate(role === 'employee' ? '/tracking/team/work-orders/' : requested || '/admin/', { replace: true })
   }
 
   const resetPassword = async () => {
@@ -51,17 +50,16 @@ export default function AdminLogin() {
       .toLowerCase()
     setError('')
     setNotice('')
-    if (resetEmail.toLowerCase() !== passwordRecoveryEmail) {
-      return setError('Password recovery is restricted to the authorized super-admin account.')
-    }
     if (!supabase) return setError('Password recovery is not configured.')
     setSubmitting(true)
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: `${window.location.origin}/admin/reset-password/`,
-    })
-    setSubmitting(false)
-    if (resetError) return setError(resetError.message)
-    setNotice('Password reset email sent. Open the secure link in that email to choose a new password.')
+    try {
+      const result = await callFunction<{ message: string }>('request-password-reset', { email: resetEmail })
+      setNotice(result.message)
+    } catch (caught) {
+      return setError(caught instanceof Error ? caught.message : 'Password recovery is unavailable.')
+    } finally {
+      setSubmitting(false)
+    }
     setRecoveryOpen(false)
     setRecoveryEmail('')
   }

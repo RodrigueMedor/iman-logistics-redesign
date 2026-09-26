@@ -1,3 +1,5 @@
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+
 export type TrackingEvent = {
   label: string
   location: string
@@ -149,8 +151,76 @@ export function saveManagedShipment(shipment: ShipmentTracking): ShipmentTrackin
   return next
 }
 
+type ShipmentRow = {
+  id: string
+  reference: string
+  status: ShipmentStatus
+  origin: string
+  destination: string
+  estimated_delivery: string
+  progress: number
+  events: TrackingEvent[]
+  customer?: string
+  carrier?: string
+  internal_notes?: string
+  updated_at: string
+}
+
+const formatUpdated = (value: string) => new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+
+const fromRow = (row: ShipmentRow): ShipmentTracking => ({
+  reference: row.reference,
+  status: row.status,
+  origin: row.origin,
+  destination: row.destination,
+  estimatedDelivery: row.estimated_delivery,
+  progress: row.progress,
+  lastUpdated: formatUpdated(row.updated_at),
+  events: row.events || [],
+  customer: row.customer,
+  carrier: row.carrier,
+  internalNotes: row.internal_notes,
+})
+
+// Without Supabase (local demo mode) shipments live in this browser only.
+export const shipmentsAreShared = isSupabaseConfigured
+
+export async function listShipments(): Promise<ShipmentTracking[]> {
+  if (!supabase) return getManagedShipments()
+  const { data, error } = await supabase.from('shipments').select('*').order('updated_at', { ascending: false })
+  if (error) throw error
+  return ((data || []) as ShipmentRow[]).map(fromRow)
+}
+
+export async function saveShipment(shipment: ShipmentTracking, isNew: boolean): Promise<ShipmentTracking[]> {
+  if (!supabase) return saveManagedShipment(shipment)
+  const payload = {
+    reference: shipment.reference.trim().toUpperCase(),
+    status: shipment.status,
+    origin: shipment.origin,
+    destination: shipment.destination,
+    estimated_delivery: shipment.estimatedDelivery,
+    progress: shipment.progress,
+    events: shipment.events,
+    customer: shipment.customer ?? '',
+    carrier: shipment.carrier ?? '',
+    internal_notes: shipment.internalNotes ?? '',
+  }
+  const { error } = isNew
+    ? await supabase.from('shipments').insert(payload)
+    : await supabase.from('shipments').update(payload).eq('reference', payload.reference)
+  if (error?.code === '23505') throw new Error(`Shipment ${payload.reference} already exists.`)
+  if (error) throw error
+  return listShipments()
+}
+
 export async function trackShipment(reference: string): Promise<ShipmentTracking | null> {
-  // This demo adapter is ready to be replaced with a carrier or TMS API request.
+  if (supabase) {
+    const { data, error } = await supabase.rpc('track_shipment', { p_reference: reference })
+    if (error) throw error
+    return data ? fromRow(data as ShipmentRow) : null
+  }
+  // Demo adapter used when Supabase is not configured.
   await new Promise(resolve => window.setTimeout(resolve, 650))
   return getManagedShipments().find(item => item.reference === reference) ?? null
 }

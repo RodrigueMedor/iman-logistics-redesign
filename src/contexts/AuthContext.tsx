@@ -3,7 +3,8 @@ import type { Session, User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { getDemoEmployees } from '../services/demoAuth'
 
-export type AppRole = 'super_admin' | 'employee'
+export type AppRole = 'super_admin' | 'admin' | 'employee'
+export const backOfficeRoles: AppRole[] = ['super_admin', 'admin']
 export type UserProfile = {
   id: string
   full_name: string
