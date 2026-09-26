@@ -1,18 +1,18 @@
 import { Button } from '@mui/material'
-import { FREIGHT_DISPATCH_URL } from '../../config/links'
+import { Link as RouterLink } from 'react-router-dom'
 
+// Opens the Freight Broker Masterclass registration form.
 export function BuyButton() {
   return (
     <Button
-      href={FREIGHT_DISPATCH_URL}
-      target="_blank"
-      rel="noopener noreferrer"
+      component={RouterLink}
+      to="/freight-broker-masterclass/#register"
       variant="contained"
       color="secondary"
       size="large"
       sx={{ minWidth: 220, fontSize: 17 }}
     >
-      Visit Masterclass Website ↗
+      Visit Masterclass Website
     </Button>
   )
 }

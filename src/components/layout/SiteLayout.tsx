@@ -9,8 +9,23 @@ import { ManagedSections } from '../common/ManagedSections'
 const pageName = (pathname: string) => pathname === '/' ? 'home' : pathname.split('/').filter(Boolean)[0] || 'home'
 
 export function SiteLayout() {
-  const { pathname } = useLocation()
-  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  const { pathname, hash } = useLocation()
+  // New page: go to the top, or to the #section in the link once the
+  // (lazy-loaded) page has rendered it.
+  useEffect(() => {
+    if (!hash) {
+      window.scrollTo(0, 0)
+      return
+    }
+    let attempts = 0
+    const timer = window.setInterval(() => {
+      const target = document.getElementById(decodeURIComponent(hash.slice(1)))
+      attempts += 1
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      if (target || attempts >= 30) window.clearInterval(timer)
+    }, 100)
+    return () => window.clearInterval(timer)
+  }, [pathname, hash])
   return <>
     <Box component="a" href="#main" sx={{ position: 'fixed', top: -100, left: 8, zIndex: 2000, bgcolor: 'background.paper', color: 'text.primary', p: 1, '&:focus': { top: 8 } }}>Skip to content</Box>
     <Header />
