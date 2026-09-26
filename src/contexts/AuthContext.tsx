@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { Session, User } from '@supabase/supabase-js'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { getDemoEmployees } from '../services/demoAuth'
+import { api } from '../services/api'
 
 export type AppRole = 'super_admin' | 'admin' | 'employee'
 export const backOfficeRoles: AppRole[] = ['super_admin', 'admin']
@@ -61,8 +62,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null)
       return
     }
-    const { data } = await supabase.from('profiles').select('id, full_name, role, active').eq('id', userId).maybeSingle()
-    setProfile((data as UserProfile | null) ?? null)
+    try {
+      const me = await api<{ id: string; fullName: string; role: AppRole }>('/admin/me', { auth: true })
+      setProfile({ id: me.id, full_name: me.fullName, role: me.role, active: true })
+    } catch {
+      // No active staff profile (or the API is unreachable): treat as no access.
+      setProfile(null)
+    }
   }
 
   useEffect(() => {

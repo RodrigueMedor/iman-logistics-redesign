@@ -44,7 +44,6 @@ export type RecordsConfig = {
   canonical: string
   idKey?: string
   titleKey: string
-  searchColumns: string[]
   searchPlaceholder: string
   columns: Column[]
   details: Column[]
@@ -52,7 +51,6 @@ export type RecordsConfig = {
   notes?: boolean
   file?: { pathKey: string; nameKey: string; label: string }
   deletable?: boolean
-  orderBy?: { column: string; ascending?: boolean }
   csvName: string
   headerAction?: (reload: () => void) => ReactNode
   renderDetail?: (row: RecordRow, reload: () => void) => ReactNode
@@ -88,7 +86,7 @@ export function RecordsPage(config: RecordsConfig) {
     setLoading(true)
     setError('')
     try {
-      const result = await listRecords({ table: config.table, search: debouncedSearch, searchColumns: config.searchColumns, filters, orderBy: config.orderBy ?? { column: 'created_at' }, page, pageSize })
+      const result = await listRecords({ table: config.table, search: debouncedSearch, filters, page, pageSize })
       setRows(result.rows)
       setCount(result.count)
       setSelected(current => current ? result.rows.find(row => row[idKey] === current[idKey]) ?? current : null)
@@ -97,7 +95,7 @@ export function RecordsPage(config: RecordsConfig) {
     } finally {
       setLoading(false)
     }
-  }, [config.table, config.searchColumns, config.orderBy, debouncedSearch, filters, page, idKey])
+  }, [config.table, debouncedSearch, filters, page, idKey])
 
   useEffect(() => { void load() }, [load])
 

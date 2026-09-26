@@ -6,7 +6,7 @@ import SendOutlinedIcon from '@mui/icons-material/SendOutlined'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import { callFunction, fileMeta, uploadToSlot } from '../../services/api'
+import { api, fileMeta, uploadToSlot } from '../../services/api'
 
 const schema = z.object({
   position: z.string().min(1, 'Select a position'),
@@ -45,7 +45,7 @@ export function ApplicationForm({ positions, position, onPositionChange }: { pos
     setReference('')
     setSubmitError('')
     try {
-      const result = await callFunction<{ reference: string; upload: { path: string; token: string } | null }>('submit-application', { ...values, website: honeypot, resume: fileMeta(resume) })
+      const result = await api<{ reference: string; upload: { path: string; token: string } | null }>('/job-applications', { body: { ...values, website: honeypot, resume: fileMeta(resume) } })
       await uploadToSlot(result.upload, resume)
       setReference(result.reference)
       document.getElementById('apply')?.scrollIntoView({ behavior: 'smooth', block: 'start' })

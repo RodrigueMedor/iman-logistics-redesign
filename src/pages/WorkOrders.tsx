@@ -94,7 +94,7 @@ export default function WorkOrders() {
         statusHistory: existing?.statusHistory ?? [{ id: `EVENT-${Date.now()}`, status: form.status, actor: profile?.full_name || 'Super Admin', createdAt: new Date().toISOString(), detail: 'Work order created and assigned.' }],
       }
       if (!user?.id) throw new Error('Your administrator session is unavailable. Sign in again.')
-      await saveAdminWorkOrder(saved, user.id)
+      await saveAdminWorkOrder(saved)
       await loadData()
       setEditingId(saved.id)
       setForm(({ ...saved }))
@@ -124,7 +124,7 @@ export default function WorkOrders() {
     }
     try {
       if (!user?.id) throw new Error('Your administrator session is unavailable. Sign in again.')
-      await saveAdminWorkOrder(updated, user.id)
+      await saveAdminWorkOrder(updated)
       await loadData()
     } catch (caught) {
       setMessage(caught instanceof Error ? caught.message : 'Unable to update work-order status.')

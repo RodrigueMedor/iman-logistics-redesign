@@ -1,6 +1,6 @@
 import type { Dayjs } from 'dayjs'
-import { supabase } from '../../lib/supabase'
-import { callFunction } from '../../services/api'
+import { isSupabaseConfigured } from '../../lib/supabase'
+import { api } from '../../services/api'
 import type { ConsultationService } from './consultationData'
 
 export type BookingPayload = {
@@ -18,12 +18,15 @@ export type BookingPayload = {
 
 export async function createBooking(payload: BookingPayload) {
   const { service, date, ...details } = payload
-  return callFunction<{ reference: string }>('submit-booking', { ...details, serviceId: service.id, date: date.format('YYYY-MM-DD') })
+  return api<{ reference: string; paymentRequired: boolean }>('/bookings', { body: { ...details, serviceId: service.id, date: date.format('YYYY-MM-DD') } })
 }
 
 export async function getBookedSlots(date: Dayjs): Promise<string[]> {
-  if (!supabase) return []
-  const { data, error } = await supabase.rpc('consultation_booked_slots', { p_date: date.format('YYYY-MM-DD') })
-  if (error) return []
-  return (data as string[] | null) ?? []
+  if (!isSupabaseConfigured) return []
+  try {
+    const result = await api<{ bookedTimes: string[] }>(`/bookings/availability?date=${date.format('YYYY-MM-DD')}`)
+    return result.bookedTimes
+  } catch {
+    return []
+  }
 }

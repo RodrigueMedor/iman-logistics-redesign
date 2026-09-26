@@ -5,7 +5,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { useAuth, type AppRole } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { callFunction } from '../services/api'
+import { api } from '../services/api'
 
 export default function AdminLogin() {
   const { configured, user, profile, signIn } = useAuth()
@@ -33,10 +33,10 @@ export default function AdminLogin() {
       ? 'super_admin'
       : 'employee'
     if (supabase) {
-      const { data: authData } = await supabase.auth.getUser()
-      if (authData.user) {
-        const { data: signedInProfile } = await supabase.from('profiles').select('role').eq('id', authData.user.id).single()
-        role = signedInProfile?.role === 'super_admin' || signedInProfile?.role === 'admin' ? signedInProfile.role : 'employee'
+      try {
+        role = (await api<{ role: AppRole }>('/admin/me', { auth: true })).role
+      } catch {
+        role = 'employee'
       }
     }
     const requested = (location.state as { from?: string } | null)?.from
@@ -53,7 +53,7 @@ export default function AdminLogin() {
     if (!supabase) return setError('Password recovery is not configured.')
     setSubmitting(true)
     try {
-      const result = await callFunction<{ message: string }>('request-password-reset', { email: resetEmail })
+      const result = await api<{ message: string }>('/auth/password-reset', { body: { email: resetEmail } })
       setNotice(result.message)
     } catch (caught) {
       return setError(caught instanceof Error ? caught.message : 'Password recovery is unavailable.')

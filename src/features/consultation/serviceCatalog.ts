@@ -10,3 +10,9 @@ export const serviceCatalog = [
 export const consultationSlots = ['9:00 AM', '9:30 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:30 PM', '4:00 PM'] as const
 
 export const meetingTypes = ['Google Meet', 'Zoom', 'Microsoft Teams', 'Phone Call', 'In Person'] as const
+
+// Shown before checkout and on Stripe's payment page. Confirm this wording
+// with the business before accepting live payments.
+export const bookingPaymentPolicyVersion = 'v1-consultation-prepaid'
+export const bookingPaymentPolicyText =
+  'Consultation fees are paid in advance to reserve your appointment time. To reschedule or ask about a refund, contact Iman Logistics before your appointment.'

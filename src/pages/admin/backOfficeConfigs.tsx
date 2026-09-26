@@ -19,7 +19,9 @@ export const bookingStatuses: Option[] = [
 
 export const bookingPaymentStatuses: Option[] = [
   { value: 'unpaid', label: 'Unpaid', color: 'warning' },
+  { value: 'pending', label: 'Checkout started', color: 'info' },
   { value: 'paid', label: 'Paid', color: 'success' },
+  { value: 'failed', label: 'Failed', color: 'error' },
   { value: 'refunded', label: 'Refunded' },
   { value: 'waived', label: 'Waived' },
 ]
@@ -36,8 +38,10 @@ export const applicationStatuses: Option[] = [
 
 export const paymentStatuses: Option[] = [
   { value: 'pending', label: 'Pending', color: 'warning' },
+  { value: 'processing', label: 'Processing', color: 'info' },
   { value: 'paid', label: 'Paid', color: 'success' },
   { value: 'failed', label: 'Failed', color: 'error' },
+  { value: 'canceled', label: 'Canceled' },
   { value: 'refunded', label: 'Refunded' },
 ]
 
@@ -64,7 +68,6 @@ export const contactsConfig: RecordsConfig = {
   subtitle: 'Messages sent through the Contact Us form.',
   canonical: '/admin/contacts/',
   titleKey: 'subject',
-  searchColumns: ['reference', 'full_name', 'email', 'subject', 'company', 'phone'],
   searchPlaceholder: 'Search name, email, subject, reference',
   columns: [
     { key: 'reference', label: 'Reference', render: strong('reference') },
@@ -100,9 +103,7 @@ export const bookingsConfig: RecordsConfig = {
   subtitle: 'Registrations from the Consultation booking flow.',
   canonical: '/admin/bookings/',
   titleKey: 'reference',
-  searchColumns: ['reference', 'full_name', 'email', 'service_name', 'company', 'phone'],
   searchPlaceholder: 'Search name, email, service, reference',
-  orderBy: { column: 'booking_date', ascending: false },
   columns: [
     { key: 'reference', label: 'Reference', render: strong('reference') },
     { key: 'full_name', label: 'Client' },
@@ -143,7 +144,6 @@ export const applicationsConfig: RecordsConfig = {
   subtitle: 'Applications sent from the Careers page.',
   canonical: '/admin/applications/',
   titleKey: 'full_name',
-  searchColumns: ['reference', 'full_name', 'email', 'position', 'location', 'phone'],
   searchPlaceholder: 'Search name, email, position, reference',
   columns: [
     { key: 'reference', label: 'Reference', render: strong('reference') },
@@ -178,7 +178,6 @@ export const paymentsBaseConfig: RecordsConfig = {
   subtitle: 'Payments recorded by staff. Linking a payment to a booking updates that booking’s payment status.',
   canonical: '/admin/payments/',
   titleKey: 'reference',
-  searchColumns: ['reference', 'payer_name', 'payer_email', 'description', 'provider_reference'],
   searchPlaceholder: 'Search payer, email, description, reference',
   columns: [
     { key: 'reference', label: 'Reference', render: strong('reference') },
@@ -196,7 +195,10 @@ export const paymentsBaseConfig: RecordsConfig = {
     { key: 'description', label: 'Description' },
     { key: 'amount_cents', label: 'Amount', render: row => formatMoney(Number(row.amount_cents), String(row.currency)) },
     { key: 'method', label: 'Method' },
-    { key: 'provider_reference', label: 'Receipt / transaction number' },
+    { key: 'provider', label: 'Recorded by', render: row => row.provider === 'stripe' ? 'Stripe Checkout' : 'Staff (manual)' },
+    { key: 'booking', label: 'Booking', render: row => String((row.booking as { reference?: string } | null)?.reference ?? '—') },
+    { key: 'provider_reference', label: 'Receipt / Stripe payment ID' },
+    { key: 'error_message', label: 'Payment error' },
     { key: 'paid_at', label: 'Paid at', render: row => formatDateTime(row.paid_at) },
     { key: 'created_at', label: 'Recorded', render: row => formatDateTime(row.created_at) },
     updated,
@@ -219,8 +221,6 @@ export const auditConfig: RecordsConfig = {
   subtitle: 'Every create, update, and delete across back-office data, with who made it.',
   canonical: '/admin/audit/',
   titleKey: 'action',
-  orderBy: { column: 'occurred_at', ascending: false },
-  searchColumns: ['action', 'entity_id', 'actor_email', 'actor_role'],
   searchPlaceholder: 'Search action, record ID, actor email',
   columns: [
     { key: 'occurred_at', label: 'When', render: row => formatDateTime(row.occurred_at) },
@@ -249,8 +249,6 @@ export const customersConfig: RecordsConfig = {
   canonical: '/admin/customers/',
   idKey: 'email',
   titleKey: 'full_name',
-  orderBy: { column: 'last_seen_at', ascending: false },
-  searchColumns: ['email', 'full_name', 'phone'],
   searchPlaceholder: 'Search name, email, phone',
   columns: [
     { key: 'full_name', label: 'Name', render: strong('full_name') },

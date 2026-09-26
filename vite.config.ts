@@ -9,4 +9,8 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom', 'react/jsx-runtime'],
   },
+  server: {
+    // In development the API runs separately (npm run dev:api).
+    proxy: { '/api': 'http://localhost:3001' },
+  },
 })

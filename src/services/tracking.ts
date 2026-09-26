@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { api } from './api'
 
 export type TrackingEvent = {
   label: string
@@ -187,38 +188,37 @@ export const shipmentsAreShared = isSupabaseConfigured
 
 export async function listShipments(): Promise<ShipmentTracking[]> {
   if (!supabase) return getManagedShipments()
-  const { data, error } = await supabase.from('shipments').select('*').order('updated_at', { ascending: false })
-  if (error) throw error
-  return ((data || []) as ShipmentRow[]).map(fromRow)
+  return (await api<ShipmentRow[]>('/admin/shipments', { auth: true })).map(fromRow)
 }
 
 export async function saveShipment(shipment: ShipmentTracking, isNew: boolean): Promise<ShipmentTracking[]> {
   if (!supabase) return saveManagedShipment(shipment)
-  const payload = {
-    reference: shipment.reference.trim().toUpperCase(),
+  const reference = shipment.reference.trim().toUpperCase()
+  const body = {
+    reference,
     status: shipment.status,
     origin: shipment.origin,
     destination: shipment.destination,
-    estimated_delivery: shipment.estimatedDelivery,
+    estimatedDelivery: shipment.estimatedDelivery,
     progress: shipment.progress,
     events: shipment.events,
     customer: shipment.customer ?? '',
     carrier: shipment.carrier ?? '',
-    internal_notes: shipment.internalNotes ?? '',
+    internalNotes: shipment.internalNotes ?? '',
   }
-  const { error } = isNew
-    ? await supabase.from('shipments').insert(payload)
-    : await supabase.from('shipments').update(payload).eq('reference', payload.reference)
-  if (error?.code === '23505') throw new Error(`Shipment ${payload.reference} already exists.`)
-  if (error) throw error
+  if (isNew) await api('/admin/shipments', { body, auth: true })
+  else await api(`/admin/shipments/${encodeURIComponent(reference)}`, { method: 'PUT', body, auth: true })
   return listShipments()
 }
 
 export async function trackShipment(reference: string): Promise<ShipmentTracking | null> {
   if (supabase) {
-    const { data, error } = await supabase.rpc('track_shipment', { p_reference: reference })
-    if (error) throw error
-    return data ? fromRow(data as ShipmentRow) : null
+    try {
+      return fromRow(await api<ShipmentRow>(`/tracking/${encodeURIComponent(reference)}`))
+    } catch (caught) {
+      if (caught instanceof Error && caught.message.startsWith('No shipment')) return null
+      throw caught
+    }
   }
   // Demo adapter used when Supabase is not configured.
   await new Promise(resolve => window.setTimeout(resolve, 650))

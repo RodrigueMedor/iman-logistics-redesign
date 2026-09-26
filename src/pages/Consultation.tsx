@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Accordion,
   AccordionDetails,
@@ -37,7 +37,10 @@ import { useContent } from '../contexts/ContentContext'
 import { BookingCalendar } from '../features/consultation/BookingCalendar'
 import { BookingForm, type BookingFormValues } from '../features/consultation/BookingForm'
 import { BookingSummary } from '../features/consultation/BookingSummary'
-import { Confirmation } from '../features/consultation/Confirmation'
+import { Confirmation, type ConfirmationPayment } from '../features/consultation/Confirmation'
+import { PaymentResult } from '../features/consultation/PaymentResult'
+import { startBookingCheckout } from '../services/payments'
+import { useSearchParams } from 'react-router-dom'
 import { createBooking, type BookingPayload } from '../features/consultation/bookingService'
 import { services, type ConsultationService } from '../features/consultation/consultationData'
 
@@ -96,26 +99,52 @@ export default function Consultation() {
   const [submitting, setSubmitting] = useState(false)
   const [reference, setReference] = useState('')
   const [bookingError, setBookingError] = useState('')
+  const [payment, setPayment] = useState<ConfirmationPayment>('offline')
+  const [paymentError, setPaymentError] = useState('')
+  const [signature, setSignature] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const returnState = searchParams.get('payment') || ''
+  const returnSession = searchParams.get('session_id') || ''
   const timeZone = useMemo(() => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York', [])
 
   const scrollToBooking = () => bookingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const chooseService = (selected: ConsultationService) => { setService(selected); setStep(0); setTime(''); setTimeout(scrollToBooking, 0) }
-  const restart = () => { setStep(0); setTime(''); setDetails(undefined); setReference(''); setTimeout(scrollToBooking, 0) }
+  const restart = () => { setStep(0); setTime(''); setDetails(undefined); setReference(''); setPaymentError(''); if (returnSession) setSearchParams({}, { replace: true }); setTimeout(scrollToBooking, 0) }
+  useEffect(() => { if (returnSession) setTimeout(scrollToBooking, 300) }, [returnSession])
   const payload = details ? { service, date, time, timeZone, ...details } : undefined
-  const confirm = async () => {
+  const pay = async (bookingReference: string, signedName: string) => {
+    if (!payload) return
+    setSubmitting(true)
+    setPaymentError('')
+    try {
+      // Redirects to Stripe Checkout; the page is left here on success.
+      await startBookingCheckout({ reference: bookingReference, email: payload.email, signature: signedName })
+    } catch (caught) {
+      setPaymentError(caught instanceof Error ? caught.message : 'Checkout could not be opened. Please try again.')
+      setSubmitting(false)
+    }
+  }
+  const confirm = async (signedName: string) => {
     if (!payload) return
     setSubmitting(true)
     setBookingError('')
     try {
       const result = await createBooking(payload)
       setReference(result.reference)
+      setSignature(signedName)
+      setPayment(result.paymentRequired ? 'due' : 'offline')
+      if (result.paymentRequired) {
+        setStep(3)
+        await pay(result.reference, signedName)
+        return
+      }
       setStep(3)
       setTimeout(scrollToBooking, 0)
+      setSubmitting(false)
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Your booking could not be completed. Please try again.'
       setBookingError(message)
       if (message.includes('just booked')) { setTime(''); setStep(0) }
-    } finally {
       setSubmitting(false)
     }
   }
@@ -211,6 +240,7 @@ export default function Consultation() {
         {step < 3 && <Stepper activeStep={step} alternativeLabel sx={{ maxWidth: 760, mx: 'auto', mb: 5 }}>
           {['Date & time', 'Your details', 'Review'].map(label => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}
         </Stepper>}
+        {returnSession ? <PaymentResult sessionId={returnSession} returnState={returnState} onRestart={restart} /> : <>
         {bookingError && step < 3 && <Alert severity="error" sx={{ maxWidth: 900, mx: 'auto', mb: 3 }}>{bookingError}</Alert>}
         {step === 0 && <>
           <BookingCalendar date={date} time={time} onDateChange={value => { setDate(value); setTime('') }} onTimeChange={setTime} />
@@ -218,7 +248,15 @@ export default function Consultation() {
         </>}
         {step === 1 && <Box maxWidth={900} mx="auto"><BookingForm defaultValues={details} onContinue={values => { setDetails(values); setStep(2) }} /><Button onClick={() => setStep(0)} sx={{ mt: 2 }}>Back to calendar</Button></Box>}
         {step === 2 && details && <BookingSummary service={service} date={date} time={time} timeZone={timeZone} details={details} submitting={submitting} onEdit={() => setStep(1)} onConfirm={confirm} />}
-        {step === 3 && payload && <Confirmation booking={payload as BookingPayload} reference={reference} onRestart={restart} />}
+        {step === 3 && payload && <Confirmation
+          booking={{ reference, serviceName: service.name, duration: service.duration, date, time, timeZone, meetingType: payload.meetingType, fullName: payload.fullName, email: payload.email }}
+          payment={payment}
+          paymentError={paymentError}
+          paying={submitting}
+          onPay={() => void pay(reference, signature)}
+          onRestart={restart}
+        />}
+        </>}
       </Container>
     </Box>
 

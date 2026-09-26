@@ -144,19 +144,20 @@ type WorkOrderRow = {
   status_history: WorkOrderStatusEvent[]
   created_at: string
   updated_at: string
+  assignee_name?: string
 }
 
 const formatDateTime = (value?: string | null) => value
   ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
   : ''
 
-const mapRow = (row: WorkOrderRow, employeeNames: Map<string, string>): WorkOrder => ({
+const mapRow = (row: WorkOrderRow): WorkOrder => ({
   databaseId: row.id,
   id: row.work_order_number,
   title: row.title,
   description: row.description,
   assigneeId: row.assignee_id,
-  assignee: employeeNames.get(row.assignee_id) || 'Unknown employee',
+  assignee: row.assignee_name || 'Unknown employee',
   priority: row.priority,
   status: row.status,
   dueDate: row.due_date,
@@ -178,36 +179,22 @@ const mapRow = (row: WorkOrderRow, employeeNames: Map<string, string>): WorkOrde
 
 export async function listWorkOrderEmployees(): Promise<WorkOrderEmployee[]> {
   if (!supabase) return []
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, full_name, email')
-    .eq('role', 'employee')
-    .eq('active', true)
-    .order('full_name')
-  if (error) throw error
-  return (data || []).map(item => ({ id: item.id, fullName: item.full_name, email: item.email }))
+  const rows = await api<{ id: string; full_name: string; email: string }[]>('/work-orders/employees', { auth: true })
+  return rows.map(item => ({ id: item.id, fullName: item.full_name, email: item.email }))
 }
 
 export async function listSupabaseWorkOrders(): Promise<WorkOrder[]> {
   if (!supabase) return getWorkOrders()
-  const [{ data: rows, error }, { data: profiles, error: profileError }] = await Promise.all([
-    supabase.from('work_orders').select('*').order('created_at', { ascending: false }),
-    supabase.from('profiles').select('id, full_name'),
-  ])
-  if (error) throw error
-  if (profileError) throw profileError
-  const names = new Map((profiles || []).map(item => [item.id, item.full_name]))
-  return ((rows || []) as WorkOrderRow[]).map(row => mapRow(row, names))
+  return (await api<WorkOrderRow[]>('/work-orders', { auth: true })).map(mapRow)
 }
 
-export async function saveAdminWorkOrder(workOrder: WorkOrder, adminId: string): Promise<void> {
+export async function saveAdminWorkOrder(workOrder: WorkOrder): Promise<void> {
   if (!supabase || !workOrder.assigneeId) throw new Error('Select an active employee.')
-  const payload = {
+  const body = {
     work_order_number: workOrder.id,
     title: workOrder.title,
     description: workOrder.description,
     assignee_id: workOrder.assigneeId,
-    created_by: adminId,
     priority: workOrder.priority,
     status: workOrder.status,
     due_date: workOrder.dueDate,
@@ -223,24 +210,17 @@ export async function saveAdminWorkOrder(workOrder: WorkOrder, adminId: string):
     resolution_summary: workOrder.resolutionSummary || '',
     notes: workOrder.notes || [],
     status_history: workOrder.statusHistory || [],
-    updated_at: new Date().toISOString(),
   }
-  const query = workOrder.databaseId
-    ? supabase.from('work_orders').update(payload).eq('id', workOrder.databaseId)
-    : supabase.from('work_orders').insert(payload)
-  const { error } = await query
-  if (error) throw error
+  if (workOrder.databaseId) await api(`/work-orders/${workOrder.databaseId}`, { method: 'PUT', body, auth: true })
+  else await api('/work-orders', { body, auth: true })
 }
 
 export async function saveEmployeeWorkOrder(workOrder: WorkOrder): Promise<void> {
   if (!supabase || !workOrder.databaseId) throw new Error('This work order is not connected to the shared database.')
-  const { error } = await supabase.rpc('employee_update_work_order', {
-    order_id: workOrder.databaseId,
-    next_status: workOrder.status,
-    next_notes: workOrder.notes || [],
-    next_history: workOrder.statusHistory || [],
-    next_resolution_summary: workOrder.resolutionSummary || '',
+  await api(`/work-orders/${workOrder.databaseId}/progress`, {
+    body: { status: workOrder.status, notes: workOrder.notes || [], statusHistory: workOrder.statusHistory || [], resolutionSummary: workOrder.resolutionSummary || '' },
+    auth: true,
   })
-  if (error) throw error
 }
 import { supabase } from '../lib/supabase'
+import { api } from './api'

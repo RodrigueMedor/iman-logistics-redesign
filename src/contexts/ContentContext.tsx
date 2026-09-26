@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { supabase } from '../lib/supabase'
+import { isSupabaseConfigured } from '../lib/supabase'
+import { api } from '../services/api'
+import { useAuth } from './AuthContext'
 
 export type SiteContent = {
   id: string
@@ -29,16 +31,22 @@ const ContentContext = createContext<ContentContextValue | null>(null)
 
 export function ContentProvider({ children }: { children: ReactNode }) {
   const [entries, setEntries] = useState<SiteContent[]>([])
-  const [loading, setLoading] = useState(Boolean(supabase))
+  const [loading, setLoading] = useState(isSupabaseConfigured)
+  const { profile } = useAuth()
+  const isSuperAdmin = profile?.role === 'super_admin' && profile.active
 
+  // Super admins also see unpublished sections, for the content editor.
   const refresh = async () => {
-    if (!supabase) return setLoading(false)
-    const { data } = await supabase.from('site_content').select('*').order('page').order('sort_order')
-    setEntries((data as SiteContent[] | null) ?? [])
+    if (!isSupabaseConfigured) return setLoading(false)
+    try {
+      setEntries(await api<SiteContent[]>(isSuperAdmin ? '/admin/site-content' : '/site-content', { auth: isSuperAdmin }))
+    } catch {
+      // Pages fall back to their built-in copy when content cannot be loaded.
+    }
     setLoading(false)
   }
 
-  useEffect(() => { void refresh() }, [])
+  useEffect(() => { void refresh() }, [isSuperAdmin])
 
   const value = useMemo<ContentContextValue>(() => ({
     entries,
@@ -58,7 +66,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       sort_order: fallback.sort_order ?? 0,
       published: fallback.published ?? true,
     },
-  }), [entries, loading])
+  }), [entries, loading, isSuperAdmin])
 
   return <ContentContext.Provider value={value}>{children}</ContentContext.Provider>
 }

@@ -1,8 +1,13 @@
 # Back office setup
 
-The website forms, back office (`/admin/`), employee work orders, and website
-content editor all use Supabase. Public forms post to Netlify Functions, which
-validate input and write to Supabase with the server-side secret key.
+Architecture: **React site → Iman Logistics API (Node.js/Express, `server/`) →
+Supabase (Postgres, Auth, Storage)**. Every form, the back office (`/admin/`),
+work orders, and the website content editor go through the API. Staff sign in
+with Supabase Auth; the API checks each request's token and role, and runs
+staff queries as that user so the database's row-level security still applies.
+
+API documentation (Swagger UI): `http://localhost:3001/api/docs`
+(OpenAPI JSON at `/api/openapi.json`).
 
 ## Production
 
@@ -24,11 +29,21 @@ validate input and write to Supabase with the server-side secret key.
 4. In Supabase Authentication → URL configuration, set the site URL to the
    production domain and add `https://<domain>/admin/reset-password/` as a
    redirect URL.
-5. In Netlify → Site configuration → Environment variables, add
-   `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and
-   `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`). The secret key must
-   never have a `VITE_` prefix and must never be committed.
-6. Deploy, then sign in at `/admin/login/`.
+5. Deploy the API (any Node.js 22 host, or `docker build -f Dockerfile.api .`):
+   `npm ci && npm run build:api && npm run start:api`, with the server
+   variables from `.env.example`. Secrets must never have a `VITE_` prefix and
+   must never be committed.
+6. Deploy the website (e.g. Netlify) with `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_PUBLISHABLE_KEY`. Either proxy `/api/*` to the API (see the
+   commented redirect in `netlify.toml`) or set `VITE_API_BASE_URL`.
+7. Stripe: in the Stripe Dashboard → Developers → Webhooks, add
+   `https://<api-host>/api/stripe/webhook` for `checkout.session.completed`,
+   `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
+   `checkout.session.expired`, `payment_intent.succeeded`,
+   `payment_intent.payment_failed`, and `charge.refunded`; put its signing
+   secret in `STRIPE_WEBHOOK_SECRET`. Confirm the payment policy wording in
+   `src/features/consultation/serviceCatalog.ts` first.
+8. Sign in at `/admin/login/`.
 
 ## Roles
 
@@ -45,7 +60,10 @@ Super admins create `admin` and `employee` accounts at `/admin/users/`.
 ```bash
 npx supabase start          # local Postgres, Auth, Storage (Docker)
 npx supabase db reset       # apply migrations + supabase/seed.sql
-netlify dev --port 8888     # site + Netlify Functions
+npm run dev:api             # API on http://localhost:3001 (Swagger at /api/docs)
+npm run dev                 # website on http://localhost:5173 (proxies /api)
+# optional, for Stripe without real keys:
+docker run -d -p 12111:12111 stripe/stripe-mock
 ```
 
 Put the local URL and keys printed by `npx supabase status` in

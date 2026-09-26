@@ -9,12 +9,13 @@ import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { useAuth, type UserProfile } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { api } from '../services/api'
 import { createDemoEmployee, deleteDemoEmployee, getDemoEmployees, updateDemoEmployee } from '../services/demoAuth'
 
 type TeamMember = UserProfile & { created_at?: string; email?: string }
 
 export default function AdminUsers() {
-  const { session, profile, signOut } = useAuth()
+  const { profile, signOut } = useAuth()
   const [members, setMembers] = useState<TeamMember[]>([])
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -34,8 +35,11 @@ export default function AdminUsers() {
       return
     }
     if (!supabase) return
-    const { data } = await supabase!.from('profiles').select('id, full_name, email, role, active, created_at').order('created_at')
-    setMembers((data as TeamMember[] | null) ?? [])
+    try {
+      setMembers(await api<TeamMember[]>('/admin/users', { auth: true }))
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Users could not be loaded.')
+    }
   }
   useEffect(() => { void loadMembers() }, [])
 
@@ -56,15 +60,11 @@ export default function AdminUsers() {
         await loadMembers()
         return
       }
-      const response = await fetch(editingId ? '/.netlify/functions/admin-manage-user' : '/.netlify/functions/admin-create-user', {
-        method: editingId ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ id: editingId || undefined, fullName: fullName.trim(), email: email.trim(), password: password || undefined, role }),
-      })
-      const responseText = await response.text()
-      const result = responseText ? JSON.parse(responseText) as { error?: string; message?: string } : {}
-      if (!response.ok) throw new Error(result.error || 'Unable to create user.')
-      setMessage(result.message || (editingId ? 'Employee updated.' : 'Employee account created.'))
+      const body = { fullName: fullName.trim(), email: email.trim(), password: password || undefined, role }
+      const result = editingId
+        ? await api<{ message: string }>(`/admin/users/${editingId}`, { method: 'PATCH', body, auth: true })
+        : await api<{ message: string }>('/admin/users', { body, auth: true })
+      setMessage(result.message || (editingId ? 'User updated.' : 'Account created.'))
       resetForm()
       await loadMembers()
     } catch (caught) {
@@ -79,9 +79,7 @@ export default function AdminUsers() {
     try {
       if (!supabase && import.meta.env.DEV) updateDemoEmployee(member.id, { active: !member.active })
       else {
-        const response = await fetch('/.netlify/functions/admin-manage-user', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ id: member.id, active: !member.active }) })
-        const result = await response.json() as { error?: string }
-        if (!response.ok) throw new Error(result.error || 'Unable to update access.')
+        await api(`/admin/users/${member.id}`, { method: 'PATCH', body: { active: !member.active }, auth: true })
       }
       setMessage(member.active ? 'Employee access suspended.' : 'Employee access restored.')
       await loadMembers()
@@ -94,9 +92,7 @@ export default function AdminUsers() {
     try {
       if (!supabase && import.meta.env.DEV) deleteDemoEmployee(member.id)
       else {
-        const response = await fetch('/.netlify/functions/admin-manage-user', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` }, body: JSON.stringify({ id: member.id }) })
-        const result = await response.json() as { error?: string }
-        if (!response.ok) throw new Error(result.error || 'Unable to delete employee.')
+        await api(`/admin/users/${member.id}`, { method: 'DELETE', auth: true })
       }
       setMessage('Employee deleted.')
       if (editingId === member.id) resetForm()

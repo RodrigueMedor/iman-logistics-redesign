@@ -3,8 +3,7 @@ import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogT
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import { RecordsPage } from '../../features/backoffice/RecordsPage'
-import { supabase } from '../../lib/supabase'
-import { formatDateTime, formatMoney, insertRecord, recordsForEmail, updateRecord, type RecordRow } from '../../services/backoffice'
+import { formatDateTime, formatMoney, recordsForEmail, savePayment, type RecordRow } from '../../services/backoffice'
 import { applicationsConfig, auditConfig, bookingsConfig, contactsConfig, customersConfig, paymentMethods, paymentsBaseConfig, paymentStatuses } from './backOfficeConfigs'
 
 export function ContactsPage() { return <RecordsPage {...contactsConfig} /> }
@@ -58,7 +57,7 @@ function toForm(payment?: RecordRow): PaymentForm {
     method: String(payment?.method ?? 'card'),
     status: String(payment?.status ?? 'paid'),
     provider_reference: String(payment?.provider_reference ?? ''),
-    booking_reference: '',
+    booking_reference: String((payment?.booking as { reference?: string } | null)?.reference ?? ''),
   }
 }
 
@@ -69,13 +68,8 @@ function PaymentButton({ payment, onSaved }: { payment?: RecordRow; onSaved: () 
   const [saving, setSaving] = useState(false)
   const update = (key: keyof PaymentForm, value: string) => setForm(current => ({ ...current, [key]: value }))
 
-  const start = async () => {
-    const next = toForm(payment)
-    if (payment?.booking_id && supabase) {
-      const { data } = await supabase.from('consultation_bookings').select('reference').eq('id', payment.booking_id as string).maybeSingle()
-      next.booking_reference = data?.reference ?? ''
-    }
-    setForm(next)
+  const start = () => {
+    setForm(toForm(payment))
     setError('')
     setOpen(true)
   }
@@ -86,13 +80,7 @@ function PaymentButton({ payment, onSaved }: { payment?: RecordRow; onSaved: () 
     setSaving(true)
     setError('')
     try {
-      let bookingId: string | null = null
-      if (form.booking_reference.trim() && supabase) {
-        const { data } = await supabase.from('consultation_bookings').select('id').eq('reference', form.booking_reference.trim().toUpperCase()).maybeSingle()
-        if (!data) throw new Error('No booking has that reference.')
-        bookingId = data.id
-      }
-      const values = {
+      await savePayment({
         payer_name: form.payer_name.trim(),
         payer_email: form.payer_email.trim().toLowerCase(),
         description: form.description.trim(),
@@ -101,10 +89,8 @@ function PaymentButton({ payment, onSaved }: { payment?: RecordRow; onSaved: () 
         method: form.method,
         status: form.status,
         provider_reference: form.provider_reference.trim(),
-        booking_id: bookingId,
-      }
-      if (payment?.id) await updateRecord('payments', payment.id, values)
-      else await insertRecord('payments', values)
+        booking_reference: form.booking_reference.trim() || undefined,
+      }, payment?.id)
       setOpen(false)
       onSaved()
     } catch (caught) {
@@ -115,9 +101,11 @@ function PaymentButton({ payment, onSaved }: { payment?: RecordRow; onSaved: () 
   }
 
   return <>
-    {payment
-      ? <Button variant="outlined" startIcon={<EditOutlinedIcon />} onClick={() => void start()} sx={{ mt: 2 }}>Edit payment details</Button>
-      : <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => void start()}>Record payment</Button>}
+    {payment?.provider === 'stripe'
+      ? <Alert severity="info" sx={{ mt: 2 }}>Paid through Stripe Checkout. Amount and status are updated by Stripe; issue refunds in the Stripe Dashboard.</Alert>
+      : payment
+        ? <Button variant="outlined" startIcon={<EditOutlinedIcon />} onClick={start} sx={{ mt: 2 }}>Edit payment details</Button>
+        : <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={start}>Record payment</Button>}
     <Dialog open={open} onClose={() => !saving && setOpen(false)} fullWidth maxWidth="sm">
       <DialogTitle fontWeight={900}>{payment ? `Edit ${String(payment.reference)}` : 'Record a payment'}</DialogTitle>
       <DialogContent>
@@ -128,7 +116,7 @@ function PaymentButton({ payment, onSaved }: { payment?: RecordRow; onSaved: () 
           <Grid size={{ xs: 8, sm: 4 }}><TextField fullWidth required type="number" label="Amount" value={form.amount} onChange={event => update('amount', event.target.value)} slotProps={{ htmlInput: { min: 0, step: '0.01' } }} /></Grid>
           <Grid size={{ xs: 4, sm: 2 }}><TextField fullWidth label="Currency" value={form.currency} onChange={event => update('currency', event.target.value)} slotProps={{ htmlInput: { maxLength: 3 } }} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}><TextField select fullWidth label="Method" value={form.method} onChange={event => update('method', event.target.value)}>{paymentMethods.map(item => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}</TextField></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><TextField select fullWidth label="Status" value={form.status} onChange={event => update('status', event.target.value)}>{paymentStatuses.map(item => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}</TextField></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><TextField select fullWidth label="Status" value={form.status} onChange={event => update('status', event.target.value)}>{paymentStatuses.filter(item => ['pending', 'paid', 'failed', 'refunded'].includes(item.value)).map(item => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}</TextField></Grid>
           <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Receipt / transaction number" value={form.provider_reference} onChange={event => update('provider_reference', event.target.value)} /></Grid>
           <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Booking reference (optional)" placeholder="BKG-2609-…" value={form.booking_reference} onChange={event => update('booking_reference', event.target.value)} /></Grid>
         </Grid>

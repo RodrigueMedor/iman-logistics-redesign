@@ -4,7 +4,8 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined'
-import { supabase } from '../lib/supabase'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { api } from '../services/api'
 import { useContent, type SiteContent } from '../contexts/ContentContext'
 import { Seo } from '../components/common/Seo'
 import { contentPages } from '../config/contentPages'
@@ -29,24 +30,30 @@ export default function AdminContent() {
 
   const save = async (event: FormEvent) => {
     event.preventDefault()
-    if (!supabase) return setError('Supabase is required to save website content.')
+    if (!isSupabaseConfigured) return setError('Supabase is required to save website content.')
     setSaving(true); setError(''); setMessage('')
-    const { id, updated_at: _updatedAt, ...fields } = editing
-    const payload = { ...fields, section_key: fields.section_key?.trim(), updated_at: new Date().toISOString() }
-    const result = id
-      ? await supabase.from('site_content').update(payload).eq('id', id)
-      : await supabase.from('site_content').insert(payload)
+    const { id, updated_at: _updatedAt, created_at: _createdAt, ...fields } = editing as Partial<SiteContent> & { created_at?: string }
+    const body = { ...fields, section_key: fields.section_key?.trim() }
+    try {
+      if (id) await api(`/admin/site-content/${id}`, { method: 'PUT', body, auth: true })
+      else await api('/admin/site-content', { body, auth: true })
+    } catch (caught) {
+      setSaving(false)
+      return setError(caught instanceof Error ? caught.message : 'Content could not be saved.')
+    }
     setSaving(false)
-    if (result.error) return setError(result.error.message)
     setMessage(id ? 'Content updated and published.' : 'Content section created.')
     reset()
     await refresh()
   }
 
   const remove = async (entry: SiteContent) => {
-    if (!supabase || !window.confirm(`Delete “${entry.section_label || entry.title}” permanently?`)) return
-    const { error: deleteError } = await supabase.from('site_content').delete().eq('id', entry.id)
-    if (deleteError) return setError(deleteError.message)
+    if (!isSupabaseConfigured || !window.confirm(`Delete “${entry.section_label || entry.title}” permanently?`)) return
+    try {
+      await api(`/admin/site-content/${entry.id}`, { method: 'DELETE', auth: true })
+    } catch (caught) {
+      return setError(caught instanceof Error ? caught.message : 'Content could not be deleted.')
+    }
     setMessage('Content section deleted.')
     if (editing.id === entry.id) reset()
     await refresh()
@@ -54,13 +61,17 @@ export default function AdminContent() {
 
   const upload = async (file: File) => {
     if (!supabase) return setError('Supabase storage is not configured.')
+    setError('')
     setMessage('Uploading image…')
-    const extension = file.name.split('.').pop() || 'jpg'
-    const path = `website/${crypto.randomUUID()}.${extension}`
-    const result = await supabase.storage.from('website-media').upload(path, file)
-    if (result.error) return setError(result.error.message)
-    const { data } = supabase.storage.from('website-media').getPublicUrl(path)
-    setEditing(current => ({ ...current, image_url: data.publicUrl }))
+    try {
+      const slot = await api<{ path: string; token: string; publicUrl: string }>('/admin/site-content/image-uploads', { body: { name: file.name, type: file.type, size: file.size }, auth: true })
+      const { error: uploadError } = await supabase.storage.from('website-media').uploadToSignedUrl(slot.path, slot.token, file, { contentType: file.type })
+      if (uploadError) throw uploadError
+      setEditing(current => ({ ...current, image_url: slot.publicUrl }))
+    } catch (caught) {
+      setMessage('')
+      return setError(caught instanceof Error ? caught.message : 'The image could not be uploaded.')
+    }
     setMessage('Image uploaded. Save the content section to publish it.')
   }
 
