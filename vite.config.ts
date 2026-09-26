@@ -11,6 +11,6 @@ export default defineConfig({
   },
   server: {
     // In development the API runs separately (npm run dev:api).
-    proxy: { '/api': 'http://localhost:3001' },
+    proxy: { '/api': 'http://localhost:3001', '/runtime-config.js': 'http://localhost:3001' },
   },
 })

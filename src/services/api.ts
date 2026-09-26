@@ -1,10 +1,11 @@
+import { runtimeConfig } from '../lib/runtimeConfig'
 import { supabase } from '../lib/supabase'
 
 type UploadSlot = { path: string; token: string } | null
 
 // The API lives at /api on the same origin (Vite proxies it in development).
 // Set VITE_API_BASE_URL when the API is hosted on another domain.
-const apiBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+const apiBase = runtimeConfig.apiBaseUrl.replace(/\/+$/, '')
 export const apiUrl = (path: string) => `${apiBase}/api${path}`
 
 // Calls the Iman Logistics API. `auth` sends the signed-in user's Supabase

@@ -10,15 +10,11 @@ import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { Reveal } from '../components/common/Reveal'
 import DispatchMasterclass from './DispatchMasterclass'
-import truckHighway from '../assets/videos/truck-highway-banner.mp4'
-import truckCanyon from '../assets/videos/truck-canyon-road.mp4'
-import truckPort from '../assets/videos/truck-port-road.mp4'
+import truckHighwayBranded from '../assets/videos/truck-highway-branded.mp4'
 import { useContent } from '../contexts/ContentContext'
 
 const heroVideos = [
-  [truckHighway, 'Truck driving through a mountain highway'],
-  [truckCanyon, 'Aerial view of a truck crossing a canyon road'],
-  [truckPort, 'Truck driving away through a freight port'],
+  [truckHighwayBranded, 'Iman Logistics truck driving through a mountain highway'],
 ] as const
 
 const services = [
@@ -48,10 +44,10 @@ export default function Home() {
         key={heroVideos[activeVideo][0]}
         component="video"
         autoPlay
+        loop
         muted
         playsInline
         preload="auto"
-        onEnded={() => setActiveVideo(current => (current + 1) % heroVideos.length)}
         aria-hidden="true"
         sx={{
           position: 'absolute',
@@ -81,7 +77,7 @@ export default function Home() {
           </Stack>
         </Reveal>
 
-        <Stack direction="row" spacing={1} sx={{ mt: { xs: 7, md: 9 } }} aria-label="Choose background video">
+        {heroVideos.length > 1 && <Stack direction="row" spacing={1} sx={{ mt: { xs: 7, md: 9 } }} aria-label="Choose background video">
           {heroVideos.map(([, description], index) => (
             <Box
               component="button"
@@ -102,7 +98,7 @@ export default function Home() {
               }}
             />
           ))}
-        </Stack>
+        </Stack>}
 
       </Container>
     </Box>

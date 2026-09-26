@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import { runtimeConfig } from './runtimeConfig'
 
-const url = import.meta.env.VITE_SUPABASE_URL
-const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+const url = runtimeConfig.supabaseUrl
+const publishableKey = runtimeConfig.supabasePublishableKey
 
 export const isSupabaseConfigured = Boolean(url && publishableKey)
 

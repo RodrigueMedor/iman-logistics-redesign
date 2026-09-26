@@ -18,6 +18,8 @@ export const config = {
   // Public form submissions allowed per IP address per 15 minutes.
   submissionRateLimit: Number(process.env.RATE_LIMIT_SUBMISSIONS || 20),
   swaggerEnabled: process.env.SWAGGER_ENABLED !== 'false',
+  // Serve the built website (dist/) from this process. Off for `npm run dev:api`.
+  serveWebsite: process.env.SERVE_WEBSITE !== 'false',
   // Email via Resend and SMS via Twilio; each is skipped until configured.
   resendApiKey: process.env.RESEND_API_KEY || '',
   emailFrom: process.env.EMAIL_FROM || 'Iman Logistics <info@imanlogistics.com>',
