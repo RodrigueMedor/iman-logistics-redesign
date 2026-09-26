@@ -21,7 +21,7 @@ export function serveWebsite(app: Express, distDir: string) {
     return false
   }
 
-  app.use('/assets', express.static(path.join(distDir, 'assets'), { immutable: true, maxAge: '1y', fallthrough: false }))
+  app.use('/assets', express.static(path.join(distDir, 'assets'), { immutable: true, maxAge: '1y' }))
   app.use(express.static(distDir, { index: false, maxAge: '1h' }))
 
   app.get(/^(?!\/api\/).*/, (req, res, next) => {

@@ -29,15 +29,18 @@ API documentation (Swagger UI): `http://localhost:3001/api/docs`
 4. In Supabase Authentication → URL configuration, set the site URL to the
    production domain and add `https://<domain>/admin/reset-password/` as a
    redirect URL.
-5. Deploy the API (any Node.js 22 host, or `docker build -f Dockerfile.api .`):
-   `npm ci && npm run build:api && npm run start:api`, with the server
-   variables from `.env.example`. Secrets must never have a `VITE_` prefix and
-   must never be committed.
-6. Deploy the website (e.g. Netlify) with `VITE_SUPABASE_URL` and
-   `VITE_SUPABASE_PUBLISHABLE_KEY`. Either proxy `/api/*` to the API (see the
-   commented redirect in `netlify.toml`) or set `VITE_API_BASE_URL`.
+5. Deploy to Hostinger (Node.js 22). One process serves the website and the
+   API: `npm ci && npm run build && npm start` (entry file `server.js`; with
+   pm2: `pm2 startOrReload ecosystem.config.cjs --update-env`). Set the
+   variables from `.env.example` in hPanel, or in a `.env` file next to
+   `server.js` (loaded automatically, never committed). Set `APP_URL` and
+   `CORS_ORIGINS` to the public `https://` address. The browser gets
+   `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at runtime from
+   `/runtime-config.js`, so they are needed on the server, not at build time.
+   Secrets must never have a `VITE_` prefix and must never be committed.
+6. Check `https://<domain>/api/health` reports `database: true`.
 7. Stripe: in the Stripe Dashboard → Developers → Webhooks, add
-   `https://<api-host>/api/stripe/webhook` for `checkout.session.completed`,
+   `https://<domain>/api/stripe/webhook` for `checkout.session.completed`,
    `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
    `checkout.session.expired`, `payment_intent.succeeded`,
    `payment_intent.payment_failed`, and `charge.refunded`; put its signing

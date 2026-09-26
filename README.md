@@ -22,21 +22,19 @@ npm run dev       # site → http://localhost:5173
 
 See `SUPER_ADMIN_SETUP.md` for database, roles, deployment, and Stripe setup.
 
-## Production build
+## Production build and hosting (Hostinger)
 
 ```bash
-npm run build
+npm run build     # website → dist/, API → server/dist/
+npm start         # one Node.js process serves the website and the API
 ```
 
-The production output is generated in `dist/`.
+In production a single Node.js process (`server.js`) serves the built website,
+the API, and Swagger UI, and gives the browser its Supabase settings at
+runtime through `/runtime-config.js`. On Hostinger, run it as a Node.js app
+(entry file `server.js`) or with pm2 (`pm2 startOrReload ecosystem.config.cjs`).
+See `SUPER_ADMIN_SETUP.md` for the environment variables and setup steps.
 
-## Netlify deployment
-
-This repository includes `netlify.toml` with the required build command, publish directory, Node version, and React Router SPA fallback.
-
-In Netlify:
-
-1. Import this GitHub repository.
-2. Keep the detected settings from `netlify.toml`.
-3. Select **Deploy**.
+GitHub Actions (`.github/workflows/hostinger-deploy.yml`) builds the site on
+every push and pull request to `main`.
 

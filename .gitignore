@@ -9,7 +9,6 @@ vite.config.d.ts
 .env
 .env.*
 !.env.example
-.netlify/
 .idea/
 deno.lock
 server/dist/

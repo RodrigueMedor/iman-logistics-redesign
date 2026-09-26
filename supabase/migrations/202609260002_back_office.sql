@@ -2,8 +2,7 @@
 -- view, dashboard statistics, and audit logging.
 --
 -- Public website forms never write to these tables directly. They post to
--- Netlify Functions, which validate input and insert with the server-side
--- secret key. Staff read and update records through row-level security.
+-- the API, which validates input and inserts with the server-side secret key. Staff read and update records through row-level security.
 
 create extension if not exists pgcrypto;
 

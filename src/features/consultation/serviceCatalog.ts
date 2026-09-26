@@ -1,4 +1,4 @@
-// Shared by the website and the booking Netlify Function, so the server sets
+// Shared by the website and the API server, so the server sets
 // prices and valid time slots instead of trusting the browser.
 export const serviceCatalog = [
   { id: 'brokerage', name: 'Freight Brokerage Consultation', duration: 60, price: 149 },
