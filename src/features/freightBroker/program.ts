@@ -11,14 +11,17 @@ export const FREIGHT_BROKER_PROGRAM = {
   defaultPriceCents: 52000,
 } as const
 
-export const FREIGHT_BROKER_POLICY_VERSION = 'v1-freight-broker-nonrefundable-credit-schoolcancel'
+export const FREIGHT_BROKER_POLICY_VERSION = 'v1-freight-broker-nonrefundable-credit'
 
-// Confirm this wording with the business before accepting live payments.
+// Same wording as the live Dispatcher Class Registration policy, for the
+// Freight Broker Masterclass. Confirm it with the business before going live.
 export const FREIGHT_BROKER_POLICY_TEXT =
-  'All registration payments are non-refundable. If the student cannot attend the class, the payment remains as a credit on their student account and can be used for a future Freight Broker Masterclass session. If Iman Logistics cancels or reschedules this class session, the student may choose a full refund or a credit toward a future Freight Broker Masterclass session.'
+  'All registration payments are non-refundable. If the student cannot attend the class, the payment remains as a credit on their student account and can be used for a future Freight Broker Masterclass session.'
 
 export const FREIGHT_BROKER_POLICY_CHECKBOX =
-  'I have read and agree to the Freight Broker Masterclass Registration Policy: All registration payments are non-refundable. If I cannot attend the class, my payment remains as a credit on my student account and can be used for a future Freight Broker Masterclass session. If Iman Logistics cancels or reschedules this session, I may choose a full refund or a credit toward a future session.'
+  'I have read and agree to the Freight Broker Masterclass Registration Policy: All registration payments are non-refundable. If I cannot attend the class, my payment remains as a credit on my student account and can be used for a future Freight Broker Masterclass session.'
+
+export const FREIGHT_BROKER_STEPS = ['Your information', 'Review & policy', 'Confirmation'] as const
 
 export const normalizePersonName = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ')
 export const expectedSignatureName = (firstName: string, lastName: string) => `${firstName} ${lastName}`.trim()

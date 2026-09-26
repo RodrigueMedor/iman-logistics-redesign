@@ -33,11 +33,11 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
   const now = new Date().toISOString()
   let classRow: { id: string } | null = null
   if (isUuid(input.classId)) {
-    const { data } = await db.from('freight_broker_classes').select('id').eq('id', input.classId).eq('open', true).gte('ends_at', now).maybeSingle()
+    const { data } = await db.from('freight_broker_classes').select('id').eq('id', input.classId).eq('status', 'OPEN').gte('ends_at', now).maybeSingle()
     classRow = data
   }
   if (!classRow) {
-    const { data, error } = await db.from('freight_broker_classes').select('id').eq('open', true).gte('ends_at', now).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    const { data, error } = await db.from('freight_broker_classes').select('id').eq('status', 'OPEN').gte('ends_at', now).order('created_at', { ascending: false }).limit(1).maybeSingle()
     if (error) throw error
     classRow = data
   }
@@ -72,6 +72,9 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
   if (!registration.class) throw new HttpError(409, 'This class session is no longer available. Please register again.')
   // The price comes from the class stored on the registration, never from the client.
   if (input.classId && input.classId !== registration.class.id) throw new HttpError(409, 'Class does not match the registration.')
+  // Status, deadline, and seats come from the session, checked at payment time (live rules).
+  if (registration.class.status !== 'OPEN') throw new HttpError(409, 'This class session is no longer accepting registrations.')
+  if (registration.class.registration_deadline && new Date(registration.class.registration_deadline) < new Date()) throw new HttpError(409, 'The registration deadline for this class has passed.')
   if (await classIsFull(db, registration.class.id)) throw new HttpError(409, 'This class is full.')
   if (normalizePersonName(input.paymentPolicySignature) !== normalizePersonName(`${registration.first_name} ${registration.last_name}`)) {
     throw new HttpError(400, 'Type your full legal name exactly as it appears on this form to sign the payment policy.')

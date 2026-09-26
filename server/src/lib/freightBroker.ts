@@ -1,12 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_POLICY_VERSION, FREIGHT_BROKER_PROGRAM } from '../../../src/features/freightBroker/program'
+import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM } from '../../../src/features/freightBroker/program'
 import { config } from '../config'
 import { escapeHtml, sendEmail, sendSms } from './notifications'
 
 // Freight Broker Masterclass registration helpers, adapted from the dispatcher
 // registration in the Iman Trucking School server (server-express.js).
 
-const registrationSelect = '*, class:freight_broker_classes(id, name, starts_at, ends_at, location, schedule_notes, price_cents)'
+const registrationSelect = '*, class:freight_broker_classes(id, name, status, starts_at, ends_at, registration_deadline, days_of_week, class_time, delivery_mode, location, instructor_name, price_cents)'
 
 export type RegistrationRow = {
   id: string
@@ -25,7 +25,7 @@ export type RegistrationRow = {
   payment_policy_signature: string | null
   payment_policy_accepted_at: string | null
   payment_policy_version: string | null
-  class: { id: string; name: string; starts_at: string; ends_at: string; location: string | null; schedule_notes: string | null; price_cents: number } | null
+  class: { id: string; name: string; status: string; starts_at: string; ends_at: string; registration_deadline: string | null; days_of_week: string | null; class_time: string | null; delivery_mode: 'online' | 'in_person' | null; location: string | null; instructor_name: string | null; price_cents: number } | null
 }
 
 export function makeRegistrationNo() {
@@ -66,8 +66,11 @@ export function registrationDetails(row: RegistrationRow) {
     className: row.class?.name || FREIGHT_BROKER_PROGRAM.defaultClassName,
     classStartsAt: row.class?.starts_at ?? null,
     classEndsAt: row.class?.ends_at ?? null,
+    classDaysOfWeek: row.class?.days_of_week ?? null,
+    classTime: row.class?.class_time ?? null,
+    classDeliveryMode: row.class?.delivery_mode ?? null,
     classLocation: row.class?.location ?? null,
-    classScheduleNotes: row.class?.schedule_notes ?? null,
+    classInstructor: row.class?.instructor_name ?? null,
     status: row.status,
     paymentStatus: row.payment_status,
     policyAccepted: Boolean(row.payment_policy_accepted_at),
@@ -78,83 +81,60 @@ export function registrationDetails(row: RegistrationRow) {
   }
 }
 
-const longDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('en-US', { dateStyle: 'long', timeZone: 'UTC' }) : null
-const card = (rows: string) => `<div style="background: #f5f7fb; padding: 20px; border-radius: 8px; margin: 20px 0;">${rows}</div>`
-const line = (label: string, value: string, first = false) => `<p style="margin: ${first ? '0' : '8px 0 0 0'};"><strong>${label}:</strong> ${value}</p>`
+type PaidPayment = { id: string; amount_cents: number; paid_at: string | null; stripe_payment_intent_id: string | null; stripe_checkout_session_id: string | null }
 
-// Sent once a registration payment is confirmed: registrant email, department
-// email, and registrant SMS. Each is independent, so one failing never blocks
-// the others or the payment.
-export async function sendRegistrationPaidNotifications(db: SupabaseClient, registrationId: string, amountCents: number) {
+// Same content as the live school's payment notifications
+// (buildNotificationContext / paymentNotificationEmailHtml / SMS text).
+function notificationContext(row: RegistrationRow, payment: PaidPayment) {
+  return {
+    firstName: row.first_name,
+    name: `${row.first_name} ${row.last_name}`.trim() || 'Customer',
+    amount: `$${(payment.amount_cents / 100).toFixed(2)}`,
+    program: row.class?.name || FREIGHT_BROKER_PROGRAM.defaultClassName,
+    registrationNo: row.registration_no,
+    transactionId: payment.stripe_payment_intent_id || payment.stripe_checkout_session_id || payment.id,
+    date: new Date(payment.paid_at || Date.now()).toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/New_York' }),
+    status: 'Paid',
+  }
+}
+
+type Context = ReturnType<typeof notificationContext>
+
+function paymentEmailHtml(ctx: Context, forAdmin: boolean) {
+  const line = (label: string, value: string, first = false) => `<p style="margin: ${first ? '0' : '8px 0 0 0'};"><strong>${label}:</strong> ${escapeHtml(value)}</p>`
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #0A005A;">${forAdmin ? 'New Payment Received' : 'Payment Confirmation'}</h2>
+      <p>${forAdmin ? `A payment was received from <strong>${escapeHtml(ctx.name)}</strong>.` : `Dear ${escapeHtml(ctx.firstName || 'Student')}, thank you for your payment to Iman Logistics.`}</p>
+      <div style="background: #f5f7fb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+        ${line('Name', ctx.name, true)}
+        ${line('Program/Class', ctx.program)}
+        ${line('Amount', ctx.amount)}
+        ${line('Payment Status', ctx.status)}
+        ${line('Transaction ID', ctx.transactionId)}
+        ${line('Date', ctx.date)}
+        ${line('Registration Number', ctx.registrationNo)}
+      </div>
+      ${forAdmin ? `<p>Review this registration in the <a href="${new URL('/admin/freight-broker/', config.appUrl)}">back office</a>.</p>` : ''}
+      <p>Best regards,<br>Iman Logistics</p>
+    </div>`
+}
+
+const smsText = (ctx: Context, forAdmin: boolean) => forAdmin
+  ? `Iman Logistics: payment received from ${ctx.name} for ${ctx.program}, ${ctx.amount}. Txn ${ctx.transactionId}.`
+  : `Iman Logistics: your payment of ${ctx.amount} for ${ctx.program} was received. Thank you, ${ctx.firstName || 'there'}!`
+
+// Sent once a registration payment is confirmed: registrant email and SMS,
+// staff email, and staff SMS when a staff phone is configured. Each is
+// independent, so one failing never blocks the others or the payment.
+export async function sendRegistrationPaidNotifications(db: SupabaseClient, registrationId: string, payment: PaidPayment) {
   const row = await loadRegistration(db, registrationId)
   if (!row) return
   const entity = { entityType: 'freight_broker_registrations', entityId: row.id }
-  const className = escapeHtml(row.class?.name || FREIGHT_BROKER_PROGRAM.defaultClassName)
-  const amount = `$${(amountCents / 100).toFixed(2)}`
-  const start = longDate(row.class?.starts_at) || 'Rolling enrollment'
-  const end = longDate(row.class?.ends_at)
-  const signedAt = row.payment_policy_accepted_at ? new Date(row.payment_policy_accepted_at).toLocaleString('en-US', { timeZone: 'UTC', timeZoneName: 'short' }) : null
-  const policyVersion = escapeHtml(row.payment_policy_version || FREIGHT_BROKER_POLICY_VERSION)
-  const classLines = [
-    line('Class', className),
-    line('Starts', start),
-    end ? line('Ends', end) : '',
-    line('Location', escapeHtml(row.class?.location || 'To be announced')),
-    row.class?.schedule_notes ? line('Schedule', escapeHtml(row.class.schedule_notes)) : '',
-    line('Amount Paid', amount),
-  ].join('')
+  const ctx = notificationContext(row, payment)
 
-  await sendEmail({
-    ...entity,
-    template: 'freight_broker.registration_confirmed',
-    from: config.freightBrokerEmailFrom,
-    to: row.email,
-    subject: `${FREIGHT_BROKER_PROGRAM.name} Registration Confirmed - ${row.registration_no}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #0A005A;">${FREIGHT_BROKER_PROGRAM.name} Registration Confirmed</h2>
-        <p>Dear ${escapeHtml(row.first_name)},</p>
-        <p>Thank you for registering for <strong>${className}</strong> with Iman Logistics. Your registration is confirmed.</p>
-        ${card(line('Registration Number', escapeHtml(row.registration_no), true) + classLines + line('Payment Status', 'Paid'))}
-        <div style="background: #fff9e6; border-left: 4px solid #ffb300; padding: 12px 16px; margin: 16px 0; font-size: 14px; color: #5d4037;">
-          <strong>Registration Policy:</strong> ${FREIGHT_BROKER_POLICY_TEXT}
-          ${signedAt ? `<br><br><strong>Electronically signed by:</strong> ${escapeHtml(row.payment_policy_signature)} on ${signedAt} (policy version ${policyVersion})` : ''}
-        </div>
-        <p>Please keep this email for your records. Our team will contact you with class access and materials before your session begins.</p>
-        <p>Best regards,<br>Iman Logistics</p>
-      </div>`,
-  })
-
-  await sendEmail({
-    ...entity,
-    template: 'freight_broker.registration_paid_staff',
-    from: config.freightBrokerEmailFrom,
-    to: config.freightBrokerNotifyEmail,
-    subject: `New ${FREIGHT_BROKER_PROGRAM.name} Registration Paid - ${row.registration_no}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #0A005A;">New Paid ${FREIGHT_BROKER_PROGRAM.name} Registration</h2>
-        ${card([
-          line('Registration Number', escapeHtml(row.registration_no), true),
-          line('Student', `${escapeHtml(row.first_name)} ${escapeHtml(row.last_name)}`),
-          line('Email', escapeHtml(row.email)),
-          line('Phone', escapeHtml(row.phone || 'Not provided')),
-          line('Address', `${escapeHtml(row.address_line1)}${row.address_line2 ? `, ${escapeHtml(row.address_line2)}` : ''}, ${escapeHtml(row.city)}, ${escapeHtml(row.state)} ${escapeHtml(row.zip_code)}`),
-        ].join(''))}
-        ${card(classLines)}
-        <div style="background: #fff9e6; border-left: 4px solid #ffb300; padding: 12px 16px; margin: 16px 0; font-size: 14px; color: #5d4037;">
-          <strong>Policy signature:</strong> ${escapeHtml(row.payment_policy_signature || 'Not recorded')}<br>
-          <strong>Accepted at:</strong> ${signedAt || 'Not recorded'}<br>
-          <strong>Policy version:</strong> ${policyVersion}
-        </div>
-        <p>Review this registration in the <a href="${new URL('/admin/freight-broker/', config.appUrl)}">back office</a>.</p>
-      </div>`,
-  })
-
-  await sendSms({
-    ...entity,
-    template: 'freight_broker.registration_confirmed_sms',
-    to: row.phone,
-    body: `Iman Logistics: Your registration ${row.registration_no} for ${row.class?.name || FREIGHT_BROKER_PROGRAM.defaultClassName} is confirmed. Class starts ${row.class?.starts_at ? new Date(row.class.starts_at).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' }) : 'on a rolling basis'}. Check your email for the full receipt.`,
-  })
+  await sendEmail({ ...entity, template: 'freight_broker.payment_confirmed', from: config.freightBrokerEmailFrom, to: row.email, subject: `Payment Confirmed - ${ctx.registrationNo}`, html: paymentEmailHtml(ctx, false) })
+  await sendEmail({ ...entity, template: 'freight_broker.payment_received_staff', from: config.freightBrokerEmailFrom, to: config.freightBrokerNotifyEmail, subject: `New payment received - ${ctx.program}`, html: paymentEmailHtml(ctx, true) })
+  await sendSms({ ...entity, template: 'freight_broker.payment_confirmed_sms', to: row.phone, body: smsText(ctx, false) })
+  if (config.freightBrokerNotifyPhone) await sendSms({ ...entity, template: 'freight_broker.payment_received_staff_sms', to: config.freightBrokerNotifyPhone, body: smsText(ctx, true) })
 }

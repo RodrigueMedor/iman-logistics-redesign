@@ -78,14 +78,19 @@ export type BrokerClassRow = {
   price_cents: number
   starts_at: string
   ends_at: string
+  registration_deadline: string | null
+  days_of_week: string | null
+  class_time: string | null
+  delivery_mode: 'online' | 'in_person' | null
   location: string | null
-  schedule_notes: string | null
+  instructor_name: string | null
   seat_capacity: number | null
-  open: boolean
+  status: 'OPEN' | 'FULL' | 'CLOSED' | 'COMPLETED'
   seats_taken: number
   seats_remaining: number | null
 }
 export type BrokerClassInput = Omit<BrokerClassRow, 'id' | 'seats_taken' | 'seats_remaining'>
+export const brokerClassStatuses = ['OPEN', 'FULL', 'CLOSED', 'COMPLETED'] as const
 
 export const listBrokerClassesAdmin = () => api<BrokerClassRow[]>('/admin/freight-broker/classes', { auth: true })
 export async function saveBrokerClass(values: BrokerClassInput, id?: string) {

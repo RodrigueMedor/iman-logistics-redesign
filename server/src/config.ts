@@ -23,7 +23,9 @@ export const config = {
   emailFrom: process.env.EMAIL_FROM || 'Iman Logistics <info@imanlogistics.com>',
   freightBrokerEmailFrom: process.env.FREIGHT_BROKER_EMAIL_FROM || process.env.EMAIL_FROM || 'Iman Logistics <info@imanlogistics.com>',
   // Department inbox told about every paid Freight Broker Masterclass registration.
-  freightBrokerNotifyEmail: process.env.FREIGHT_BROKER_NOTIFY_EMAIL || 'info@imanlogistics.com',
+  freightBrokerNotifyEmail: process.env.FREIGHT_BROKER_NOTIFY_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || 'info@imanlogistics.com',
+  // Optional staff phone for payment SMS; skipped when unset.
+  freightBrokerNotifyPhone: process.env.FREIGHT_BROKER_NOTIFY_PHONE || process.env.ADMIN_NOTIFICATION_PHONE || '',
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID || '',
     authToken: process.env.TWILIO_AUTH_TOKEN || '',

@@ -87,10 +87,10 @@ export async function finalizeSuccessfulPayment(db: SupabaseClient, payment: Pay
     paid_at: new Date().toISOString(),
     error_message: '',
     ...(paymentIntentId ? { stripe_payment_intent_id: paymentIntentId, provider_reference: paymentIntentId } : {}),
-  }).eq('id', payment.id).not('status', 'in', '(paid,refunded)').select('id, broker_registration_id, amount_cents')
+  }).eq('id', payment.id).not('status', 'in', '(paid,refunded)').select('id, broker_registration_id, amount_cents, paid_at, stripe_payment_intent_id, stripe_checkout_session_id')
   if (error) throw error
   const paid = won?.[0]
-  if (paid?.broker_registration_id) await sendRegistrationPaidNotifications(db, paid.broker_registration_id, paid.amount_cents)
+  if (paid?.broker_registration_id) await sendRegistrationPaidNotifications(db, paid.broker_registration_id, paid)
 }
 
 async function findPaymentByIntent(db: SupabaseClient, stripe: Stripe, paymentIntentId: string) {

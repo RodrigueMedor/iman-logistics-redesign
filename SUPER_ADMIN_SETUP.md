@@ -50,12 +50,19 @@ API documentation (Swagger UI): `http://localhost:3001/api/docs`
 
 ## Freight Broker Masterclass registration
 
-Adapted from the Iman Trucking School Dispatcher Class Registration (redesign
-branch). Flow: `/freight-broker-masterclass/#register` → step 1 creates a
-`SUBMITTED` registration (`FBM-2026-…`) → step 2 signs the payment policy and
-opens Stripe Checkout at the class session's price → the Stripe webhook marks
-the payment paid, a database trigger sets the registration `CONFIRMED`, and
-the API sends the registrant email, department email, and registrant SMS.
+Matches the live Dispatcher Class Registration at
+imantruckingschool.com/dispatcher-registration/ (school repo `origin/main`).
+Flow on `/freight-broker-masterclass/#register`: **Your information** (pick
+from **Upcoming sessions**; creates a `SUBMITTED` registration `FBM-2026-…`)
+→ **Review & policy** (typed signature, then Stripe Checkout at the session's
+price) → **Confirmation**. The Stripe webhook marks the payment paid, a
+database trigger sets the registration `CONFIRMED`, and the API sends the
+"Payment Confirmed" email and SMS to the registrant plus the "New payment
+received" email (and SMS, if `FREIGHT_BROKER_NOTIFY_PHONE` is set) to staff.
+
+Only sessions with status `OPEN` that have not ended are listed. Checkout is
+refused when a session is not `OPEN`, is past its registration deadline, or
+has no seats left.
 
 - Class sessions (dates, price, location, seats): `/admin/freight-broker/classes/`
 - Registrations, signed policies, and notifications sent: `/admin/freight-broker/`

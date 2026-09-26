@@ -311,7 +311,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   const { data: brokerPayment } = await service.from('payments').select('*').eq('broker_registration_id', reg.json.id).eq('status', 'pending').single()
   check('the payment is priced from the class and tagged Freight Broker Masterclass', brokerPayment?.amount_cents === 52000 && brokerPayment.provider === 'stripe' && brokerPayment.metadata.program === 'freight_broker_masterclass' && brokerPayment.metadata.registration_no === reg.json.registration_no && brokerPayment.description.startsWith('Freight Broker Masterclass'), JSON.stringify(brokerPayment?.metadata))
   const afterCheckout = await regRow()
-  check('the signed policy is recorded on the registration', afterCheckout.payment_policy_signature === signature && afterCheckout.payment_policy_version === 'v1-freight-broker-nonrefundable-credit-schoolcancel' && Boolean(afterCheckout.payment_policy_accepted_at))
+  check('the signed policy is recorded on the registration', afterCheckout.payment_policy_signature === signature && afterCheckout.payment_policy_version === 'v1-freight-broker-nonrefundable-credit' && Boolean(afterCheckout.payment_policy_accepted_at))
   const brokerSession = `cs_test_${crypto.randomUUID().replaceAll('-', '')}`
   await service.from('payments').update({ stripe_checkout_session_id: brokerSession }).eq('id', brokerPayment.id)
   const brokerEvent = { id: brokerSession, object: 'checkout.session', payment_status: 'paid', status: 'complete', amount_total: 52000, currency: 'usd', payment_intent: `pi_${brokerPayment.id.replaceAll('-', '')}`, metadata: { payment_id: brokerPayment.id, program: 'freight_broker_masterclass' } }
@@ -324,15 +324,17 @@ if (process.env.STRIPE_SECRET_KEY) {
   const messages = await captured()
   const customerEmail = messages.find(message => message.channel === 'email' && message.to === registrant.email)
   const staffEmail = messages.find(message => message.channel === 'email' && message.to === process.env.FREIGHT_BROKER_NOTIFY_EMAIL)
-  const sms = messages.find(message => message.channel === 'sms')
-  check('the registrant receives a confirmation email', customerEmail?.subject === `Freight Broker Masterclass Registration Confirmed - ${reg.json.registration_no}` && customerEmail.html.includes('$520.00') && customerEmail.html.includes('Freight Broker Masterclass'), customerEmail?.subject)
-  check('the email includes the signed policy', customerEmail?.html.includes('Electronically signed by') && customerEmail.html.includes('v1-freight-broker-nonrefundable-credit-schoolcancel'))
+  const sms = messages.find(message => message.channel === 'sms' && message.to === registrant.phone)
+  const staffSms = messages.find(message => message.channel === 'sms' && message.to === process.env.FREIGHT_BROKER_NOTIFY_PHONE)
+  check('the registrant receives a "Payment Confirmed" email', customerEmail?.subject === `Payment Confirmed - ${reg.json.registration_no}` && customerEmail.html.includes('Payment Confirmation') && customerEmail.html.includes('$520.00') && customerEmail.html.includes(rolling.name), customerEmail?.subject)
+  check('the email lists the transaction ID and registration number', customerEmail?.html.includes(`pi_${brokerPayment.id.replaceAll('-', '')}`) && customerEmail.html.includes(reg.json.registration_no))
   check('registrant-typed HTML is escaped in emails', customerEmail && !customerEmail.html.includes(`<b>${run}</b>`) && customerEmail.html.includes(`&lt;b&gt;${run}&lt;/b&gt;`))
-  check('the department receives a paid-registration email', staffEmail?.subject === `New Freight Broker Masterclass Registration Paid - ${reg.json.registration_no}` && staffEmail.html.includes(registrant.email) && staffEmail.html.includes('/admin/freight-broker/'), staffEmail?.subject)
-  check('the registrant receives an SMS confirmation', sms?.to === registrant.phone && sms.body.includes(reg.json.registration_no) && sms.body.includes('Freight Broker Masterclass'), sms?.body)
-  check('duplicate Stripe events do not send duplicate notifications', messages.length === 3, String(messages.length))
+  check('staff receive a "New payment received" email', staffEmail?.subject === `New payment received - ${rolling.name}` && staffEmail.html.includes('New Payment Received') && staffEmail.html.includes('/admin/freight-broker/'), staffEmail?.subject)
+  check('the registrant receives an SMS confirmation', sms?.body === `Iman Logistics: your payment of $520.00 for ${rolling.name} was received. Thank you, Taylor!`, sms?.body)
+  check('staff receive a payment SMS', staffSms?.body?.startsWith('Iman Logistics: payment received from Taylor') && staffSms.body.includes('$520.00'), staffSms?.body)
+  check('duplicate Stripe events do not send duplicate notifications', messages.length === 4, String(messages.length))
   const { data: logged } = await service.from('notification_log').select('channel, status, template').eq('entity_id', reg.json.id)
-  check('all three notifications are logged as sent', logged?.length === 3 && logged.every(row => row.status === 'sent'), JSON.stringify(logged))
+  check('all four notifications are logged as sent', logged?.length === 4 && logged.every(row => row.status === 'sent'), JSON.stringify(logged))
 
   const returnPage = await call(`/payments/status?session_id=${brokerSession}`)
   check('the return page shows the confirmed registration', returnPage.json?.status === 'succeeded' && returnPage.json.payment_type === 'freight_broker_masterclass' && returnPage.json.registration?.registrationNo === reg.json.registration_no && returnPage.json.registration.className === rolling.name, returnPage.text.slice(0, 300))
@@ -346,7 +348,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('staff cannot change payment fields (400)', (await call(`/admin/freight-broker-registrations/${reg.json.id}`, { method: 'PATCH', body: { payment_status: 'refunded' }, token: admin.token })).status === 400)
   check('employees cannot see registrations (403)', (await call('/admin/freight-broker-registrations', { token: employee.token })).status === 403)
   const regNotifications = await call(`/admin/freight-broker/registrations/${reg.json.id}/notifications`, { token: admin.token })
-  check('staff can see the notifications sent for the registration', regNotifications.json?.length === 3)
+  check('staff can see the notifications sent for the registration', regNotifications.json?.length === 4)
   check('the notification log is searchable in the back office', (await call(`/admin/notification-log?search=${encodeURIComponent(registrant.email)}`, { token: admin.token })).json?.total === 1)
   const brokerPaymentAdmin = await call(`/admin/payments/${brokerPayment.id}`, { token: admin.token })
   check('the payment shows its Freight Broker registration in the back office', brokerPaymentAdmin.json?.registration?.registration_no === reg.json.registration_no && brokerPaymentAdmin.json.status === 'paid')
@@ -358,7 +360,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('registration changes are in the audit log', ['insert', 'update'].every(action => brokerAudit.json?.data?.some(row => row.action === action)))
 
   // Seats: a one-seat class fills after one paid registration.
-  const seatClass = await call('/admin/freight-broker/classes', { body: { name: `Test cohort ${run}`, price_cents: 49900, starts_at: '2026-11-02T14:00:00Z', ends_at: '2026-11-20T22:00:00Z', location: 'Online', schedule_notes: 'Mon–Thu evenings', seat_capacity: 1, open: true }, token: admin.token })
+  const seatClass = await call('/admin/freight-broker/classes', { body: { name: `Test cohort ${run}`, price_cents: 49900, starts_at: '2026-11-02T14:00:00Z', ends_at: '2026-11-20T22:00:00Z', days_of_week: 'Mon–Thu', class_time: '6:00 PM – 9:00 PM ET', delivery_mode: 'online', instructor_name: 'Test Instructor', seat_capacity: 1, status: 'OPEN' }, token: admin.token })
   check('staff create a class session with seats', seatClass.status === 201, seatClass.text)
   check('employees cannot manage class sessions (403)', (await call('/admin/freight-broker/classes', { token: employee.token })).status === 403)
   const firstSeat = await call('/freight-broker/registrations', { body: { ...registrant, email: `seat1-${run}@example.test`, lastName: 'One', classId: seatClass.json.id } })
@@ -371,6 +373,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   await sendEvent('checkout.session.completed', { id: seatSession, object: 'checkout.session', payment_status: 'paid', status: 'complete', amount_total: 49900, currency: 'usd', payment_intent: `pi_${seatPayment.id.replaceAll('-', '')}`, metadata: { payment_id: seatPayment.id } })
   const seatList = (await call('/freight-broker/classes')).json?.find(item => item.id === seatClass.json.id)
   check('seats remaining drop to 0 after the paid registration', seatList?.seats_remaining === 0, JSON.stringify(seatList))
+  check('the public session shows its schedule, delivery mode, and instructor', seatList?.days_of_week === 'Mon–Thu' && seatList.class_time === '6:00 PM – 9:00 PM ET' && seatList.delivery_mode === 'online' && seatList.instructor_name === 'Test Instructor')
   check('checkout is refused once the class is full (409)', (await call(`/freight-broker/registrations/${secondSeat.json.id}/checkout`, { body: { email: `seat2-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: 'Taylor Two' } })).status === 409)
 
   // Abandoned checkout: the registration stays SUBMITTED, payment canceled.
@@ -385,8 +388,18 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('the registrant can retry payment after canceling', (await call(`/freight-broker/registrations/${abandonedReg.json.id}/checkout`, { body: { email: `abandon-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: signature } })).status === 200)
   check('no notifications are sent for unpaid registrations', (await service.from('notification_log').select('id').eq('entity_id', abandonedReg.json.id)).data?.length === 0)
   check('the consultation booking flow is unaffected', (await call('/public-config')).json?.onlinePayments === true)
-  // Close the throwaway class so it does not show on the public page.
-  await call(`/admin/freight-broker/classes/${seatClass.json.id}`, { method: 'PUT', body: { name: `Test cohort ${run}`, price_cents: 49900, starts_at: '2026-11-02T14:00:00Z', ends_at: '2026-11-20T22:00:00Z', seat_capacity: 1, open: false }, token: admin.token })
+  // Session status and registration deadline (the live checkout rules).
+  const sessionBody = { name: `Test cohort ${run}`, price_cents: 49900, starts_at: '2026-11-02T14:00:00Z', ends_at: '2026-11-20T22:00:00Z', seat_capacity: null, status: 'OPEN' }
+  const ruleClass = await call('/admin/freight-broker/classes', { body: { ...sessionBody, name: `Rule cohort ${run}` }, token: admin.token })
+  const ruleReg = await call('/freight-broker/registrations', { body: { ...registrant, email: `rules-${run}@example.test`, lastName: 'Rules', classId: ruleClass.json.id } })
+  const ruleCheckout = () => call(`/freight-broker/registrations/${ruleReg.json.id}/checkout`, { body: { email: `rules-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: 'Taylor Rules' } })
+  await call(`/admin/freight-broker/classes/${ruleClass.json.id}`, { method: 'PUT', body: { ...sessionBody, name: `Rule cohort ${run}`, registration_deadline: '2026-01-01T00:00:00Z' }, token: admin.token })
+  check('checkout is refused after the registration deadline (409)', (await ruleCheckout()).status === 409)
+  await call(`/admin/freight-broker/classes/${ruleClass.json.id}`, { method: 'PUT', body: { ...sessionBody, name: `Rule cohort ${run}`, status: 'CLOSED' }, token: admin.token })
+  check('CLOSED sessions are hidden from Upcoming sessions', !(await call('/freight-broker/classes')).json?.some(item => item.id === ruleClass.json.id))
+  check('checkout is refused for a CLOSED session (409)', (await ruleCheckout()).status === 409)
+  // Close the throwaway sessions so they do not show on the public page.
+  for (const [id, name] of [[seatClass.json.id, `Test cohort ${run}`], [ruleClass.json.id, `Rule cohort ${run}`]]) await call(`/admin/freight-broker/classes/${id}`, { method: 'PUT', body: { ...sessionBody, name, status: 'COMPLETED' }, token: admin.token })
 } else {
   console.log('\n(Stripe checks skipped: STRIPE_SECRET_KEY is not set.)')
 }

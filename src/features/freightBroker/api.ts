@@ -10,10 +10,15 @@ export type BrokerClass = {
   price_cents?: number
   starts_at?: string
   ends_at?: string
+  registration_deadline?: string | null
+  days_of_week?: string | null
+  class_time?: string | null
+  delivery_mode?: 'online' | 'in_person' | null
   location?: string | null
-  schedule_notes?: string | null
+  instructor_name?: string | null
   seat_capacity?: number | null
   seats_remaining?: number | null
+  status?: 'OPEN' | 'FULL' | 'CLOSED' | 'COMPLETED'
 }
 
 export type RegistrationForm = {
@@ -45,8 +50,11 @@ export type RegistrationDetails = {
   className: string
   classStartsAt?: string | null
   classEndsAt?: string | null
+  classDaysOfWeek?: string | null
+  classTime?: string | null
+  classDeliveryMode?: 'online' | 'in_person' | null
   classLocation?: string | null
-  classScheduleNotes?: string | null
+  classInstructor?: string | null
   status: string
   paymentStatus: string
   policyAccepted: boolean

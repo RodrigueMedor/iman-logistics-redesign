@@ -133,12 +133,8 @@ export default function Broker() {
       </Container>
     </Box>
 
-    <Box id="register" component="section" sx={{ py: { xs: 8, md: 12 }, scrollMarginTop: 110 }}>
+    <Box id="register" component="section" aria-label="Freight Broker Masterclass registration" sx={{ py: { xs: 5, md: 7 }, scrollMarginTop: 110, bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f5f7fb' }}>
       <Container maxWidth="lg">
-        <Reveal>
-          <Typography color="secondary" textAlign="center" fontSize={12} fontWeight={900} letterSpacing=".14em">REGISTRATION</Typography>
-          <Typography component="h2" variant="h2" textAlign="center" sx={{ mt: 1.5, mb: 5, fontSize: { xs: 36, md: 52 }, letterSpacing: '-.03em' }}>Reserve your seat</Typography>
-        </Reveal>
         <FreightBrokerRegistration />
       </Container>
     </Box>

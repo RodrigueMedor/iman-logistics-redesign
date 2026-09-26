@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Alert, Box, Button, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Paper, Stack, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import { Seo } from '../../components/common/Seo'
 import { useAuth } from '../../contexts/AuthContext'
 import { RecordsPage, StatusChip } from '../../features/backoffice/RecordsPage'
-import { deleteBrokerClass, formatDate, formatDateTime, formatMoney, listBrokerClassesAdmin, registrationNotifications, saveBrokerClass, type BrokerClassRow, type NotificationRow, type RecordRow } from '../../services/backoffice'
+import { brokerClassStatuses, deleteBrokerClass, formatDate, formatDateTime, formatMoney, listBrokerClassesAdmin, registrationNotifications, saveBrokerClass, type BrokerClassRow, type NotificationRow, type RecordRow } from '../../services/backoffice'
 import { brokerRegistrationsConfig, notificationLogConfig, notificationStatuses } from './backOfficeConfigs'
 
 function RegistrationNotifications({ id }: { id: string }) {
@@ -31,8 +31,9 @@ export function NotificationsPage() { return <RecordsPage {...notificationLogCon
 // Class sessions (adapted from the school's DispatcherClasses admin page)
 // ---------------------------------------------------------------------------
 
-type ClassForm = { id: string | null; name: string; description: string; priceDollars: string; startsAt: string; endsAt: string; location: string; scheduleNotes: string; seatCapacity: string; open: boolean }
-const emptyForm: ClassForm = { id: null, name: '', description: '', priceDollars: '520', startsAt: '', endsAt: '', location: '', scheduleNotes: '', seatCapacity: '', open: true }
+type ClassForm = { id: string | null; name: string; description: string; priceDollars: string; startsAt: string; endsAt: string; deadline: string; daysOfWeek: string; classTime: string; deliveryMode: 'online' | 'in_person'; location: string; instructor: string; seatCapacity: string; status: BrokerClassRow['status'] }
+const emptyForm: ClassForm = { id: null, name: '', description: '', priceDollars: '520', startsAt: '', endsAt: '', deadline: '', daysOfWeek: '', classTime: '', deliveryMode: 'online', location: '', instructor: '', seatCapacity: '', status: 'OPEN' }
+const statusColor = (status: string) => status === 'OPEN' ? 'success' : status === 'FULL' ? 'warning' : status === 'COMPLETED' ? 'info' : 'default'
 
 function toDatetimeLocal(iso: string) {
   if (!iso) return ''
@@ -67,11 +68,11 @@ export function BrokerClassesPage() {
 
   const openCreate = () => { setForm(emptyForm); setFormError(''); setDialogOpen(true) }
   const openEdit = (row: BrokerClassRow) => {
-    setForm({ id: row.id, name: row.name, description: row.description ?? '', priceDollars: (row.price_cents / 100).toFixed(2), startsAt: toDatetimeLocal(row.starts_at), endsAt: toDatetimeLocal(row.ends_at), location: row.location ?? '', scheduleNotes: row.schedule_notes ?? '', seatCapacity: row.seat_capacity == null ? '' : String(row.seat_capacity), open: row.open })
+    setForm({ id: row.id, name: row.name, description: row.description ?? '', priceDollars: (row.price_cents / 100).toFixed(2), startsAt: toDatetimeLocal(row.starts_at), endsAt: toDatetimeLocal(row.ends_at), deadline: row.registration_deadline ? toDatetimeLocal(row.registration_deadline) : '', daysOfWeek: row.days_of_week ?? '', classTime: row.class_time ?? '', deliveryMode: row.delivery_mode ?? 'online', location: row.location ?? '', instructor: row.instructor_name ?? '', seatCapacity: row.seat_capacity == null ? '' : String(row.seat_capacity), status: row.status })
     setFormError('')
     setDialogOpen(true)
   }
-  const update = (key: keyof ClassForm, value: string | boolean) => setForm(current => ({ ...current, [key]: value }))
+  const update = (key: keyof ClassForm, value: string) => setForm(current => ({ ...current, [key]: value }))
 
   const save = async () => {
     const price = Number(form.priceDollars)
@@ -87,10 +88,14 @@ export function BrokerClassesPage() {
         price_cents: Math.round(price * 100),
         starts_at: new Date(form.startsAt).toISOString(),
         ends_at: new Date(form.endsAt).toISOString(),
+        registration_deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
+        days_of_week: form.daysOfWeek.trim() || null,
+        class_time: form.classTime.trim() || null,
+        delivery_mode: form.deliveryMode,
         location: form.location.trim() || null,
-        schedule_notes: form.scheduleNotes.trim() || null,
+        instructor_name: form.instructor.trim() || null,
         seat_capacity: form.seatCapacity === '' ? null : Number(form.seatCapacity),
-        open: form.open,
+        status: form.status,
       }, form.id ?? undefined)
       setDialogOpen(false)
       setNotice(form.id ? 'Class session updated.' : 'Class session created.')
@@ -117,7 +122,7 @@ export function BrokerClassesPage() {
     <Seo title="Freight Broker Classes | Iman Logistics Back Office" canonical="/admin/freight-broker/classes/" />
     <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'flex-end' }} spacing={2} mb={3}>
-        <Box><Typography component="h1" variant="h4" fontWeight={950}>Freight Broker class sessions</Typography><Typography color="text.secondary" mt={.5}>Dates, price, location, and seats shown on the Freight Broker Masterclass page. Seats are counted from paid registrations.</Typography></Box>
+        <Box><Typography component="h1" variant="h4" fontWeight={950}>Freight Broker class sessions</Typography><Typography color="text.secondary" mt={.5}>OPEN sessions appear under "Upcoming sessions" on the Freight Broker Masterclass page. Seats are counted from paid registrations.</Typography></Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New class session</Button>
       </Stack>
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
@@ -125,21 +130,22 @@ export function BrokerClassesPage() {
       <Paper elevation={0} sx={{ borderRadius: 3, border: 1, borderColor: 'divider', overflow: 'hidden' }}>
         <TableContainer>
           <Table size="small">
-            <TableHead><TableRow>{['Class', 'Dates', 'Price', 'Location', 'Seats', 'Status', ''].map(label => <TableCell key={label} sx={{ fontWeight: 900, whiteSpace: 'nowrap' }}>{label}</TableCell>)}</TableRow></TableHead>
+            <TableHead><TableRow>{['Session', 'Dates', 'Schedule', 'Price', 'Delivery', 'Seats', 'Status', ''].map(label => <TableCell key={label} sx={{ fontWeight: 900, whiteSpace: 'nowrap' }}>{label}</TableCell>)}</TableRow></TableHead>
             <TableBody>
               {rows.map(row => <TableRow key={row.id} hover>
-                <TableCell sx={{ py: 1.5 }}><Typography variant="body2" fontWeight={800}>{row.name}</Typography>{row.schedule_notes && <Typography variant="caption" color="text.secondary">{row.schedule_notes}</Typography>}</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(row.starts_at)} – {formatDate(row.ends_at)}</TableCell>
+                <TableCell sx={{ py: 1.5 }}><Typography variant="body2" fontWeight={800}>{row.name}</Typography>{row.instructor_name && <Typography variant="caption" color="text.secondary">Instructor: {row.instructor_name}</Typography>}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(row.starts_at)} – {formatDate(row.ends_at)}{row.registration_deadline && <Typography variant="caption" display="block" color="warning.dark">Register by {formatDate(row.registration_deadline)}</Typography>}</TableCell>
+                <TableCell>{[row.days_of_week, row.class_time].filter(Boolean).join(' · ') || '—'}</TableCell>
                 <TableCell>{formatMoney(row.price_cents)}</TableCell>
-                <TableCell>{row.location || '—'}</TableCell>
+                <TableCell>{row.delivery_mode === 'online' ? 'Online' : row.location || 'In-person'}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.seat_capacity == null ? `${row.seats_taken} taken · unlimited` : `${row.seats_taken} / ${row.seat_capacity} · ${row.seats_remaining} left`}</TableCell>
-                <TableCell><Chip size="small" label={row.open ? 'Open' : 'Closed'} color={row.open ? 'success' : 'default'} sx={{ fontWeight: 800 }} /></TableCell>
+                <TableCell><Chip size="small" label={row.status} color={statusColor(row.status)} sx={{ fontWeight: 800 }} /></TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                   <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>Edit</Button>
                   {profile?.role === 'super_admin' && <Button size="small" color="error" onClick={() => void remove(row)}>Delete</Button>}
                 </TableCell>
               </TableRow>)}
-              {!rows.length && <TableRow><TableCell colSpan={7} sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>{loading ? 'Loading…' : 'No class sessions yet.'}</TableCell></TableRow>}
+              {!rows.length && <TableRow><TableCell colSpan={8} sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>{loading ? 'Loading…' : 'No class sessions yet.'}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </TableContainer>
@@ -151,15 +157,19 @@ export function BrokerClassesPage() {
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
           {formError && <Alert severity="error">{formError}</Alert>}
-          <TextField label="Class name" value={form.name} onChange={event => update('name', event.target.value)} required />
+          <TextField label="Session name" value={form.name} onChange={event => update('name', event.target.value)} required />
           <TextField label="Description" value={form.description} onChange={event => update('description', event.target.value)} multiline minRows={2} />
           <TextField label="Price (USD)" type="number" value={form.priceDollars} onChange={event => update('priceDollars', event.target.value)} slotProps={{ htmlInput: { min: 1, step: '0.01' } }} required helperText="This exact amount is charged at checkout." />
-          <TextField label="Starts at" type="datetime-local" value={form.startsAt} onChange={event => update('startsAt', event.target.value)} slotProps={{ inputLabel: { shrink: true } }} required />
-          <TextField label="Ends at" type="datetime-local" value={form.endsAt} onChange={event => update('endsAt', event.target.value)} slotProps={{ inputLabel: { shrink: true } }} required />
-          <TextField label="Location" value={form.location} onChange={event => update('location', event.target.value)} placeholder="Online, or a campus address" />
-          <TextField label="Schedule notes" value={form.scheduleNotes} onChange={event => update('scheduleNotes', event.target.value)} placeholder="Mon–Thu, 6–9 PM ET" />
+          <TextField label="Start date/time" type="datetime-local" value={form.startsAt} onChange={event => update('startsAt', event.target.value)} slotProps={{ inputLabel: { shrink: true } }} required />
+          <TextField label="End date/time" type="datetime-local" value={form.endsAt} onChange={event => update('endsAt', event.target.value)} slotProps={{ inputLabel: { shrink: true } }} required />
+          <TextField label="Registration deadline (optional)" type="datetime-local" value={form.deadline} onChange={event => update('deadline', event.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="Days of week" value={form.daysOfWeek} onChange={event => update('daysOfWeek', event.target.value)} placeholder="Mon, Wed, Fri" />
+          <TextField label="Class time" value={form.classTime} onChange={event => update('classTime', event.target.value)} placeholder="6:00 PM – 9:00 PM ET" />
+          <TextField select label="Delivery mode" value={form.deliveryMode} onChange={event => update('deliveryMode', event.target.value)}><MenuItem value="online">Online</MenuItem><MenuItem value="in_person">In person</MenuItem></TextField>
+          <TextField label="Location" value={form.location} onChange={event => update('location', event.target.value)} placeholder={form.deliveryMode === 'online' ? 'Optional for online sessions' : 'Campus or venue address'} />
+          <TextField label="Instructor" value={form.instructor} onChange={event => update('instructor', event.target.value)} />
           <TextField label="Seat capacity (blank = unlimited)" type="number" value={form.seatCapacity} onChange={event => update('seatCapacity', event.target.value)} slotProps={{ htmlInput: { min: 0, step: 1 } }} />
-          <FormControlLabel control={<Switch checked={form.open} onChange={event => update('open', event.target.checked)} />} label="Open for registration" />
+          <TextField select label="Status" value={form.status} onChange={event => update('status', event.target.value)} helperText="Only OPEN sessions are shown and accept registrations.">{brokerClassStatuses.map(status => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
