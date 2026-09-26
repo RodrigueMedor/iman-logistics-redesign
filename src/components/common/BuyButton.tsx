@@ -12,7 +12,7 @@ export function BuyButton() {
       size="large"
       sx={{ minWidth: 220, fontSize: 17 }}
     >
-      Visit Masterclass Website
+      Masterclass Registration
     </Button>
   )
 }
