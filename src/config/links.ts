@@ -1,4 +1,4 @@
-export const VEHICLE_SALES_URL = 'https://tiny-kringle-175161.netlify.app/'
+export const VEHICLE_SALES_URL = 'https://www.imantrucksales.com'
 
 // Dedicated Freight Broker Masterclass website (secondary link on the page).
 export const FREIGHT_BROKER_URL = 'https://imanfreightbroker.com/'
