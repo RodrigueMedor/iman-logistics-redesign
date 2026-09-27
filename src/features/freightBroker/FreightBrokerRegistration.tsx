@@ -74,6 +74,7 @@ function SessionCard({ c, selected, onSelect }: { c: BrokerClass; selected: bool
         <Typography fontWeight={800} variant="body1">{c.name}</Typography>
         <Chip size="small" label={displayStatus} color={statusChipColor(displayStatus)} />
       </Stack>
+      {c.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{c.description}</Typography>}
       <Stack spacing={0.5} sx={{ mt: 1.25 }}>
         <Stack direction="row" alignItems="center" gap={0.75}><EventAvailableIcon fontSize="small" color="action" /><Typography variant="body2" color="text.secondary">{sessionDates(c)}</Typography></Stack>
         {(c.days_of_week || c.class_time) && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>{[c.days_of_week, c.class_time].filter(Boolean).join(' · ')}</Typography>}
@@ -130,11 +131,17 @@ export function FreightBrokerRegistration() {
     if (paymentSessionId) scrollToSection()
   }, [paymentSessionId])
 
+  // Load the sessions, and reload them whenever the visitor returns to the tab
+  // so changes made in the back office show without a manual refresh.
   useEffect(() => {
-    listBrokerClasses()
-      .then(data => setClasses(data))
+    const load = () => listBrokerClasses()
+      .then(data => { setClasses(data); setClassesError('') })
       .catch(() => setClassesError('Class sessions could not be loaded. Please refresh the page to try again.'))
       .finally(() => setClassesLoading(false))
+    const onVisible = () => { if (document.visibilityState === 'visible') void load() }
+    void load()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [])
 
   // Keep the selection on a session that can still be registered for, so the
@@ -371,7 +378,7 @@ export function FreightBrokerRegistration() {
             <Typography variant="h5" component="h3" fontWeight={900}>Register for the {FREIGHT_BROKER_PROGRAM.name}</Typography>
             <Typography color="text.secondary" sx={{ mb: 2.5 }}>Complete the form below to reserve your seat. You'll review your information and policy agreement before paying.</Typography>
             <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
-              Learn how freight brokerage works end to end: authority and compliance, finding shippers, carrier sourcing, pricing and negotiation, and daily operations. Choose a session from the list to see its price.
+              {selectedClass?.description || 'Learn how freight brokerage works end to end: authority and compliance, finding shippers, carrier sourcing, pricing and negotiation, and daily operations. Choose a session from the list to see its price.'}
             </Alert>
             {state === 'error' && <Alert severity="error" sx={{ mb: 3 }}><Stack direction="row" alignItems="center" gap={1}><ErrorIcon fontSize="small" />{paymentError || 'Unable to submit. Check the information and try again.'}</Stack></Alert>}
             {paymentError && state !== 'error' && <Alert severity="error" sx={{ mb: 3 }}>{paymentError}</Alert>}

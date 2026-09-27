@@ -21,7 +21,8 @@ const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 freightBrokerRoutes.get('/classes', async (_req, res) => {
   const { data, error } = await publicClient().rpc('freight_broker_open_classes')
   if (error) throw error
-  res.json(data)
+  // Always live: back-office edits must show on the website immediately.
+  res.set('Cache-Control', 'no-store').json(data)
 })
 
 freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
