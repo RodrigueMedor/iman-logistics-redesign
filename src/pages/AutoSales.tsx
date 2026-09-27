@@ -15,7 +15,7 @@ import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { Reveal } from '../components/common/Reveal'
-import { VEHICLE_SALES_URL } from '../config/links'
+import { VEHICLE_SALES_URL, vehicleSalesUrl } from '../config/links'
 import { useContent } from '../contexts/ContentContext'
 
 const buyingSteps = [
@@ -67,7 +67,7 @@ export default function AutoSales() {
                   {hero.body}
                 </Typography>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4}>
-                  <Button component="a" href={hero.button_url || VEHICLE_SALES_URL} target="_blank" rel="noopener noreferrer" size="large" color="secondary" variant="contained">{hero.button_text} ↗</Button>
+                  <Button component="a" href={vehicleSalesUrl(hero.button_url)} target="_blank" rel="noopener noreferrer" size="large" color="secondary" variant="contained">{hero.button_text} ↗</Button>
                   <Button component={RouterLink} to="/contact-us/" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.7)' }}>Contact our team</Button>
                 </Stack>
               </Reveal>
@@ -111,7 +111,7 @@ export default function AutoSales() {
           <SupportAgentOutlinedIcon color="secondary" sx={{ fontSize: 52 }} />
           <Typography variant="h3" mt={1.5}>{cta.title}</Typography>
           <Typography color="rgba(255,255,255,.78)" fontSize={18} mt={1.5}>{cta.body}</Typography>
-          <Button component="a" href={cta.button_url || VEHICLE_SALES_URL} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" sx={{ mt: 3 }}>{cta.button_text} ↗</Button>
+          <Button component="a" href={vehicleSalesUrl(cta.button_url)} target="_blank" rel="noopener noreferrer" color="secondary" variant="contained" size="large" sx={{ mt: 3 }}>{cta.button_text} ↗</Button>
         </Container>
       </Box>
     </>
