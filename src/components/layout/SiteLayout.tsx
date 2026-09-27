@@ -17,14 +17,28 @@ export function SiteLayout() {
       window.scrollTo(0, 0)
       return
     }
+    // Images and data above the section keep loading after it appears and push
+    // it down, so re-align for a couple of seconds unless the visitor scrolls.
+    const id = decodeURIComponent(hash.slice(1))
     let attempts = 0
+    let aligned = 0
+    let stopped = false
+    const stop = () => { stopped = true }
+    const events = ['wheel', 'touchstart', 'keydown'] as const
+    events.forEach(name => window.addEventListener(name, stop, { passive: true }))
     const timer = window.setInterval(() => {
-      const target = document.getElementById(decodeURIComponent(hash.slice(1)))
       attempts += 1
-      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      if (target || attempts >= 30) window.clearInterval(timer)
-    }, 100)
-    return () => window.clearInterval(timer)
+      const target = document.getElementById(id)
+      if (target && !stopped) {
+        target.scrollIntoView({ block: 'start' })
+        aligned += 1
+      }
+      if (stopped || aligned >= 12 || attempts >= 45) window.clearInterval(timer)
+    }, 200)
+    return () => {
+      window.clearInterval(timer)
+      events.forEach(name => window.removeEventListener(name, stop))
+    }
   }, [pathname, hash])
   return <>
     <Box component="a" href="#main" sx={{ position: 'fixed', top: -100, left: 8, zIndex: 2000, bgcolor: 'background.paper', color: 'text.primary', p: 1, '&:focus': { top: 8 } }}>Skip to content</Box>
