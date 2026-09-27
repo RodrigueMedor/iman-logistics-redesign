@@ -22,11 +22,11 @@ export function PolicyAgreement({ firstName, lastName, accepted, signature, onAc
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 3, bgcolor: '#fff9e6', borderColor: '#ffe082', borderRadius: 2 }}>
-        <Typography variant="subtitle2" fontWeight={800} color="#b78103" gutterBottom>FREIGHT BROKER MASTERCLASS NON-REFUNDABLE POLICY</Typography>
+        <Typography variant="subtitle2" fontWeight={800} color="#b78103" gutterBottom>FREIGHT DISPATCH MASTERCLASS NON-REFUNDABLE POLICY</Typography>
         <Typography variant="body1" fontWeight={600} color="#3e2723" sx={{ lineHeight: 1.6 }}>{FREIGHT_BROKER_POLICY_TEXT}</Typography>
         <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #ffe57f' }}>
           <Typography variant="caption" color="text.secondary">
-            Payments are securely processed by Stripe. Once confirmed, tuition credits may be applied toward any future scheduled Freight Broker Masterclass session.
+            Payments are securely processed by Stripe. Once confirmed, tuition credits may be applied toward any future scheduled Freight Dispatch Masterclass session.
           </Typography>
         </Box>
       </Paper>

@@ -18,10 +18,10 @@ import { PolicyAgreement } from './PolicyAgreement'
 import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM, FREIGHT_BROKER_STEPS, isPolicySigned } from './program'
 import { RegistrationPaymentStatus } from './RegistrationPaymentStatus'
 
-// Freight Broker Masterclass registration, matching the live Dispatcher Class
+// Freight Dispatch Masterclass registration, matching the live Dispatcher Class
 // Registration page (imantruckingschool.com/dispatcher-registration/):
 // "Your information" → "Review & policy" → "Confirmation", with the
-// "Upcoming sessions" list beside the form. Embedded on the Freight Broker
+// "Upcoming sessions" list beside the form. Embedded on the Freight Dispatch
 // Masterclass page as the #register section.
 
 const pendingRegistrationStorageKey = 'iman_freight_broker_pending_reg'
@@ -171,7 +171,7 @@ export function FreightBrokerRegistration() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!formData.classId) return setPaymentError('Please select a Freight Broker Masterclass session to continue.')
+    if (!formData.classId) return setPaymentError('Please select a Freight Dispatch Masterclass session to continue.')
     setPaymentError('')
     setState('saving')
     try {
@@ -378,7 +378,7 @@ export function FreightBrokerRegistration() {
             <Typography variant="h5" component="h3" fontWeight={900}>Register for the {FREIGHT_BROKER_PROGRAM.name}</Typography>
             <Typography color="text.secondary" sx={{ mb: 2.5 }}>Complete the form below to reserve your seat. You'll review your information and policy agreement before paying.</Typography>
             <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
-              {selectedClass?.description || 'Learn how freight brokerage works end to end: authority and compliance, finding shippers, carrier sourcing, pricing and negotiation, and daily operations. Choose a session from the list to see its price.'}
+              {selectedClass?.description || 'Learn how to dispatch freight from start to finish: finding loads, carrier setup and paperwork, rate negotiation, compliance, and managing multiple trucks. Choose a session from the list to see its price.'}
             </Alert>
             {state === 'error' && <Alert severity="error" sx={{ mb: 3 }}><Stack direction="row" alignItems="center" gap={1}><ErrorIcon fontSize="small" />{paymentError || 'Unable to submit. Check the information and try again.'}</Stack></Alert>}
             {paymentError && state !== 'error' && <Alert severity="error" sx={{ mb: 3 }}>{paymentError}</Alert>}
@@ -407,8 +407,8 @@ export function FreightBrokerRegistration() {
                 <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
                   <SectionHeading icon={<SchoolIcon color="secondary" fontSize="small" />} title="Class selection" />
                   <FormControl fullWidth required size="small">
-                    <InputLabel id="freight-broker-class-label">Freight Broker Masterclass session</InputLabel>
-                    <Select labelId="freight-broker-class-label" value={classes.some(c => c.id === formData.classId) ? formData.classId : ''} onChange={event => setFormData(current => ({ ...current, classId: event.target.value }))} label="Freight Broker Masterclass session">
+                    <InputLabel id="freight-broker-class-label">Freight Dispatch Masterclass session</InputLabel>
+                    <Select labelId="freight-broker-class-label" value={classes.some(c => c.id === formData.classId) ? formData.classId : ''} onChange={event => setFormData(current => ({ ...current, classId: event.target.value }))} label="Freight Dispatch Masterclass session">
                       {classes.map(c => <MenuItem key={c.id} value={c.id} disabled={!isSessionSelectable(c)}>
                         {c.name} — ${dollars(c.price_cents).toFixed(2)}{!isSessionSelectable(c) ? ' (unavailable)' : ''}
                       </MenuItem>)}

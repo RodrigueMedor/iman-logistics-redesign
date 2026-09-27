@@ -1,12 +1,12 @@
 import { Button } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 
-// Opens the Freight Broker Masterclass registration form.
+// Opens the Freight Dispatch Masterclass registration form.
 export function BuyButton() {
   return (
     <Button
       component={RouterLink}
-      to="/freight-broker-masterclass/#register"
+      to="/freight-dispatch-masterclass/#register"
       variant="contained"
       color="secondary"
       size="large"

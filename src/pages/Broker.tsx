@@ -1,5 +1,5 @@
 import { Box, Button, Chip, Container, Grid, Paper, Stack, Typography } from '@mui/material'
-import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded'
 import ArrowOutwardRoundedIcon from '@mui/icons-material/ArrowOutwardRounded'
 import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined'
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
@@ -11,9 +11,8 @@ import { Seo } from '../components/common/Seo'
 import { Reveal } from '../components/common/Reveal'
 import { FREIGHT_BROKER_URL } from '../config/links'
 import { useContent } from '../contexts/ContentContext'
-import { FreightBrokerRegistration } from '../features/freightBroker/FreightBrokerRegistration'
 
-// Main buttons register on this page; a full URL in the content editor still opens it in a new tab.
+// Main buttons go to the Contact page; a full URL in the content editor opens in a new tab.
 const isExternal = (url?: string) => Boolean(url && /^https?:\/\//.test(url))
 
 const outcomes = [
@@ -38,8 +37,8 @@ export default function Broker() {
     section_label: 'FREIGHT BROKER MASTERCLASS',
     title: 'Build the skills to connect freight with opportunity.',
     body: 'A step-by-step introduction to freight brokerage for aspiring professionals ready to understand the industry, develop practical skills, and build a clear path forward.',
-    button_text: 'Register now',
-    button_url: '#register',
+    button_text: 'Contact our team',
+    button_url: '/contact-us/',
   })
   const foundation = content('freight-broker-masterclass', 'foundation', {
     section_label: 'YOUR BROKERAGE FOUNDATION',
@@ -49,14 +48,14 @@ export default function Broker() {
   const curriculumSection = content('freight-broker-masterclass', 'curriculum', {
     section_label: 'WHAT YOU’LL LEARN',
     title: 'A practical roadmap for freight brokerage.',
-    body: 'Review the program here, then register below to reserve your seat.',
+    body: 'Review the program here, then contact our team to learn about upcoming availability.',
   })
   const cta = content('freight-broker-masterclass', 'cta', {
     section_label: 'NEXT STEP',
     title: 'Ready to explore freight brokerage?',
-    body: 'Reserve your seat in the Freight Broker Masterclass. You will review your details and sign the registration policy before secure payment.',
-    button_text: 'Register now',
-    button_url: '#register',
+    body: 'Talk with our team about the Freight Broker Masterclass and upcoming availability.',
+    button_text: 'Contact our team',
+    button_url: '/contact-us/',
   })
   return <>
     <Seo title="Freight Broker Masterclass - Iman Logistics" canonical="/freight-broker-masterclass/" />
@@ -74,7 +73,7 @@ export default function Broker() {
                 {hero.body}
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={4}>
-                <Button component="a" href={hero.button_url || '#register'} {...(isExternal(hero.button_url) ? { target: '_blank', rel: 'noopener noreferrer' } : {})} color="secondary" variant="contained" size="large" endIcon={isExternal(hero.button_url) ? <ArrowOutwardRoundedIcon /> : <ArrowDownwardRoundedIcon />}>
+                <Button component="a" href={hero.button_url || '/contact-us/'} {...(isExternal(hero.button_url) ? { target: '_blank', rel: 'noopener noreferrer' } : {})} color="secondary" variant="contained" size="large" endIcon={isExternal(hero.button_url) ? <ArrowOutwardRoundedIcon /> : <ArrowForwardRoundedIcon />}>
                   {hero.button_text}
                 </Button>
                 <Button href="#curriculum" size="large" variant="outlined" sx={{ color: 'white', borderColor: 'rgba(255,255,255,.55)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,.08)' } }}>
@@ -133,12 +132,6 @@ export default function Broker() {
       </Container>
     </Box>
 
-    <Box id="register" component="section" aria-label="Freight Broker Masterclass registration" sx={{ py: { xs: 5, md: 7 }, scrollMarginTop: 110, bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f5f7fb' }}>
-      <Container maxWidth="lg">
-        <FreightBrokerRegistration />
-      </Container>
-    </Box>
-
     <Box sx={{ py: { xs: 8, md: 10 } }}>
       <Container maxWidth="md">
         <Paper sx={{ p: { xs: 4, md: 6 }, borderRadius: 5, bgcolor: 'primary.main', color: 'white', textAlign: 'center' }}>
@@ -146,7 +139,7 @@ export default function Broker() {
           <Typography component="h2" variant="h3" mt={2}>{cta.title}</Typography>
           <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>{cta.body}</Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="center" gap={1.5} mt={3}>
-            <Button component="a" href={cta.button_url || '#register'} {...(isExternal(cta.button_url) ? { target: '_blank', rel: 'noopener noreferrer' } : {})} color="secondary" variant="contained" size="large" endIcon={isExternal(cta.button_url) ? <ArrowOutwardRoundedIcon /> : <ArrowDownwardRoundedIcon />}>
+            <Button component="a" href={cta.button_url || '/contact-us/'} {...(isExternal(cta.button_url) ? { target: '_blank', rel: 'noopener noreferrer' } : {})} color="secondary" variant="contained" size="large" endIcon={isExternal(cta.button_url) ? <ArrowOutwardRoundedIcon /> : <ArrowForwardRoundedIcon />}>
               {cta.button_text}
             </Button>
             <Button component="a" href={FREIGHT_BROKER_URL} target="_blank" rel="noopener noreferrer" size="large" variant="outlined" endIcon={<ArrowOutwardRoundedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.55)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,.08)' } }}>

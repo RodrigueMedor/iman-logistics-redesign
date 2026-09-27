@@ -2,6 +2,7 @@ import { Box, Container, Grid, Stack, Typography } from '@mui/material'
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline'
 import { Seo } from '../components/common/Seo'
 import { BuyButton } from '../components/common/BuyButton'
+import { FreightBrokerRegistration } from '../features/freightBroker/FreightBrokerRegistration'
 import { RotatingHeroOrbit } from '../components/home/RotatingHeroOrbit'
 import hero from '../assets/images/SDFERGGF-scaled.png'
 import portrait from '../assets/images/POLO234-scaled.png'
@@ -148,6 +149,11 @@ export default function DispatchMasterclass({ embedded = false }: { embedded?: b
         <BuyButton />
       </Container>
     </Box>
+    {!embedded && <Box id="register" component="section" aria-label="Freight Dispatch Masterclass registration" sx={{ py: { xs: 5, md: 7 }, scrollMarginTop: 110, bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f5f7fb' }}>
+      <Container maxWidth="lg">
+        <FreightBrokerRegistration />
+      </Container>
+    </Box>}
   </>
 }
 

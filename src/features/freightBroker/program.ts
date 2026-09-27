@@ -1,25 +1,26 @@
-// Freight Broker Masterclass registration — adapted from the Iman Trucking
+// Freight Dispatch Masterclass registration — adapted from the Iman Trucking
 // School Dispatcher Class Registration. Shared by the website and the API so
 // labels, IDs, and the signed policy text stay identical on both sides.
 
 export const FREIGHT_BROKER_PROGRAM = {
   id: 'freight_broker_masterclass',
-  name: 'Freight Broker Masterclass',
+  name: 'Freight Dispatch Masterclass',
   registrationPrefix: 'FBM',
-  defaultClassName: 'Freight Broker Masterclass',
+  defaultClassName: 'Freight Dispatch Masterclass',
   // Fallback shown only until the live class sessions load.
   defaultPriceCents: 52000,
 } as const
 
-export const FREIGHT_BROKER_POLICY_VERSION = 'v1-freight-broker-nonrefundable-credit'
+// Bumped when the course was renamed, so signatures record the wording shown.
+export const FREIGHT_BROKER_POLICY_VERSION = 'v2-freight-dispatch-nonrefundable-credit'
 
 // Same wording as the live Dispatcher Class Registration policy, for the
-// Freight Broker Masterclass. Confirm it with the business before going live.
+// Freight Dispatch Masterclass. Confirm it with the business before going live.
 export const FREIGHT_BROKER_POLICY_TEXT =
-  'All registration payments are non-refundable. If the student cannot attend the class, the payment remains as a credit on their student account and can be used for a future Freight Broker Masterclass session.'
+  'All registration payments are non-refundable. If the student cannot attend the class, the payment remains as a credit on their student account and can be used for a future Freight Dispatch Masterclass session.'
 
 export const FREIGHT_BROKER_POLICY_CHECKBOX =
-  'I have read and agree to the Freight Broker Masterclass Registration Policy: All registration payments are non-refundable. If I cannot attend the class, my payment remains as a credit on my student account and can be used for a future Freight Broker Masterclass session.'
+  'I have read and agree to the Freight Dispatch Masterclass Registration Policy: All registration payments are non-refundable. If I cannot attend the class, my payment remains as a credit on my student account and can be used for a future Freight Dispatch Masterclass session.'
 
 export const FREIGHT_BROKER_STEPS = ['Your information', 'Review & policy', 'Confirmation'] as const
 

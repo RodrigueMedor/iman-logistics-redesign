@@ -176,7 +176,7 @@ export const imageUpload = z.object({
   size: z.number().int().positive().max(5 * 1024 * 1024, 'Images must be 5 MB or smaller.'),
 }).meta({ id: 'ImageUploadInput' })
 
-// Freight Broker Masterclass registration (adapted from Dispatcher Class Registration)
+// Freight Dispatch Masterclass registration (adapted from Dispatcher Class Registration)
 const requiredText = (label: string, max: number) => z.string().trim().min(1, `${label} is required.`).max(max)
 export const freightBrokerRegistration = z.object({
   firstName: requiredText('First name', 80).meta({ example: 'Jordan' }),
@@ -195,7 +195,7 @@ export const freightBrokerRegistration = z.object({
 export const freightBrokerCheckout = z.object({
   email: z.email().max(254).meta({ description: 'Must match the registration.' }),
   classId: z.string().max(80).optional().meta({ description: 'If sent, must match the registration’s class.' }),
-  paymentPolicyAccepted: z.literal(true, 'You must accept the Freight Broker Masterclass registration policy before checkout.'),
+  paymentPolicyAccepted: z.literal(true, 'You must accept the Freight Dispatch Masterclass registration policy before checkout.'),
   paymentPolicySignature: z.string().trim().min(2, 'Type your full legal name to sign the policy.').max(160).meta({ description: 'Full legal name exactly as entered on the registration.', example: 'Jordan Customer' }),
 }).meta({ id: 'FreightBrokerCheckoutInput' })
 

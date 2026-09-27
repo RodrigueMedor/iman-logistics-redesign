@@ -31,7 +31,7 @@ function CustomerActivity({ email }: { email: string }) {
     ['Messages', activity.contacts.map(item => ({ reference: item.reference, label: item.subject, status: item.status, created_at: item.created_at }))],
     ['Bookings', activity.bookings.map(item => ({ reference: item.reference, label: `${item.service_name} · ${item.booking_date}`, status: `${item.status} · ${item.payment_status}`, created_at: item.created_at }))],
     ['Applications', activity.applications.map(item => ({ reference: item.reference, label: item.position, status: item.status, created_at: item.created_at }))],
-    ['Freight Broker registrations', (activity.registrations ?? []).map(item => ({ reference: item.reference, label: item.class?.name ?? 'Freight Broker Masterclass', status: `${item.status} · ${item.payment_status}`, created_at: item.created_at }))],
+    ['Dispatch Masterclass registrations', (activity.registrations ?? []).map(item => ({ reference: item.reference, label: item.class?.name ?? 'Freight Dispatch Masterclass', status: `${item.status} · ${item.payment_status}`, created_at: item.created_at }))],
     ['Payments', activity.payments.map(item => ({ reference: item.reference, label: `${formatMoney(item.amount_cents, item.currency)} · ${item.description}`, status: item.status, created_at: item.created_at }))],
   ]
   return <Stack spacing={2.5} mt={3}>

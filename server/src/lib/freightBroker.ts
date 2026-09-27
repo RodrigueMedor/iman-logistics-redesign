@@ -3,7 +3,7 @@ import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM } from '../../../src
 import { config } from '../config'
 import { escapeHtml, sendEmail, sendSms } from './notifications'
 
-// Freight Broker Masterclass registration helpers, adapted from the dispatcher
+// Freight Dispatch Masterclass registration helpers, adapted from the dispatcher
 // registration in the Iman Trucking School server (server-express.js).
 
 const registrationSelect = '*, class:freight_broker_classes(id, name, status, starts_at, ends_at, registration_deadline, days_of_week, class_time, delivery_mode, location, instructor_name, price_cents)'

@@ -197,7 +197,7 @@ export const paymentsBaseConfig: RecordsConfig = {
     { key: 'method', label: 'Method' },
     { key: 'provider', label: 'Recorded by', render: row => row.provider === 'stripe' ? 'Stripe Checkout' : 'Staff (manual)' },
     { key: 'booking', label: 'Booking', render: row => String((row.booking as { reference?: string } | null)?.reference ?? '—') },
-    { key: 'registration', label: 'Freight Broker registration', render: row => String((row.registration as { registration_no?: string } | null)?.registration_no ?? '—') },
+    { key: 'registration', label: 'Dispatch Masterclass registration', render: row => String((row.registration as { registration_no?: string } | null)?.registration_no ?? '—') },
     { key: 'provider_reference', label: 'Receipt / Stripe payment ID' },
     { key: 'error_message', label: 'Payment error' },
     { key: 'paid_at', label: 'Paid at', render: row => formatDateTime(row.paid_at) },
@@ -271,7 +271,7 @@ export const customersConfig: RecordsConfig = {
   csvName: 'iman-customers',
 }
 
-// Freight Broker Masterclass registrations (the school's DispatcherRegistrations page)
+// Freight Dispatch Masterclass registrations (the school's DispatcherRegistrations page)
 export const brokerStatuses: Option[] = [
   { value: 'SUBMITTED', label: 'Submitted', color: 'warning' },
   { value: 'CONFIRMED', label: 'Confirmed', color: 'success' },
@@ -293,8 +293,8 @@ const brokerClass = (row: RecordRow) => row.class as BrokerClassJoin
 
 export const brokerRegistrationsConfig: RecordsConfig = {
   table: 'freight_broker_registrations',
-  title: 'Freight Broker registrations',
-  subtitle: 'Freight Broker Masterclass registrations, payments, and signed policies.',
+  title: 'Dispatch Masterclass registrations',
+  subtitle: 'Freight Dispatch Masterclass registrations, payments, and signed policies.',
   canonical: '/admin/freight-broker/',
   titleKey: 'registration_no',
   searchPlaceholder: 'Search name, email, phone, registration number',

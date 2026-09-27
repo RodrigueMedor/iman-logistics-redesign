@@ -26,7 +26,7 @@ export const config = {
   resendApiKey: process.env.RESEND_API_KEY || '',
   emailFrom: process.env.EMAIL_FROM || 'Iman Logistics <info@imanlogistics.com>',
   freightBrokerEmailFrom: process.env.FREIGHT_BROKER_EMAIL_FROM || process.env.EMAIL_FROM || 'Iman Logistics <info@imanlogistics.com>',
-  // Department inbox told about every paid Freight Broker Masterclass registration.
+  // Department inbox told about every paid Freight Dispatch Masterclass registration.
   freightBrokerNotifyEmail: process.env.FREIGHT_BROKER_NOTIFY_EMAIL || process.env.ADMIN_NOTIFICATION_EMAIL || 'info@imanlogistics.com',
   // Optional staff phone for payment SMS; skipped when unset.
   freightBrokerNotifyPhone: process.env.FREIGHT_BROKER_NOTIFY_PHONE || process.env.ADMIN_NOTIFICATION_PHONE || '',

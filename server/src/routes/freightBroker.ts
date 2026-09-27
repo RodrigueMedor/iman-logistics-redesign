@@ -9,7 +9,7 @@ import { checkoutReturnUrl, stripeClient } from '../lib/stripe'
 import { publicClient, serviceClient } from '../lib/supabase'
 import { freightBrokerCheckout, freightBrokerClassInput, freightBrokerRegistration } from '../schemas'
 
-// Freight Broker Masterclass registration: the Iman Trucking School dispatcher
+// Freight Dispatch Masterclass registration: the Iman Trucking School dispatcher
 // registration endpoints (/api/create-dispatcher-registration and
 // /api/create-dispatcher-checkout), adapted to this API.
 export const freightBrokerRoutes = Router()
@@ -42,7 +42,7 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
     if (error) throw error
     classRow = data
   }
-  if (!classRow) throw new HttpError(404, 'The selected Freight Broker Masterclass session is not available.')
+  if (!classRow) throw new HttpError(404, 'The selected Freight Dispatch Masterclass session is not available.')
 
   const email = input.email.toLowerCase()
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
@@ -130,8 +130,8 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
     }],
     custom_text: { submit: { message: FREIGHT_BROKER_POLICY_TEXT } },
     expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-    success_url: checkoutReturnUrl('/freight-broker-masterclass/', { payment: 'success', session_id: '{CHECKOUT_SESSION_ID}' }),
-    cancel_url: checkoutReturnUrl('/freight-broker-masterclass/', { payment: 'canceled', session_id: '{CHECKOUT_SESSION_ID}' }),
+    success_url: checkoutReturnUrl('/freight-dispatch-masterclass/', { payment: 'success', session_id: '{CHECKOUT_SESSION_ID}' }),
+    cancel_url: checkoutReturnUrl('/freight-dispatch-masterclass/', { payment: 'canceled', session_id: '{CHECKOUT_SESSION_ID}' }),
     metadata: {
       payment_id: payment.id,
       program: FREIGHT_BROKER_PROGRAM.id,

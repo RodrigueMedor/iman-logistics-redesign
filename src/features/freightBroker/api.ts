@@ -1,6 +1,6 @@
 import { api } from '../../services/api'
 
-// Freight Broker Masterclass registration calls (the school's src/lib/stripe.ts
+// Freight Dispatch Masterclass registration calls (the school's src/lib/stripe.ts
 // createDispatcherRegistration / createDispatcherCheckout / getPaymentStatus).
 
 export type BrokerClass = {
