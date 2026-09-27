@@ -14,7 +14,6 @@ import {
 } from '@mui/material'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined'
-import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined'
 import FavoriteBorderOutlinedIcon from '@mui/icons-material/FavoriteBorderOutlined'
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
 import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined'
@@ -48,7 +47,6 @@ const values = [
 
 const services = [
   [LocalShippingOutlinedIcon, 'Freight Dispatch Masterclass', 'Step-by-step training designed to help aspiring dispatchers understand the industry, daily workflows, carrier relationships, and growth.', '/', 'Explore dispatch training'],
-  [BusinessCenterOutlinedIcon, 'Freight Broker Masterclass', 'Clear, actionable training that introduces the freight brokerage industry and the path toward becoming a professional broker.', '/freight-broker-masterclass/', 'Explore broker training'],
   [SchoolOutlinedIcon, 'Iman Trucking School', 'Practical preparation for people building the skills, knowledge, and confidence needed for a trucking career.', '/iman-trucking-school/', 'Explore trucking school'],
   [SupportAgentOutlinedIcon, 'Professional Consultation', 'Focused guidance for freight brokerage, trucking, dispatch services, or CDL training decisions.', '/consultants/', 'Schedule a consultation'],
 ] as const

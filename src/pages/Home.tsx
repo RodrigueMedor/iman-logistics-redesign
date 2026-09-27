@@ -5,7 +5,6 @@ import DirectionsCarFilledOutlinedIcon from '@mui/icons-material/DirectionsCarFi
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
-import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
 import { Reveal } from '../components/common/Reveal'
@@ -19,7 +18,6 @@ const heroVideos = [
 
 const services = [
   [LocalShippingOutlinedIcon, 'Career training', 'Freight Dispatch Masterclass', 'Build practical dispatching skills with step-by-step training designed for real-world trucking operations.', '/freight-dispatch-masterclass/', 'Explore dispatch training'],
-  [QueryStatsOutlinedIcon, 'Business training', 'Freight Broker Masterclass', 'Learn the foundations, workflows, and relationship-building skills needed to enter freight brokerage.', '/freight-broker-masterclass/', 'Explore broker training'],
   [SchoolOutlinedIcon, 'Driver education', 'Iman Trucking School', 'Move toward a professional driving career with education built around confidence, safety, and opportunity.', '/iman-trucking-school/', 'Visit trucking school'],
   [DirectionsCarFilledOutlinedIcon, 'Vehicle sales', 'Car & Truck Sales', 'Get personal support finding the right car or commercial truck for your next move.', '/car-auto-sales/', 'Learn about vehicle sales'],
 ] as const

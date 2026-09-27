@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { CircularProgress, Stack } from '@mui/material'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { SiteLayout } from '../components/layout/SiteLayout'
 import { ProtectedRoute } from '../components/auth/ProtectedRoute'
 import { AdminLayout } from '../components/layout/AdminLayout'
@@ -10,7 +10,6 @@ import { backOfficeRoles } from '../contexts/AuthContext'
 const Home = lazy(() => import('../pages/Home'))
 const DispatchMasterclass = lazy(() => import('../pages/DispatchMasterclass'))
 const About = lazy(() => import('../pages/About'))
-const Broker = lazy(() => import('../pages/Broker'))
 const TruckingSchool = lazy(() => import('../pages/TruckingSchool'))
 const Contact = lazy(() => import('../pages/Contact'))
 const Consultation = lazy(() => import('../pages/Consultation'))
@@ -78,7 +77,7 @@ export function AppRoutes() {
     <Route element={<SiteLayout />}>
       <Route index element={<Home />} />
       <Route path="freight-dispatch-masterclass/" element={<DispatchMasterclass />} />
-      <Route path="freight-broker-masterclass/" element={<Broker />} />
+      <Route path="freight-broker-masterclass/" element={<ToDispatchMasterclass />} />
       <Route path="iman-trucking-school/" element={<TruckingSchool />} />
       <Route path="consultants/" element={<Consultation />} />
       <Route path="tracking/*" element={<Tracking />} />
@@ -90,4 +89,11 @@ export function AppRoutes() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Route>
   </Routes></Suspense>
+}
+
+// The Freight Broker Masterclass page was retired; keep old links (including
+// #register) working by sending them to the Freight Dispatch Masterclass page.
+function ToDispatchMasterclass() {
+  const { hash } = useLocation()
+  return <Navigate to={`/freight-dispatch-masterclass/${hash}`} replace />
 }

@@ -67,7 +67,7 @@ const methods = [
 ] as const
 
 const faqs = [
-  ['Which program is right for me?', 'Tell us about your current experience and goals. We can help direct you toward dispatch training, freight broker training, trucking school, or a focused consultation.'],
+  ['Which program is right for me?', 'Tell us about your current experience and goals. We can help direct you toward dispatch training, trucking school, or a focused consultation.'],
   ['How quickly will I receive a response?', 'Response times depend on message volume. Providing a clear subject, preferred contact method, and detailed message helps us respond efficiently.'],
   ['Can I schedule a consultation online?', 'Yes. The Consultation page lets you select a service, available business day, time slot, and meeting preference.'],
   ['Can I attach supporting information?', 'Yes. The form accepts one optional file up to 5 MB for context. Files are stored privately and are only visible to the Iman Logistics team.'],
@@ -169,7 +169,7 @@ export default function Contact() {
                 <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Email Address" type="email" autoComplete="email" {...register('email')} error={!!errors.email} helperText={errors.email?.message} /></Grid>
                 <Grid size={{ xs: 12, sm: 6 }}><TextField fullWidth label="Phone Number" autoComplete="tel" {...register('phone')} error={!!errors.phone} helperText={errors.phone?.message} /></Grid>
                 <Grid size={{ xs: 12, sm: 6 }}><TextField select fullWidth label="Preferred Contact Method" {...register('preferredMethod')} error={!!errors.preferredMethod} helperText={errors.preferredMethod?.message}>{['Email', 'Phone Call', 'Text Message', 'Video Meeting'].map(value => <MenuItem value={value} key={value}>{value}</MenuItem>)}</TextField></Grid>
-                <Grid size={{ xs: 12, sm: 6 }}><TextField select fullWidth label="Service Interested In" {...register('service')} error={!!errors.service} helperText={errors.service?.message}>{['Freight Dispatch Masterclass', 'Freight Broker Masterclass', 'Iman Trucking School', 'Shipment Tracking', 'Car Auto Sales', 'Professional Consultation', 'General Information'].map(value => <MenuItem value={value} key={value}>{value}</MenuItem>)}</TextField></Grid>
+                <Grid size={{ xs: 12, sm: 6 }}><TextField select fullWidth label="Service Interested In" {...register('service')} error={!!errors.service} helperText={errors.service?.message}>{['Freight Dispatch Masterclass', 'Iman Trucking School', 'Shipment Tracking', 'Car Auto Sales', 'Professional Consultation', 'General Information'].map(value => <MenuItem value={value} key={value}>{value}</MenuItem>)}</TextField></Grid>
                 <Grid size={12}><TextField fullWidth label="Subject" {...register('subject')} error={!!errors.subject} helperText={errors.subject?.message} /></Grid>
                 <Grid size={12}><TextField fullWidth multiline minRows={6} label="Message" {...register('message')} error={!!errors.message} helperText={errors.message?.message || 'Include your goals, questions, and any context that may help us respond.'} /></Grid>
                 <Grid size={12}>

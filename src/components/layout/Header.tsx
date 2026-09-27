@@ -31,7 +31,6 @@ import { useContent } from '../../contexts/ContentContext'
 
 const services = [
   ['Freight Dispatcher', '/freight-dispatch-masterclass/'],
-  ['Freight Broker Masterclass', '/freight-broker-masterclass/'],
   ['Iman Trucking School', '/iman-trucking-school/'],
   ['Shipment Tracking', '/tracking/'],
 ] as const
