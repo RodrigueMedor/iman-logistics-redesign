@@ -1,7 +1,6 @@
 // Shared by the website and the API server, so the server sets
 // prices and valid time slots instead of trusting the browser.
 export const serviceCatalog = [
-  { id: 'brokerage', name: 'Freight Brokerage Consultation', duration: 60, price: 149 },
   { id: 'trucking', name: 'Trucking Business Consultation', duration: 60, price: 149 },
   { id: 'dispatch', name: 'Dispatch Services Consultation', duration: 45, price: 119 },
   { id: 'cdl', name: 'CDL School Consultation', duration: 30, price: 79 },

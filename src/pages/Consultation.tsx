@@ -67,7 +67,7 @@ export default function Consultation() {
   const hero = content('consultants', 'hero', {
     section_label: 'PERSONALIZED GUIDANCE',
     title: 'Schedule a Consultation with Our Experts',
-    body: 'Get practical, personalized guidance for your freight brokerage, trucking, dispatch, or CDL training goals. Choose your service and reserve a time in minutes.',
+    body: 'Get practical, personalized guidance for your trucking, dispatch, or CDL training goals. Choose your service and reserve a time in minutes.',
     button_text: 'Book Consultation',
     button_url: '#booking',
   })

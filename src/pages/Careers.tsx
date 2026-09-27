@@ -63,27 +63,6 @@ const positions = [
     ],
   },
   {
-    title: 'Freight Broker / Account Executive',
-    department: 'Brokerage',
-    location: 'Hybrid or remote, based on role',
-    type: 'Full-time',
-    intro: 'Help customers move freight efficiently by developing trusted relationships, sourcing capacity, and managing shipments from quote through delivery.',
-    responsibilities: [
-      'Develop and maintain shipper and carrier relationships',
-      'Prepare competitive freight quotes and negotiate rates',
-      'Match customer shipments with qualified carrier capacity',
-      'Monitor active loads and communicate service updates',
-      'Maintain accurate customer, carrier, and margin records',
-    ],
-    qualifications: [
-      'Transportation sales, freight brokerage, or logistics experience',
-      'Confident negotiation and relationship-building skills',
-      'Strong follow-through in a deadline-driven environment',
-      'Comfort using transportation and customer-management systems',
-      'Professional written and verbal communication',
-    ],
-  },
-  {
     title: 'Safety & Compliance Coordinator',
     department: 'Safety',
     location: 'Office or hybrid',

@@ -295,7 +295,7 @@ export const brokerRegistrationsConfig: RecordsConfig = {
   table: 'freight_broker_registrations',
   title: 'Dispatch Masterclass registrations',
   subtitle: 'Freight Dispatch Masterclass registrations, payments, and signed policies.',
-  canonical: '/admin/freight-broker/',
+  canonical: '/admin/dispatch-masterclass/',
   titleKey: 'registration_no',
   searchPlaceholder: 'Search name, email, phone, registration number',
   columns: [
@@ -328,7 +328,7 @@ export const brokerRegistrationsConfig: RecordsConfig = {
   notes: true,
   notesKey: 'staff_notes',
   deletable: true,
-  csvName: 'iman-freight-broker-registrations',
+  csvName: 'iman-dispatch-masterclass-registrations',
 }
 
 export const notificationStatuses: Option[] = [

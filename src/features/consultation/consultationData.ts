@@ -1,4 +1,3 @@
-import BusinessCenterOutlinedIcon from '@mui/icons-material/BusinessCenterOutlined'
 import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined'
@@ -15,15 +14,6 @@ export type ConsultationService = {
 }
 
 export const services: ConsultationService[] = [
-  {
-    id: 'brokerage',
-    name: 'Freight Brokerage Consultation',
-    description: 'Get focused guidance on launching, structuring, or improving your freight brokerage operation.',
-    duration: 60,
-    price: 149,
-    icon: BusinessCenterOutlinedIcon,
-    includes: ['Business model review', 'Broker operations guidance', 'Personalized action plan'],
-  },
   {
     id: 'trucking',
     name: 'Trucking Business Consultation',

@@ -43,6 +43,8 @@ export function AppRoutes() {
     <Route path="admin/login/" element={<AdminLogin />} />
     <Route path="admin/reset-password/" element={<AdminResetPassword />} />
     <Route path="tracking/admin/" element={<Navigate to="/admin/shipments/" replace />} />
+    <Route path="admin/freight-broker/" element={<Navigate to="/admin/dispatch-masterclass/" replace />} />
+    <Route path="admin/freight-broker/classes/" element={<Navigate to="/admin/dispatch-masterclass/classes/" replace />} />
     <Route path="tracking/admin/work-orders/" element={<Navigate to="/admin/work-orders/" replace />} />
     <Route path="tracking/admin/users/" element={<Navigate to="/admin/users/" replace />} />
     <Route element={<ProtectedRoute roles={backOfficeRoles} />}>
@@ -51,8 +53,8 @@ export function AppRoutes() {
         <Route path="admin/contacts/" element={<ContactsPage />} />
         <Route path="admin/bookings/" element={<BookingsPage />} />
         <Route path="admin/applications/" element={<ApplicationsPage />} />
-        <Route path="admin/freight-broker/" element={<BrokerRegistrationsPage />} />
-        <Route path="admin/freight-broker/classes/" element={<BrokerClassesPage />} />
+        <Route path="admin/dispatch-masterclass/" element={<BrokerRegistrationsPage />} />
+        <Route path="admin/dispatch-masterclass/classes/" element={<BrokerClassesPage />} />
         <Route path="admin/notifications/" element={<NotificationsPage />} />
         <Route path="admin/payments/" element={<PaymentsPage />} />
         <Route path="admin/customers/" element={<CustomersPage />} />

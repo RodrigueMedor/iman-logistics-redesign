@@ -119,7 +119,7 @@ export function BrokerClassesPage() {
   }
 
   return <>
-    <Seo title="Dispatch Masterclass Classes | Iman Logistics Back Office" canonical="/admin/freight-broker/classes/" />
+    <Seo title="Dispatch Masterclass Classes | Iman Logistics Back Office" canonical="/admin/dispatch-masterclass/classes/" />
     <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'flex-end' }} spacing={2} mb={3}>
         <Box><Typography component="h1" variant="h4" fontWeight={950}>Dispatch Masterclass class sessions</Typography><Typography color="text.secondary" mt={.5}>OPEN sessions appear under "Upcoming sessions" on the Freight Dispatch Masterclass page. Seats are counted from paid registrations.</Typography></Box>

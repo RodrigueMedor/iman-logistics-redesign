@@ -48,13 +48,13 @@ const values = [
 const services = [
   [LocalShippingOutlinedIcon, 'Freight Dispatch Masterclass', 'Step-by-step training designed to help aspiring dispatchers understand the industry, daily workflows, carrier relationships, and growth.', '/', 'Explore dispatch training'],
   [SchoolOutlinedIcon, 'Iman Trucking School', 'Practical preparation for people building the skills, knowledge, and confidence needed for a trucking career.', '/iman-trucking-school/', 'Explore trucking school'],
-  [SupportAgentOutlinedIcon, 'Professional Consultation', 'Focused guidance for freight brokerage, trucking, dispatch services, or CDL training decisions.', '/consultants/', 'Schedule a consultation'],
+  [SupportAgentOutlinedIcon, 'Professional Consultation', 'Focused guidance for trucking, dispatch services, or CDL training decisions.', '/consultants/', 'Schedule a consultation'],
 ] as const
 
 const milestones = [
   ['Foundation', 'A commitment to make logistics and dispatch education clearer, more practical, and easier to act on.'],
   ['Training', 'Structured learning paths built around industry fundamentals, real workflows, and professional confidence.'],
-  ['Expansion', 'Broader guidance for freight brokerage, trucking careers, dispatch services, and business questions.'],
+  ['Expansion', 'Broader guidance for trucking careers, dispatch services, and business questions.'],
   ['Today', 'A growing education platform focused on helping people move forward with a practical plan.'],
   ['Future', 'Continuing to strengthen learning experiences and support the next generation of logistics professionals.'],
 ] as const
@@ -130,7 +130,7 @@ export default function About() {
           ['Structured from the ground up', 'Content begins with the fundamentals and builds toward professional workflows.'],
           ['Industry-focused knowledge', 'Lessons stay centered on the responsibilities, relationships, and decisions that matter.'],
           ['Clear communication', 'Complex processes are broken into understandable, practical steps.'],
-          ['Flexible pathways', 'Explore dispatch, freight brokerage, trucking school, or focused consultation.'],
+          ['Flexible pathways', 'Explore dispatch training, trucking school, or focused consultation.'],
           ['Professional mindset', 'Confidence is built through preparation, systems, and responsible practice.'],
           ['Dedicated direction', 'Consultations help turn individual questions into a prioritized action plan.'],
         ].map(([title, text], index) => <Grid size={{ xs: 12, md: 6 }} key={title}><Reveal delay={index * 40}><Stack direction="row" spacing={2.5} p={3} sx={{ borderRadius: 3, '&:hover': { bgcolor: 'action.hover' }, transition: 'background-color .2s' }}><Avatar sx={{ bgcolor: 'secondary.main', color: 'secondary.contrastText', fontWeight: 900 }}>{String(index + 1).padStart(2, '0')}</Avatar><Box><Typography variant="h6" color="primary" fontWeight={900}>{title}</Typography><Typography color="text.secondary" mt={0.5}>{text}</Typography></Box></Stack></Reveal></Grid>)}
