@@ -7,7 +7,8 @@ with Supabase Auth; the API checks each request's token and role, and runs
 staff queries as that user so the database's row-level security still applies.
 
 API documentation (Swagger UI): `http://localhost:3001/api/docs`
-(OpenAPI JSON at `/api/openapi.json`).
+(OpenAPI JSON at `/api/openapi.json`). Both are off in production
+(`NODE_ENV=production`) unless `SWAGGER_ENABLED=true`.
 
 ## Production
 

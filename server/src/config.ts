@@ -17,7 +17,9 @@ export const config = {
   corsOrigins: list(process.env.CORS_ORIGINS).length ? list(process.env.CORS_ORIGINS) : ['http://localhost:5173', 'http://localhost:4173'],
   // Public form submissions allowed per IP address per 15 minutes.
   submissionRateLimit: Number(process.env.RATE_LIMIT_SUBMISSIONS || 20),
-  swaggerEnabled: process.env.SWAGGER_ENABLED !== 'false',
+  // Swagger UI and /api/openapi.json: on in development, off in production
+  // unless SWAGGER_ENABLED=true.
+  swaggerEnabled: process.env.SWAGGER_ENABLED ? process.env.SWAGGER_ENABLED === 'true' : process.env.NODE_ENV !== 'production',
   // Serve the built website (dist/) from this process. Off for `npm run dev:api`.
   serveWebsite: process.env.SERVE_WEBSITE !== 'false',
   // Email via Resend and SMS via Twilio; each is skipped until configured.
