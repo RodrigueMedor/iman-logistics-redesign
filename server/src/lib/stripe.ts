@@ -72,7 +72,14 @@ async function releaseBookingIfUnpaid(db: SupabaseClient, bookingId: string | nu
 // Validates what Stripe collected against what the server expected before
 // marking anything paid (same rule as the school server).
 export async function finalizeSuccessfulPayment(db: SupabaseClient, payment: PaymentRow | null, paidAmount: number | null, paidCurrency: string | null, paymentIntentId?: string | null) {
-  if (!payment || final.includes(payment.status)) return
+  if (!payment) return
+  if (final.includes(payment.status)) {
+    if (payment.status === 'paid' && payment.broker_registration_id) {
+      const { data: paid } = await db.from('payments').select('id, broker_registration_id, amount_cents, paid_at, stripe_payment_intent_id, stripe_checkout_session_id').eq('id', payment.id).single()
+      if (paid) await sendRegistrationPaidNotifications(db, payment.broker_registration_id, paid)
+    }
+    return
+  }
   const expectedAmount = Number(payment.metadata?.expected_amount ?? payment.amount_cents)
   const expectedCurrency = payment.currency.toLowerCase()
   if (paidAmount !== expectedAmount || (paidCurrency || '').toLowerCase() !== expectedCurrency) {
@@ -114,8 +121,9 @@ async function sessionCompleted(db: SupabaseClient, session: Stripe.Checkout.Ses
   const paymentId = session.metadata?.payment_id
   if (!paymentId) return console.error('No payment_id in checkout session metadata')
   const payment = await paymentById(db, paymentId)
-  if (!payment || final.includes(payment.status)) return
+  if (!payment) return
   const paymentIntent = intentId(session.payment_intent)
+  if (final.includes(payment.status)) return finalizeSuccessfulPayment(db, payment, session.amount_total, session.currency, paymentIntent)
   await setStatus(db, payment.id, { status: 'processing', ...(paymentIntent ? { stripe_payment_intent_id: paymentIntent, provider_reference: paymentIntent } : {}) })
   // Card payments are already paid when Checkout completes.
   if (session.payment_status === 'paid') await finalizeSuccessfulPayment(db, { ...payment, status: 'processing' }, session.amount_total, session.currency, paymentIntent)

@@ -19,6 +19,9 @@ export type BrokerClass = {
   seat_capacity?: number | null
   seats_remaining?: number | null
   status?: 'OPEN' | 'FULL' | 'CLOSED' | 'COMPLETED'
+  timezone?: string
+  allows_online?: boolean
+  allows_in_person?: boolean
 }
 
 export type RegistrationForm = {
@@ -32,6 +35,9 @@ export type RegistrationForm = {
   state: string
   zip: string
   classId: string
+  attendanceType: 'online' | 'in_person'
+  verificationId: string
+  verificationToken: string
 }
 
 export type CreatedRegistration = { id: string; registration_no: string; class_id: string }
@@ -55,6 +61,10 @@ export type RegistrationDetails = {
   classDeliveryMode?: 'online' | 'in_person' | null
   classLocation?: string | null
   classInstructor?: string | null
+  classTimezone?: string | null
+  attendanceType?: 'online' | 'in_person'
+  emailVerified?: boolean
+  phoneVerified?: boolean
   status: string
   paymentStatus: string
   policyAccepted: boolean
@@ -73,6 +83,15 @@ export type RegistrationPaymentStatus = {
 }
 
 export const listBrokerClasses = () => api<BrokerClass[]>('/freight-broker/classes')
+
+export type VerificationState = { id: string; email: string; phone: string; expiresInSeconds: number }
+export type VerificationResult = { emailVerified: boolean; phoneVerified: boolean; verificationToken?: string; tokenExpiresAt?: string }
+export const startRegistrationVerification = (email: string, phone: string) =>
+  api<VerificationState>('/freight-broker/verifications', { body: { email, phone } })
+export const verifyRegistrationCode = (id: string, channel: 'email' | 'phone', code: string) =>
+  api<VerificationResult>(`/freight-broker/verifications/${id}/verify`, { body: { channel, code } })
+export const resendRegistrationCode = (id: string, channel: 'email' | 'phone') =>
+  api(`/freight-broker/verifications/${id}/resend`, { body: { channel } })
 
 export const createBrokerRegistration = (form: RegistrationForm & { website?: string }) =>
   api<CreatedRegistration>('/freight-broker/registrations', { body: form })

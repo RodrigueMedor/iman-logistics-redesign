@@ -13,7 +13,7 @@ import PrintIcon from '@mui/icons-material/Print'
 import SchoolIcon from '@mui/icons-material/School'
 import VideocamIcon from '@mui/icons-material/Videocam'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { createBrokerRegistration, listBrokerClasses, startBrokerCheckout, type BrokerClass, type CreatedRegistration, type RegistrationDetails, type RegistrationForm } from './api'
+import { createBrokerRegistration, listBrokerClasses, resendRegistrationCode, startBrokerCheckout, startRegistrationVerification, verifyRegistrationCode, type BrokerClass, type CreatedRegistration, type RegistrationDetails, type RegistrationForm, type VerificationState } from './api'
 import { PolicyAgreement } from './PolicyAgreement'
 import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM, FREIGHT_BROKER_STEPS, isPolicySigned } from './program'
 import { RegistrationPaymentStatus } from './RegistrationPaymentStatus'
@@ -25,7 +25,7 @@ import { RegistrationPaymentStatus } from './RegistrationPaymentStatus'
 // Masterclass page as the #register section.
 
 const pendingRegistrationStorageKey = 'iman_freight_broker_pending_reg'
-const emptyForm: RegistrationForm = { firstName: '', lastName: '', email: '', phone: '', address1: '', address2: '', city: '', state: '', zip: '', classId: '' }
+const emptyForm: RegistrationForm = { firstName: '', lastName: '', email: '', phone: '', address1: '', address2: '', city: '', state: '', zip: '', classId: '', attendanceType: 'online', verificationId: '', verificationToken: '' }
 const dollars = (cents?: number | null) => (cents ?? FREIGHT_BROKER_PROGRAM.defaultPriceCents) / 100
 const mediumDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' }) : null
 const scrollToSection = () => window.setTimeout(() => document.getElementById('register')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
@@ -52,7 +52,7 @@ const isSessionFull = (c: BrokerClass) => c.status === 'FULL' || (c.seat_capacit
 const deadlinePassed = (c: BrokerClass) => Boolean(c.registration_deadline && new Date(c.registration_deadline) < new Date())
 const isSessionSelectable = (c: BrokerClass) => (c.status || 'OPEN') === 'OPEN' && !isSessionFull(c) && !deadlinePassed(c)
 const sessionDates = (c?: BrokerClass) => c?.starts_at ? `${mediumDate(c.starts_at)}${c.ends_at ? ` – ${mediumDate(c.ends_at)}` : ''}` : 'Rolling enrollment'
-const sessionPlace = (mode?: string | null, place?: string | null) => mode === 'online' ? 'Online' : place || 'In-person'
+const sessionPlace = (c?: BrokerClass) => c?.allows_online && c?.allows_in_person ? 'Online / Zoom or In Person' : c?.allows_in_person ? (c.location || 'In Person') : 'Online / Zoom'
 
 function SessionCard({ c, selected, onSelect }: { c: BrokerClass; selected: boolean; onSelect: () => void }) {
   const full = isSessionFull(c)
@@ -81,7 +81,7 @@ function SessionCard({ c, selected, onSelect }: { c: BrokerClass; selected: bool
         {c.registration_deadline && <Typography variant="caption" color="warning.dark" sx={{ pl: 3.25 }}>Register by {mediumDate(c.registration_deadline)}</Typography>}
         <Stack direction="row" alignItems="center" gap={0.75}>
           {c.delivery_mode === 'online' ? <VideocamIcon fontSize="small" color="action" /> : <PlaceIcon fontSize="small" color="action" />}
-          <Typography variant="body2" color="text.secondary">{sessionPlace(c.delivery_mode, c.location)}</Typography>
+          <Typography variant="body2" color="text.secondary">{sessionPlace(c)}</Typography>
         </Stack>
         {c.instructor_name && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>Instructor: {c.instructor_name}</Typography>}
       </Stack>
@@ -120,6 +120,13 @@ export function FreightBrokerRegistration() {
   const [formData, setFormData] = useState<RegistrationForm>(emptyForm)
   const [honeypot, setHoneypot] = useState('')
   const [showStatus, setShowStatus] = useState(Boolean(paymentSessionId))
+  const [verification, setVerification] = useState<VerificationState | null>(null)
+  const [emailCode, setEmailCode] = useState('')
+  const [phoneCode, setPhoneCode] = useState('')
+  const [emailVerified, setEmailVerified] = useState(false)
+  const [phoneVerified, setPhoneVerified] = useState(false)
+  const [verificationLoading, setVerificationLoading] = useState(false)
+  const contactVerified = emailVerified && phoneVerified && Boolean(formData.verificationToken)
 
   // Restore the pending registration when returning from (or canceling) Stripe.
   useEffect(() => {
@@ -154,6 +161,13 @@ export function FreightBrokerRegistration() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classes])
 
+  useEffect(() => {
+    const selected = classes.find(item => item.id === formData.classId)
+    if (!selected) return
+    if (formData.attendanceType === 'online' && !selected.allows_online) setFormData(current => ({ ...current, attendanceType: 'in_person' }))
+    if (formData.attendanceType === 'in_person' && !selected.allows_in_person) setFormData(current => ({ ...current, attendanceType: 'online' }))
+  }, [classes, formData.classId, formData.attendanceType])
+
   const selectedClass = classes.find(item => item.id === (formData.classId || registration?.class_id))
   const price = dollars(selectedClass?.price_cents)
   const activeStep = state === 'review' ? 1 : state === 'success' ? 2 : 0
@@ -164,6 +178,32 @@ export function FreightBrokerRegistration() {
     formSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  function changeContact(field: 'email' | 'phone', value: string) {
+    setFormData(current => ({ ...current, [field]: value, verificationId: '', verificationToken: '' }))
+    setVerification(null); setEmailVerified(false); setPhoneVerified(false); setEmailCode(''); setPhoneCode('')
+  }
+
+  async function sendVerificationCodes() {
+    setPaymentError(''); setVerificationLoading(true)
+    try {
+      const result = await startRegistrationVerification(formData.email, formData.phone)
+      setVerification(result)
+      setFormData(current => ({ ...current, email: result.email, phone: result.phone, verificationId: result.id, verificationToken: '' }))
+    } catch (caught) { setPaymentError(caught instanceof Error ? caught.message : 'Unable to send verification codes.') }
+    finally { setVerificationLoading(false) }
+  }
+
+  async function verifyCode(channel: 'email' | 'phone') {
+    if (!verification) return
+    setPaymentError(''); setVerificationLoading(true)
+    try {
+      const result = await verifyRegistrationCode(verification.id, channel, channel === 'email' ? emailCode : phoneCode)
+      setEmailVerified(result.emailVerified); setPhoneVerified(result.phoneVerified)
+      if (result.verificationToken) setFormData(current => ({ ...current, verificationId: verification.id, verificationToken: result.verificationToken! }))
+    } catch (caught) { setPaymentError(caught instanceof Error ? caught.message : 'The verification code could not be confirmed.') }
+    finally { setVerificationLoading(false) }
+  }
+
   function clearReturnParams() {
     navigate(`${location.pathname}#register`, { replace: true })
     setShowStatus(false)
@@ -171,6 +211,7 @@ export function FreightBrokerRegistration() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (!contactVerified) return setPaymentError('Verify both your email address and phone number before continuing.')
     if (!formData.classId) return setPaymentError('Please select a Freight Dispatch Masterclass session to continue.')
     setPaymentError('')
     setState('saving')
@@ -254,6 +295,7 @@ export function FreightBrokerRegistration() {
       ['Phone number', confirmed?.phone || formData.phone || '—'],
       ['Address', address],
       ['Class enrolled', confirmed?.className || selectedClass?.name || FREIGHT_BROKER_PROGRAM.defaultClassName],
+      ['Attendance', (confirmed?.attendanceType || formData.attendanceType) === 'online' ? 'Online / Zoom' : 'In Person'],
     ]
     return (
       <Box sx={{ maxWidth: 600, mx: 'auto' }}>
@@ -292,7 +334,7 @@ export function FreightBrokerRegistration() {
             <Alert severity="success" sx={{ mb: 3, textAlign: 'left' }}>A formal confirmation email has been sent to your inbox. Our team will contact you with course access and materials prior to start.</Alert>
             <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="center" gap={1.5}>
               <Button variant="outlined" onClick={() => window.print()} startIcon={<PrintIcon />}>Print confirmation</Button>
-              <Button variant="contained" color="secondary" onClick={() => { setState('idle'); setRegistration(null); setFormData(emptyForm); setPaymentPolicyAccepted(false); setPaymentPolicySignature(''); scrollToSection() }}>Register another student</Button>
+              <Button variant="contained" color="secondary" onClick={() => { setState('idle'); setRegistration(null); setFormData(emptyForm); setVerification(null); setEmailVerified(false); setPhoneVerified(false); setEmailCode(''); setPhoneCode(''); setPaymentPolicyAccepted(false); setPaymentPolicySignature(''); scrollToSection() }}>Register another student</Button>
             </Stack>
           </CardContent>
         </Card>
@@ -317,7 +359,7 @@ export function FreightBrokerRegistration() {
                 {selectedClass?.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{selectedClass.description}</Typography>}
                 {selectedClass && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{sessionDates(selectedClass)}</Typography>}
                 {selectedClass && (selectedClass.days_of_week || selectedClass.class_time) && <Typography variant="body2" color="text.secondary">{[selectedClass.days_of_week, selectedClass.class_time].filter(Boolean).join(' · ')}</Typography>}
-                {selectedClass && <Typography variant="body2" color="text.secondary">{sessionPlace(selectedClass.delivery_mode, selectedClass.location)}</Typography>}
+                {selectedClass && <Typography variant="body2" color="text.secondary">{formData.attendanceType === 'online' ? 'Online / Zoom' : 'In Person'}</Typography>}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
                   <Typography fontWeight={800} variant="body2">Tuition / total due</Typography>
                   <Typography variant="h6" fontWeight={950} color="secondary.main">${price.toFixed(2)}</Typography>
@@ -331,6 +373,7 @@ export function FreightBrokerRegistration() {
                   <Typography variant="body2"><strong>Name:</strong> {formData.firstName} {formData.lastName}</Typography>
                   <Typography variant="body2" sx={{ wordBreak: 'break-word' }}><strong>Email:</strong> {formData.email}</Typography>
                   <Typography variant="body2"><strong>Phone:</strong> {formData.phone || '—'}</Typography>
+                  <Typography variant="body2"><strong>Attendance:</strong> {formData.attendanceType === 'online' ? 'Online / Zoom' : 'In Person'}</Typography>
                   <Typography variant="body2"><strong>Address:</strong> {formData.address1}{formData.address2 ? `, ${formData.address2}` : ''}</Typography>
                   <Typography variant="body2"><strong>City / state / ZIP:</strong> {formData.city}, {formData.state} {formData.zip}</Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-all' }}><strong>Registration number:</strong> {registration.registration_no}</Typography>
@@ -386,12 +429,24 @@ export function FreightBrokerRegistration() {
               <Box component="input" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={honeypot} onChange={event => setHoneypot(event.target.value)} sx={{ position: 'absolute', left: '-10000px', width: 1, height: 1, opacity: 0 }} />
               <Stack spacing={2.5}>
                 <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
+                  <SectionHeading icon={<PersonIcon color="secondary" fontSize="small" />} title="Verify your contact information" />
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Email" type="email" autoComplete="email" value={formData.email} onChange={event => changeContact('email', event.target.value)} required disabled={contactVerified} /></Grid>
+                    <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Phone (include country code)" type="tel" autoComplete="tel" value={formData.phone} onChange={event => changeContact('phone', event.target.value)} required disabled={contactVerified} /></Grid>
+                    {!verification && <Grid size={12}><Button fullWidth variant="outlined" onClick={() => void sendVerificationCodes()} disabled={verificationLoading || !formData.email || !formData.phone}>{verificationLoading ? 'Sending codes…' : 'Send email and SMS verification codes'}</Button></Grid>}
+                    {verification && !contactVerified && <>
+                      <Grid size={{ xs: 12, md: 6 }}><Stack spacing={1}><TextField fullWidth size="small" label="Email verification code" value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, '').slice(0, 6))} disabled={emailVerified} inputProps={{ inputMode: 'numeric' }} /><Button variant="outlined" color={emailVerified ? 'success' : 'primary'} disabled={emailVerified || emailCode.length !== 6 || verificationLoading} onClick={() => void verifyCode('email')}>{emailVerified ? 'Email verified' : 'Verify email'}</Button><Button size="small" disabled={emailVerified || verificationLoading} onClick={() => void resendRegistrationCode(verification.id, 'email').catch(error => setPaymentError(error.message))}>Resend email code</Button></Stack></Grid>
+                      <Grid size={{ xs: 12, md: 6 }}><Stack spacing={1}><TextField fullWidth size="small" label="SMS verification code" value={phoneCode} onChange={event => setPhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))} disabled={phoneVerified} inputProps={{ inputMode: 'numeric' }} /><Button variant="outlined" color={phoneVerified ? 'success' : 'primary'} disabled={phoneVerified || phoneCode.length !== 6 || verificationLoading} onClick={() => void verifyCode('phone')}>{phoneVerified ? 'Phone verified' : 'Verify phone'}</Button><Button size="small" disabled={phoneVerified || verificationLoading} onClick={() => void resendRegistrationCode(verification.id, 'phone').catch(error => setPaymentError(error.message))}>Resend SMS code</Button></Stack></Grid>
+                    </>}
+                    {contactVerified && <Grid size={12}><Alert severity="success">Email address and phone number verified.</Alert></Grid>}
+                  </Grid>
+                </Paper>
+                {contactVerified && <>
+                <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
                   <SectionHeading icon={<PersonIcon color="secondary" fontSize="small" />} title="Personal information" />
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="First name" autoComplete="given-name" value={formData.firstName} onChange={update('firstName')} required /></Grid>
                     <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Last name" autoComplete="family-name" value={formData.lastName} onChange={update('lastName')} required /></Grid>
-                    <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Email" type="email" autoComplete="email" value={formData.email} onChange={update('email')} required /></Grid>
-                    <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Phone" type="tel" autoComplete="tel" value={formData.phone} onChange={update('phone')} /></Grid>
                   </Grid>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
@@ -415,10 +470,18 @@ export function FreightBrokerRegistration() {
                     </Select>
                   </FormControl>
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>Tip: pick a session from the "Upcoming sessions" list for full schedule and location details.</Typography>
+                  <FormControl fullWidth required size="small" sx={{ mt: 2 }}>
+                    <InputLabel id="attendance-type-label">How will you attend?</InputLabel>
+                    <Select labelId="attendance-type-label" value={formData.attendanceType} onChange={event => setFormData(current => ({ ...current, attendanceType: event.target.value as 'online' | 'in_person' }))} label="How will you attend?">
+                      <MenuItem value="online" disabled={!selectedClass?.allows_online}>Online / Zoom</MenuItem>
+                      <MenuItem value="in_person" disabled={!selectedClass?.allows_in_person}>In Person</MenuItem>
+                    </Select>
+                  </FormControl>
                 </Paper>
                 <Button type="submit" variant="contained" color="secondary" size="large" fullWidth disabled={state === 'saving' || noSessions || classesLoading} sx={{ py: 1.75, fontSize: '1.05rem', fontWeight: 700 }}>
                   {state === 'saving' ? 'Saving Registration...' : 'Continue to Review & Policy Agreement'}
                 </Button>
+                </>}
               </Stack>
             </form>
           </Paper>

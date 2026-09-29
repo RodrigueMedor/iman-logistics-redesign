@@ -290,6 +290,8 @@ export const brokerPaymentStatuses: Option[] = [
 
 type BrokerClassJoin = { name?: string; starts_at?: string; ends_at?: string; location?: string } | null
 const brokerClass = (row: RecordRow) => row.class as BrokerClassJoin
+type BrokerPaymentJoin = { reference?: string; provider_reference?: string; stripe_payment_intent_id?: string } | null
+const brokerPayment = (row: RecordRow) => row.payment as BrokerPaymentJoin
 
 export const brokerRegistrationsConfig: RecordsConfig = {
   table: 'freight_broker_registrations',
@@ -302,6 +304,7 @@ export const brokerRegistrationsConfig: RecordsConfig = {
     { key: 'registration_no', label: 'Registration', render: strong('registration_no') },
     { key: 'first_name', label: 'Registrant', render: row => `${String(row.first_name)} ${String(row.last_name)}` },
     { key: 'class', label: 'Class', render: row => brokerClass(row)?.name ?? '—', hideOnMobile: true },
+    { key: 'attendance_type', label: 'Attendance', render: row => row.attendance_type === 'online' ? 'Online' : 'In Person', hideOnMobile: true },
     { key: 'status', label: 'Status', render: row => <StatusChip value={row.status} options={brokerStatuses} /> },
     { key: 'payment_status', label: 'Payment', render: row => <StatusChip value={row.payment_status} options={brokerPaymentStatuses} /> },
     { key: 'submitted_at', label: 'Submitted', render: row => formatDateTime(row.submitted_at), hideOnMobile: true },
@@ -314,10 +317,19 @@ export const brokerRegistrationsConfig: RecordsConfig = {
     { key: 'address_line1', label: 'Address', render: row => `${String(row.address_line1)}${row.address_line2 ? `, ${String(row.address_line2)}` : ''}, ${String(row.city)}, ${String(row.state)} ${String(row.zip_code)}` },
     { key: 'class', label: 'Class session', render: row => brokerClass(row)?.name ?? '—' },
     { key: 'class_dates', label: 'Class dates', render: row => brokerClass(row)?.starts_at ? `${formatDate(brokerClass(row)?.starts_at)} – ${formatDate(brokerClass(row)?.ends_at)}` : '—' },
+    { key: 'attendance_type', label: 'Attendance', render: row => row.attendance_type === 'online' ? 'Online / Zoom' : 'In Person' },
+    { key: 'email_verified_at', label: 'Email verification', render: row => row.email_verified_at ? `Verified ${formatDateTime(row.email_verified_at)}` : 'Not verified' },
+    { key: 'phone_verified_at', label: 'Phone verification', render: row => row.phone_verified_at ? `Verified ${formatDateTime(row.phone_verified_at)}` : 'Not verified' },
     { key: 'payment_status', label: 'Payment status', render: row => <StatusChip value={row.payment_status} options={brokerPaymentStatuses} /> },
+    { key: 'payment_reference', label: 'Payment reference', render: row => brokerPayment(row)?.provider_reference || brokerPayment(row)?.stripe_payment_intent_id || brokerPayment(row)?.reference || '—' },
     { key: 'payment_policy_signature', label: 'Policy signed by' },
     { key: 'payment_policy_accepted_at', label: 'Policy accepted at', render: row => formatDateTime(row.payment_policy_accepted_at) },
     { key: 'payment_policy_version', label: 'Policy version' },
+    { key: 'notification_status', label: 'Notification status' },
+    { key: 'calendar_status', label: 'Calendar status' },
+    { key: 'agreement_status', label: 'Agreement status' },
+    { key: 'fulfillment_status', label: 'Overall fulfillment' },
+    { key: 'fulfillment_error', label: 'Fulfillment error' },
     { key: 'submitted_at', label: 'Submitted', render: row => formatDateTime(row.submitted_at) },
     updated,
   ],

@@ -86,6 +86,13 @@ export type BrokerClassRow = {
   instructor_name: string | null
   seat_capacity: number | null
   status: 'OPEN' | 'FULL' | 'CLOSED' | 'COMPLETED'
+  timezone: string
+  allows_online: boolean
+  allows_in_person: boolean
+  zoom_join_url: string | null
+  online_instructions: string
+  physical_location: string | null
+  in_person_instructions: string
   seats_taken: number
   seats_remaining: number | null
 }
