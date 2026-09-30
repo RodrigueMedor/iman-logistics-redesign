@@ -37,6 +37,11 @@ export const config = {
     // Only for local testing against a mock server.
     apiBaseUrl: (process.env.TWILIO_API_BASE_URL || 'https://api.twilio.com').replace(/\/+$/, ''),
   },
+  // Set REGISTRATION_PHONE_VERIFICATION=off to verify registrations by email
+  // only (e.g. while the Twilio account cannot send custom SMS).
+  registrationPhoneVerification: process.env.REGISTRATION_PHONE_VERIFICATION !== 'off',
+  // HMAC secret for short-lived registration OTPs and verification grants.
+  verificationCodeSecret: process.env.VERIFICATION_CODE_SECRET || '',
   // Only for local testing against stripe-mock.
   stripeApi: process.env.STRIPE_API_HOST ? { host: process.env.STRIPE_API_HOST, port: Number(process.env.STRIPE_API_PORT || 443), protocol: (process.env.STRIPE_API_PROTOCOL || 'https') as 'http' | 'https' } : null,
 }

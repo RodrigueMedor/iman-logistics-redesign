@@ -295,10 +295,10 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('registration rejects bots (400)', (await call('/freight-broker/registrations', { body: { ...registrant, website: 'spam' } })).status === 400)
   const reg = await call('/freight-broker/registrations', { body: registrant })
   check('step 1 creates a registration with an FBM number', reg.status === 201 && /^FBM-\d{4}-/.test(reg.json?.registration_no) && reg.json.class_id === rolling.id, reg.text)
-  const regRow = async () => (await service.from('freight_broker_registrations').select('*').eq('id', reg.json.id).single()).data
+  const regRow = async () => (await service.from('freight_dispatch_masterclass_registrations').select('*').eq('id', reg.json.id).single()).data
   const initial = await regRow()
   check('the registration is SUBMITTED with payment pending', initial.status === 'SUBMITTED' && initial.payment_status === 'pending' && initial.email === registrant.email)
-  check('anonymous users cannot read registrations directly', !((await anon.from('freight_broker_registrations').select('id').limit(1)).data?.length))
+  check('anonymous users cannot read registrations directly', !((await anon.from('freight_dispatch_masterclass_registrations').select('id').limit(1)).data?.length))
 
   const signature = `taylor  broker <b>${run}</b>`
   const checkoutBody = { email: registrant.email, classId: rolling.id, paymentPolicyAccepted: true, paymentPolicySignature: signature }
@@ -356,7 +356,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('the customer record counts the registration and payment', brokerCustomer.json?.registration_count === 1 && Number(brokerCustomer.json.total_paid_cents) === 52000, brokerCustomer.text)
   const brokerStats = await call('/admin/stats', { token: admin.token })
   check('dashboard statistics include Freight Broker registrations', brokerStats.json?.brokerRegistrations?.confirmed >= 1)
-  const brokerAudit = await call(`/admin/audit-logs?search=${reg.json.id}&entity_type=freight_broker_registrations`, { token: superAdmin.token })
+  const brokerAudit = await call(`/admin/audit-logs?search=${reg.json.id}&entity_type=freight_dispatch_masterclass_registrations`, { token: superAdmin.token })
   check('registration changes are in the audit log', ['insert', 'update'].every(action => brokerAudit.json?.data?.some(row => row.action === action)))
 
   // Seats: a one-seat class fills after one paid registration.
@@ -383,7 +383,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   const abandonedSession = `cs_test_${crypto.randomUUID().replaceAll('-', '')}`
   await service.from('payments').update({ stripe_checkout_session_id: abandonedSession }).eq('id', abandonedPayment.id)
   await sendEvent('checkout.session.expired', { id: abandonedSession, object: 'checkout.session', payment_status: 'unpaid', status: 'expired', amount_total: 52000, currency: 'usd', payment_intent: null, metadata: { payment_id: abandonedPayment.id } })
-  const abandonedRow = (await service.from('freight_broker_registrations').select('status, payment_status').eq('id', abandonedReg.json.id).single()).data
+  const abandonedRow = (await service.from('freight_dispatch_masterclass_registrations').select('status, payment_status').eq('id', abandonedReg.json.id).single()).data
   check('an expired checkout marks the registration payment canceled', abandonedRow.status === 'SUBMITTED' && abandonedRow.payment_status === 'canceled', JSON.stringify(abandonedRow))
   check('the registrant can retry payment after canceling', (await call(`/freight-broker/registrations/${abandonedReg.json.id}/checkout`, { body: { email: `abandon-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: signature } })).status === 200)
   check('no notifications are sent for unpaid registrations', (await service.from('notification_log').select('id').eq('entity_id', abandonedReg.json.id)).data?.length === 0)

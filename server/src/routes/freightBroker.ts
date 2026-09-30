@@ -5,9 +5,10 @@ import { config } from '../config'
 import { backOffice, requireRole, staff, superAdminOnly } from '../lib/auth'
 import { classIsFull, loadRegistration, makeRegistrationNo } from '../lib/freightBroker'
 import { HttpError, parse } from '../lib/http'
+import { consumeRegistrationVerification, resendRegistrationCode, startRegistrationVerification, verifyRegistrationCode } from '../lib/registrationVerification'
 import { checkoutReturnUrl, stripeClient } from '../lib/stripe'
 import { publicClient, serviceClient } from '../lib/supabase'
-import { freightBrokerCheckout, freightBrokerClassInput, freightBrokerRegistration } from '../schemas'
+import { freightBrokerCheckout, freightBrokerClassInput, freightBrokerRegistration, registrationVerificationCode, registrationVerificationResend, registrationVerificationStart } from '../schemas'
 
 // Freight Dispatch Masterclass registration: the Iman Trucking School dispatcher
 // registration endpoints (/api/create-dispatcher-registration and
@@ -16,6 +17,7 @@ export const freightBrokerRoutes = Router()
 export const freightBrokerAdminRoutes = Router()
 
 const submissions = rateLimit({ windowMs: 15 * 60 * 1000, limit: config.submissionRateLimit, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many requests. Please try again later.' } })
+const verificationRequests = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many verification requests. Please try again later.' } })
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 
 freightBrokerRoutes.get('/classes', async (_req, res) => {
@@ -25,35 +27,52 @@ freightBrokerRoutes.get('/classes', async (_req, res) => {
   res.set('Cache-Control', 'no-store').json(data)
 })
 
+freightBrokerRoutes.post('/verifications', verificationRequests, async (req, res) => {
+  const input = parse(registrationVerificationStart, req.body, 'Enter a valid email address.')
+  res.status(201).json(await startRegistrationVerification(serviceClient(), input.email, input.phone, req.ip || 'unknown'))
+})
+
+freightBrokerRoutes.post('/verifications/:id/verify', verificationRequests, async (req, res) => {
+  if (!isUuid(String(req.params.id))) throw new HttpError(404, 'Verification request not found.')
+  const input = parse(registrationVerificationCode, req.body)
+  res.json(await verifyRegistrationCode(serviceClient(), String(req.params.id), input.channel, input.code))
+})
+
+freightBrokerRoutes.post('/verifications/:id/resend', verificationRequests, async (req, res) => {
+  if (!isUuid(String(req.params.id))) throw new HttpError(404, 'Verification request not found.')
+  const input = parse(registrationVerificationResend, req.body)
+  res.json(await resendRegistrationCode(serviceClient(), String(req.params.id), input.channel))
+})
+
 freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
   const input = parse(freightBrokerRegistration, req.body, 'Complete every required registration field.')
   const db = serviceClient()
 
-  // Same class resolution as the dispatcher flow: the chosen open, upcoming
-  // class, or else the most recent open one.
+  // Resolve exactly the session the student selected; never silently move a
+  // verified registration to another class.
   const now = new Date().toISOString()
-  let classRow: { id: string } | null = null
+  let classRow: { id: string; allows_online: boolean; allows_in_person: boolean } | null = null
   if (isUuid(input.classId)) {
-    const { data } = await db.from('freight_broker_classes').select('id').eq('id', input.classId).eq('status', 'OPEN').gte('ends_at', now).maybeSingle()
-    classRow = data
-  }
-  if (!classRow) {
-    const { data, error } = await db.from('freight_broker_classes').select('id').eq('status', 'OPEN').gte('ends_at', now).order('created_at', { ascending: false }).limit(1).maybeSingle()
-    if (error) throw error
+    const { data } = await db.from('freight_dispatch_masterclass_classes').select('id, allows_online, allows_in_person').eq('id', input.classId).eq('status', 'OPEN').gte('ends_at', now).maybeSingle()
     classRow = data
   }
   if (!classRow) throw new HttpError(404, 'The selected Freight Dispatch Masterclass session is not available.')
+  if (input.attendanceType === 'online' && !classRow.allows_online) throw new HttpError(409, 'Online attendance is not available for this session.')
+  if (input.attendanceType === 'in_person' && !classRow.allows_in_person) throw new HttpError(409, 'In-person attendance is not available for this session.')
 
   const email = input.email.toLowerCase()
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-  const { count } = await db.from('freight_broker_registrations').select('id', { count: 'exact', head: true }).eq('email', email).gte('created_at', since)
+  const { count } = await db.from('freight_dispatch_masterclass_registrations').select('id', { count: 'exact', head: true }).eq('email', email).gte('created_at', since)
   if ((count ?? 0) >= 5) throw new HttpError(429, 'Too many registrations. Please try again later.')
+  const verification = await consumeRegistrationVerification(db, input.verificationId, input.verificationToken, email, input.phone)
 
-  const { data, error } = await db.from('freight_broker_registrations').insert({
+  const { data, error } = await db.from('freight_dispatch_masterclass_registrations').insert({
     registration_no: makeRegistrationNo(),
     first_name: input.firstName, last_name: input.lastName, email, phone: input.phone || null,
     address_line1: input.address1, address_line2: input.address2 || null, city: input.city, state: input.state, zip_code: input.zip,
-    class_id: classRow.id, status: 'SUBMITTED', payment_status: 'pending',
+    class_id: classRow.id, attendance_type: input.attendanceType,
+    email_verified_at: verification.email_verified_at, phone_verified_at: verification.phone_verified_at, verification_id: verification.id,
+    status: 'SUBMITTED', payment_status: 'pending',
   }).select('id, registration_no, class_id').single()
   if (error) throw error
   res.status(201).json(data)
@@ -94,7 +113,7 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
     }
   }
 
-  const policy = { payment_policy_version: FREIGHT_BROKER_POLICY_VERSION, payment_policy_signature: input.paymentPolicySignature, payment_policy_accepted_at: new Date().toISOString() }
+  const policy = { payment_policy_version: FREIGHT_BROKER_POLICY_VERSION, payment_policy_signature: input.paymentPolicySignature, payment_policy_accepted_at: new Date().toISOString(), payment_policy_text: FREIGHT_BROKER_POLICY_TEXT }
   const metadata = {
     program: FREIGHT_BROKER_PROGRAM.id,
     payment_type: FREIGHT_BROKER_PROGRAM.id,
@@ -102,6 +121,7 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
     freight_broker_registration_id: registration.id,
     class_id: registration.class.id,
     class_name: registration.class.name,
+    attendance_type: registration.attendance_type,
     expected_amount: priceCents,
     policy_text: FREIGHT_BROKER_POLICY_TEXT,
     ...policy,
@@ -146,7 +166,7 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
 
   const { error: linkError } = await db.from('payments').update({ stripe_checkout_session_id: session.id }).eq('id', payment.id)
   if (linkError) throw linkError
-  await db.from('freight_broker_registrations').update(policy).eq('id', registration.id)
+  await db.from('freight_dispatch_masterclass_registrations').update(policy).eq('id', registration.id)
   res.json({ sessionId: session.id, url: session.url })
 })
 
@@ -155,33 +175,33 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
 // ---------------------------------------------------------------------------
 
 freightBrokerAdminRoutes.get('/classes', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('freight_broker_classes_admin').select('*').order('starts_at', { ascending: false })
+  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes_admin').select('*').order('starts_at', { ascending: false })
   if (error) throw error
   res.json(data)
 })
 
 freightBrokerAdminRoutes.post('/classes', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('freight_broker_classes').insert(parse(freightBrokerClassInput, req.body)).select('*').single()
+  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').insert(parse(freightBrokerClassInput, req.body)).select('*').single()
   if (error) throw error
   res.status(201).json(data)
 })
 
 freightBrokerAdminRoutes.put('/classes/:id', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('freight_broker_classes').update(parse(freightBrokerClassInput, req.body)).eq('id', req.params.id).select('*').maybeSingle()
+  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').update(parse(freightBrokerClassInput, req.body)).eq('id', req.params.id).select('*').maybeSingle()
   if (error) throw error
   if (!data) throw new HttpError(404, 'Class session not found.')
   res.json(data)
 })
 
 freightBrokerAdminRoutes.delete('/classes/:id', requireRole(superAdminOnly), async (req, res) => {
-  const { count, error } = await staff(req).db.from('freight_broker_classes').delete({ count: 'exact' }).eq('id', req.params.id)
+  const { count, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').delete({ count: 'exact' }).eq('id', req.params.id)
   if (error) throw error
   if (!count) throw new HttpError(404, 'Class session not found.')
   res.status(204).end()
 })
 
 freightBrokerAdminRoutes.get('/registrations/:id/notifications', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('notification_log').select('*').eq('entity_type', 'freight_broker_registrations').eq('entity_id', req.params.id).order('created_at')
+  const { data, error } = await staff(req).db.from('notification_log').select('*').eq('entity_type', 'freight_dispatch_masterclass_registrations').eq('entity_id', req.params.id).order('created_at')
   if (error) throw error
   res.json(data)
 })

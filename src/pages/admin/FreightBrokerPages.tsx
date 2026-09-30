@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Box, Button, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Checkbox, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import { Seo } from '../../components/common/Seo'
@@ -31,8 +31,8 @@ export function NotificationsPage() { return <RecordsPage {...notificationLogCon
 // Class sessions (adapted from the school's DispatcherClasses admin page)
 // ---------------------------------------------------------------------------
 
-type ClassForm = { id: string | null; name: string; description: string; priceDollars: string; startsAt: string; endsAt: string; deadline: string; daysOfWeek: string; classTime: string; deliveryMode: 'online' | 'in_person'; location: string; instructor: string; seatCapacity: string; status: BrokerClassRow['status'] }
-const emptyForm: ClassForm = { id: null, name: '', description: '', priceDollars: '520', startsAt: '', endsAt: '', deadline: '', daysOfWeek: '', classTime: '', deliveryMode: 'online', location: '', instructor: '', seatCapacity: '', status: 'OPEN' }
+type ClassForm = { id: string | null; name: string; description: string; priceDollars: string; startsAt: string; endsAt: string; deadline: string; daysOfWeek: string; classTime: string; deliveryMode: 'online' | 'in_person'; location: string; instructor: string; seatCapacity: string; status: BrokerClassRow['status']; timezone: string; allowsOnline: boolean; allowsInPerson: boolean; zoomJoinUrl: string; onlineInstructions: string; physicalLocation: string; inPersonInstructions: string }
+const emptyForm: ClassForm = { id: null, name: '', description: '', priceDollars: '520', startsAt: '', endsAt: '', deadline: '', daysOfWeek: '', classTime: '', deliveryMode: 'online', location: '', instructor: '', seatCapacity: '', status: 'OPEN', timezone: 'America/New_York', allowsOnline: true, allowsInPerson: false, zoomJoinUrl: '', onlineInstructions: '', physicalLocation: '', inPersonInstructions: '' }
 const statusColor = (status: string) => status === 'OPEN' ? 'success' : status === 'FULL' ? 'warning' : status === 'COMPLETED' ? 'info' : 'default'
 
 function toDatetimeLocal(iso: string) {
@@ -68,7 +68,7 @@ export function BrokerClassesPage() {
 
   const openCreate = () => { setForm(emptyForm); setFormError(''); setDialogOpen(true) }
   const openEdit = (row: BrokerClassRow) => {
-    setForm({ id: row.id, name: row.name, description: row.description ?? '', priceDollars: (row.price_cents / 100).toFixed(2), startsAt: toDatetimeLocal(row.starts_at), endsAt: toDatetimeLocal(row.ends_at), deadline: row.registration_deadline ? toDatetimeLocal(row.registration_deadline) : '', daysOfWeek: row.days_of_week ?? '', classTime: row.class_time ?? '', deliveryMode: row.delivery_mode ?? 'online', location: row.location ?? '', instructor: row.instructor_name ?? '', seatCapacity: row.seat_capacity == null ? '' : String(row.seat_capacity), status: row.status })
+    setForm({ id: row.id, name: row.name, description: row.description ?? '', priceDollars: (row.price_cents / 100).toFixed(2), startsAt: toDatetimeLocal(row.starts_at), endsAt: toDatetimeLocal(row.ends_at), deadline: row.registration_deadline ? toDatetimeLocal(row.registration_deadline) : '', daysOfWeek: row.days_of_week ?? '', classTime: row.class_time ?? '', deliveryMode: row.delivery_mode ?? 'online', location: row.location ?? '', instructor: row.instructor_name ?? '', seatCapacity: row.seat_capacity == null ? '' : String(row.seat_capacity), status: row.status, timezone: row.timezone || 'America/New_York', allowsOnline: row.allows_online, allowsInPerson: row.allows_in_person, zoomJoinUrl: row.zoom_join_url ?? '', onlineInstructions: row.online_instructions ?? '', physicalLocation: row.physical_location ?? '', inPersonInstructions: row.in_person_instructions ?? '' })
     setFormError('')
     setDialogOpen(true)
   }
@@ -78,6 +78,7 @@ export function BrokerClassesPage() {
     const price = Number(form.priceDollars)
     if (!form.name.trim() || !form.startsAt || !form.endsAt) return setFormError('Name, start, and end are required.')
     if (!Number.isFinite(price) || price <= 0) return setFormError('Enter a price greater than zero.')
+    if (!form.allowsOnline && !form.allowsInPerson) return setFormError('Enable Online / Zoom, In Person, or both.')
     if (form.seatCapacity && (!Number.isInteger(Number(form.seatCapacity)) || Number(form.seatCapacity) < 0)) return setFormError('Seat capacity must be a whole number, or blank for unlimited.')
     setSaving(true)
     setFormError('')
@@ -91,8 +92,11 @@ export function BrokerClassesPage() {
         registration_deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
         days_of_week: form.daysOfWeek.trim() || null,
         class_time: form.classTime.trim() || null,
-        delivery_mode: form.deliveryMode,
+        delivery_mode: form.allowsOnline ? 'online' : 'in_person',
         location: form.location.trim() || null,
+        timezone: form.timezone.trim(), allows_online: form.allowsOnline, allows_in_person: form.allowsInPerson,
+        zoom_join_url: form.zoomJoinUrl.trim() || null, online_instructions: form.onlineInstructions.trim(),
+        physical_location: form.physicalLocation.trim() || null, in_person_instructions: form.inPersonInstructions.trim(),
         instructor_name: form.instructor.trim() || null,
         seat_capacity: form.seatCapacity === '' ? null : Number(form.seatCapacity),
         status: form.status,
@@ -137,7 +141,7 @@ export function BrokerClassesPage() {
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(row.starts_at)} – {formatDate(row.ends_at)}{row.registration_deadline && <Typography variant="caption" display="block" color="warning.dark">Register by {formatDate(row.registration_deadline)}</Typography>}</TableCell>
                 <TableCell>{[row.days_of_week, row.class_time].filter(Boolean).join(' · ') || '—'}</TableCell>
                 <TableCell>{formatMoney(row.price_cents)}</TableCell>
-                <TableCell>{row.delivery_mode === 'online' ? 'Online' : row.location || 'In-person'}</TableCell>
+                <TableCell>{[row.allows_online && 'Online', row.allows_in_person && 'In person'].filter(Boolean).join(' / ')}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.seat_capacity == null ? `${row.seats_taken} taken · unlimited` : `${row.seats_taken} / ${row.seat_capacity} · ${row.seats_remaining} left`}</TableCell>
                 <TableCell><Chip size="small" label={row.status} color={statusColor(row.status)} sx={{ fontWeight: 800 }} /></TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
@@ -165,8 +169,11 @@ export function BrokerClassesPage() {
           <TextField label="Registration deadline (optional)" type="datetime-local" value={form.deadline} onChange={event => update('deadline', event.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
           <TextField label="Days of week" value={form.daysOfWeek} onChange={event => update('daysOfWeek', event.target.value)} placeholder="Mon, Wed, Fri" />
           <TextField label="Class time" value={form.classTime} onChange={event => update('classTime', event.target.value)} placeholder="6:00 PM – 9:00 PM ET" />
-          <TextField select label="Delivery mode" value={form.deliveryMode} onChange={event => update('deliveryMode', event.target.value)}><MenuItem value="online">Online</MenuItem><MenuItem value="in_person">In person</MenuItem></TextField>
-          <TextField label="Location" value={form.location} onChange={event => update('location', event.target.value)} placeholder={form.deliveryMode === 'online' ? 'Optional for online sessions' : 'Campus or venue address'} />
+          <TextField label="Timezone" value={form.timezone} onChange={event => update('timezone', event.target.value)} placeholder="America/New_York" required />
+          <Stack direction={{ xs: 'column', sm: 'row' }}><FormControlLabel control={<Checkbox checked={form.allowsOnline} onChange={event => setForm(current => ({ ...current, allowsOnline: event.target.checked }))} />} label="Online / Zoom" /><FormControlLabel control={<Checkbox checked={form.allowsInPerson} onChange={event => setForm(current => ({ ...current, allowsInPerson: event.target.checked }))} />} label="In Person" /></Stack>
+          {form.allowsOnline && <><TextField label="Private Zoom join URL" type="url" value={form.zoomJoinUrl} onChange={event => update('zoomJoinUrl', event.target.value)} helperText="Shown only after confirmed payment." /><TextField label="Online instructions" value={form.onlineInstructions} onChange={event => update('onlineInstructions', event.target.value)} multiline minRows={2} /></>}
+          {form.allowsInPerson && <><TextField label="Physical class location" value={form.physicalLocation} onChange={event => update('physicalLocation', event.target.value)} /><TextField label="In-person instructions" value={form.inPersonInstructions} onChange={event => update('inPersonInstructions', event.target.value)} multiline minRows={2} /></>}
+          <TextField label="Public location summary" value={form.location} onChange={event => update('location', event.target.value)} placeholder="Online or city/campus name" />
           <TextField label="Instructor" value={form.instructor} onChange={event => update('instructor', event.target.value)} />
           <TextField label="Seat capacity (blank = unlimited)" type="number" value={form.seatCapacity} onChange={event => update('seatCapacity', event.target.value)} slotProps={{ htmlInput: { min: 0, step: 1 } }} />
           <TextField select label="Status" value={form.status} onChange={event => update('status', event.target.value)} helperText="Only OPEN sessions are shown and accept registrations.">{brokerClassStatuses.map(status => <MenuItem key={status} value={status}>{status}</MenuItem>)}</TextField>

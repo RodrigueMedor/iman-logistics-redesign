@@ -6,7 +6,7 @@ import { config } from './config'
 // Browser settings the website needs at runtime. Only public values: the
 // Supabase URL and publishable key are designed to be exposed.
 export function runtimeConfigScript() {
-  const value = { supabaseUrl: config.supabaseUrl, supabasePublishableKey: config.supabasePublishableKey, apiBaseUrl: '' }
+  const value = { supabaseUrl: config.supabaseUrl, supabasePublishableKey: config.supabasePublishableKey, apiBaseUrl: '', registrationPhoneVerification: config.registrationPhoneVerification }
   return `window.__IMAN_CONFIG__ = ${JSON.stringify(value).replace(/</g, '\\u003c')};\n`
 }
 

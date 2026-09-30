@@ -1,6 +1,6 @@
 import { api } from './api'
 
-export type BackOfficeTable = 'contact_submissions' | 'consultation_bookings' | 'job_applications' | 'freight_broker_registrations' | 'payments' | 'customers' | 'notification_log' | 'audit_logs'
+export type BackOfficeTable = 'contact_submissions' | 'consultation_bookings' | 'job_applications' | 'freight_dispatch_masterclass_registrations' | 'payments' | 'customers' | 'notification_log' | 'audit_logs'
 export type RecordRow = Record<string, unknown> & { id?: string | number }
 
 // API resource for each back-office table.
@@ -8,7 +8,7 @@ const resource: Record<BackOfficeTable, string> = {
   contact_submissions: 'contact-submissions',
   consultation_bookings: 'bookings',
   job_applications: 'job-applications',
-  freight_broker_registrations: 'freight-broker-registrations',
+  freight_dispatch_masterclass_registrations: 'freight-broker-registrations',
   notification_log: 'notification-log',
   payments: 'payments',
   customers: 'customers',
@@ -86,6 +86,13 @@ export type BrokerClassRow = {
   instructor_name: string | null
   seat_capacity: number | null
   status: 'OPEN' | 'FULL' | 'CLOSED' | 'COMPLETED'
+  timezone: string
+  allows_online: boolean
+  allows_in_person: boolean
+  zoom_join_url: string | null
+  online_instructions: string
+  physical_location: string | null
+  in_person_instructions: string
   seats_taken: number
   seats_remaining: number | null
 }

@@ -142,8 +142,9 @@ publicRoutes.get('/payments/status', lookups, async (req, res) => {
   const load = () => db.from('payments').select('*').eq('stripe_checkout_session_id', sessionId).maybeSingle()
   let { data: payment } = await load()
   if (!payment) throw new HttpError(404, 'Payment not found.')
-  // Fallback when the webhook is delayed: ask Stripe directly.
-  if (stripeConfigured() && ['pending', 'processing'].includes(payment.status)) {
+  // Registration payment status is read-only: only the signed webhook may
+  // finalize a registration. Preserve the existing consultation fallback.
+  if (payment.booking_id && !payment.broker_registration_id && stripeConfigured() && ['pending', 'processing'].includes(payment.status)) {
     await reconcileSession(db, stripeClient(), payment)
     payment = (await load()).data ?? payment
   }

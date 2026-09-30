@@ -13,7 +13,7 @@
 -- Class sessions
 -- ---------------------------------------------------------------------------
 
-create table if not exists public.freight_broker_classes (
+create table if not exists public.freight_dispatch_masterclass_classes (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 2 and 200),
   description text,
@@ -34,7 +34,7 @@ create table if not exists public.freight_broker_classes (
 -- Registrations
 -- ---------------------------------------------------------------------------
 
-create table if not exists public.freight_broker_registrations (
+create table if not exists public.freight_dispatch_masterclass_registrations (
   id uuid primary key default gen_random_uuid(),
   registration_no text not null unique,
   first_name text not null check (char_length(first_name) between 1 and 80),
@@ -46,7 +46,7 @@ create table if not exists public.freight_broker_registrations (
   city text not null check (char_length(city) <= 120),
   state text not null check (char_length(state) <= 60),
   zip_code text not null check (char_length(zip_code) <= 20),
-  class_id uuid references public.freight_broker_classes(id) on delete set null,
+  class_id uuid references public.freight_dispatch_masterclass_classes(id) on delete set null,
   status text not null default 'SUBMITTED' check (status in ('SUBMITTED', 'CONFIRMED', 'CANCELED')),
   payment_status text not null default 'pending' check (payment_status in ('not_required', 'pending', 'processing', 'paid', 'failed', 'canceled', 'refunded')),
   payment_id uuid references public.payments(id) on delete set null,
@@ -59,13 +59,13 @@ create table if not exists public.freight_broker_registrations (
   updated_at timestamptz not null default now()
 );
 
-create index if not exists freight_broker_registrations_class_idx on public.freight_broker_registrations (class_id);
-create index if not exists freight_broker_registrations_email_idx on public.freight_broker_registrations (lower(email));
-create index if not exists freight_broker_registrations_created_idx on public.freight_broker_registrations (created_at desc);
+create index if not exists freight_dispatch_masterclass_registrations_class_idx on public.freight_dispatch_masterclass_registrations (class_id);
+create index if not exists freight_dispatch_masterclass_registrations_email_idx on public.freight_dispatch_masterclass_registrations (lower(email));
+create index if not exists freight_dispatch_masterclass_registrations_created_idx on public.freight_dispatch_masterclass_registrations (created_at desc);
 
 -- Link payments to registrations.
 alter table public.payments
-  add column if not exists broker_registration_id uuid references public.freight_broker_registrations(id) on delete set null;
+  add column if not exists broker_registration_id uuid references public.freight_dispatch_masterclass_registrations(id) on delete set null;
 create index if not exists payments_broker_registration_idx on public.payments (broker_registration_id);
 
 -- ---------------------------------------------------------------------------
@@ -96,15 +96,15 @@ create index if not exists notification_log_created_idx on public.notification_l
 
 -- Seats are derived from paid, non-canceled registrations (never decremented
 -- by hand), exactly like the dispatcher redesign.
-create or replace view public.freight_broker_classes_admin with (security_invoker = true) as
+create or replace view public.freight_dispatch_masterclass_classes_admin with (security_invoker = true) as
 select
   c.*,
   coalesce(r.seats_taken, 0)::int as seats_taken,
   case when c.seat_capacity is null then null else greatest(c.seat_capacity - coalesce(r.seats_taken, 0), 0) end as seats_remaining
-from public.freight_broker_classes c
+from public.freight_dispatch_masterclass_classes c
 left join (
   select class_id, count(*) as seats_taken
-  from public.freight_broker_registrations
+  from public.freight_dispatch_masterclass_registrations
   where payment_status = 'paid' and status <> 'CANCELED'
   group by class_id
 ) r on r.class_id = c.id;
@@ -122,10 +122,10 @@ security definer set search_path = public
 as $$
   select c.id, c.name, c.description, c.price_cents, c.starts_at, c.ends_at, c.location, c.schedule_notes, c.seat_capacity,
     case when c.seat_capacity is null then null else greatest(c.seat_capacity - (
-      select count(*) from public.freight_broker_registrations r
+      select count(*) from public.freight_dispatch_masterclass_registrations r
       where r.class_id = c.id and r.payment_status = 'paid' and r.status <> 'CANCELED'
     ), 0)::int end
-  from public.freight_broker_classes c
+  from public.freight_dispatch_masterclass_classes c
   where c.open = true and c.ends_at >= now()
   order by c.starts_at;
 $$;
@@ -146,7 +146,7 @@ security definer set search_path = public
 as $$
 begin
   if new.broker_registration_id is not null and (tg_op = 'INSERT' or new.status is distinct from old.status) then
-    update public.freight_broker_registrations
+    update public.freight_dispatch_masterclass_registrations
     set payment_status = new.status,
         payment_id = new.id,
         status = case when new.status = 'paid' then 'CONFIRMED' else status end
@@ -166,7 +166,7 @@ create trigger sync_broker_registration_payment
 do $$
 declare table_name text;
 begin
-  foreach table_name in array array['freight_broker_classes', 'freight_broker_registrations'] loop
+  foreach table_name in array array['freight_dispatch_masterclass_classes', 'freight_dispatch_masterclass_registrations'] loop
     execute format('drop trigger if exists set_updated_at on public.%I', table_name);
     execute format('create trigger set_updated_at before update on public.%I for each row execute procedure public.set_updated_at()', table_name);
     execute format('drop trigger if exists audit_row_change on public.%I', table_name);
@@ -178,34 +178,34 @@ end $$;
 -- Row-level security and privileges
 -- ---------------------------------------------------------------------------
 
-alter table public.freight_broker_classes enable row level security;
-alter table public.freight_broker_registrations enable row level security;
+alter table public.freight_dispatch_masterclass_classes enable row level security;
+alter table public.freight_dispatch_masterclass_registrations enable row level security;
 alter table public.notification_log enable row level security;
 
-drop policy if exists "back office reads" on public.freight_broker_classes;
-create policy "back office reads" on public.freight_broker_classes for select to authenticated using (public.is_back_office());
-drop policy if exists "back office inserts" on public.freight_broker_classes;
-create policy "back office inserts" on public.freight_broker_classes for insert to authenticated with check (public.is_back_office());
-drop policy if exists "back office updates" on public.freight_broker_classes;
-create policy "back office updates" on public.freight_broker_classes for update to authenticated using (public.is_back_office()) with check (public.is_back_office());
-drop policy if exists "super admins delete" on public.freight_broker_classes;
-create policy "super admins delete" on public.freight_broker_classes for delete to authenticated using (public.is_super_admin());
-revoke all on public.freight_broker_classes from anon, authenticated;
-grant select, insert, update, delete on public.freight_broker_classes to authenticated;
-revoke all on public.freight_broker_classes_admin from anon, authenticated;
-grant select on public.freight_broker_classes_admin to authenticated;
+drop policy if exists "back office reads" on public.freight_dispatch_masterclass_classes;
+create policy "back office reads" on public.freight_dispatch_masterclass_classes for select to authenticated using (public.is_back_office());
+drop policy if exists "back office inserts" on public.freight_dispatch_masterclass_classes;
+create policy "back office inserts" on public.freight_dispatch_masterclass_classes for insert to authenticated with check (public.is_back_office());
+drop policy if exists "back office updates" on public.freight_dispatch_masterclass_classes;
+create policy "back office updates" on public.freight_dispatch_masterclass_classes for update to authenticated using (public.is_back_office()) with check (public.is_back_office());
+drop policy if exists "super admins delete" on public.freight_dispatch_masterclass_classes;
+create policy "super admins delete" on public.freight_dispatch_masterclass_classes for delete to authenticated using (public.is_super_admin());
+revoke all on public.freight_dispatch_masterclass_classes from anon, authenticated;
+grant select, insert, update, delete on public.freight_dispatch_masterclass_classes to authenticated;
+revoke all on public.freight_dispatch_masterclass_classes_admin from anon, authenticated;
+grant select on public.freight_dispatch_masterclass_classes_admin to authenticated;
 
-drop policy if exists "back office reads" on public.freight_broker_registrations;
-create policy "back office reads" on public.freight_broker_registrations for select to authenticated using (public.is_back_office());
-drop policy if exists "back office updates" on public.freight_broker_registrations;
-create policy "back office updates" on public.freight_broker_registrations for update to authenticated using (public.is_back_office()) with check (public.is_back_office());
-drop policy if exists "super admins delete" on public.freight_broker_registrations;
-create policy "super admins delete" on public.freight_broker_registrations for delete to authenticated using (public.is_super_admin());
-revoke all on public.freight_broker_registrations from anon, authenticated;
-grant select, delete on public.freight_broker_registrations to authenticated;
+drop policy if exists "back office reads" on public.freight_dispatch_masterclass_registrations;
+create policy "back office reads" on public.freight_dispatch_masterclass_registrations for select to authenticated using (public.is_back_office());
+drop policy if exists "back office updates" on public.freight_dispatch_masterclass_registrations;
+create policy "back office updates" on public.freight_dispatch_masterclass_registrations for update to authenticated using (public.is_back_office()) with check (public.is_back_office());
+drop policy if exists "super admins delete" on public.freight_dispatch_masterclass_registrations;
+create policy "super admins delete" on public.freight_dispatch_masterclass_registrations for delete to authenticated using (public.is_super_admin());
+revoke all on public.freight_dispatch_masterclass_registrations from anon, authenticated;
+grant select, delete on public.freight_dispatch_masterclass_registrations to authenticated;
 -- Staff change only the review fields; registrant data and payment fields are
 -- written by the API and the payment trigger.
-grant update (status, staff_notes) on public.freight_broker_registrations to authenticated;
+grant update (status, staff_notes) on public.freight_dispatch_masterclass_registrations to authenticated;
 
 drop policy if exists "back office reads" on public.notification_log;
 create policy "back office reads" on public.notification_log for select to authenticated using (public.is_back_office());
@@ -237,7 +237,7 @@ from (
   union all
   select 'application', email, full_name, phone, created_at, 0 from public.job_applications
   union all
-  select 'registration', email, first_name || ' ' || last_name, coalesce(phone, ''), created_at, 0 from public.freight_broker_registrations
+  select 'registration', email, first_name || ' ' || last_name, coalesce(phone, ''), created_at, 0 from public.freight_dispatch_masterclass_registrations
   union all
   select 'payment', payer_email, payer_name, '', created_at, case when status = 'paid' then amount_cents else 0 end
   from public.payments where payer_email <> ''
@@ -277,9 +277,9 @@ begin
       'inProgress', (select count(*) from job_applications where status in ('reviewing', 'interview', 'offer'))
     ),
     'brokerRegistrations', jsonb_build_object(
-      'total', (select count(*) from freight_broker_registrations),
-      'confirmed', (select count(*) from freight_broker_registrations where status = 'CONFIRMED'),
-      'awaitingPayment', (select count(*) from freight_broker_registrations where status = 'SUBMITTED' and payment_status in ('pending', 'processing', 'failed', 'canceled'))
+      'total', (select count(*) from freight_dispatch_masterclass_registrations),
+      'confirmed', (select count(*) from freight_dispatch_masterclass_registrations where status = 'CONFIRMED'),
+      'awaitingPayment', (select count(*) from freight_dispatch_masterclass_registrations where status = 'SUBMITTED' and payment_status in ('pending', 'processing', 'failed', 'canceled'))
     ),
     'payments', jsonb_build_object(
       'paidCents', (select coalesce(sum(amount_cents), 0) from payments where status = 'paid'),
@@ -299,7 +299,7 @@ begin
           (select count(*) from contact_submissions where created_at::date = d::date) +
           (select count(*) from consultation_bookings where created_at::date = d::date) +
           (select count(*) from job_applications where created_at::date = d::date) +
-          (select count(*) from freight_broker_registrations where created_at::date = d::date)
+          (select count(*) from freight_dispatch_masterclass_registrations where created_at::date = d::date)
         ) as total
         from generate_series(current_date - 13, current_date, interval '1 day') as d
       ) as days
@@ -313,15 +313,15 @@ $$;
 -- Seed the first class session (price and dates are editable in the back office)
 -- ---------------------------------------------------------------------------
 
-insert into public.freight_broker_classes (name, description, price_cents, starts_at, ends_at, schedule_notes, open)
-select 'Freight Broker Masterclass — Rolling Enrollment 2026',
-       'Step-by-step freight brokerage training: authority and compliance, shippers, carriers, pricing, and operations.',
+insert into public.freight_dispatch_masterclass_classes (name, description, price_cents, starts_at, ends_at, schedule_notes, open)
+select 'Freight Dispatch Masterclass — Rolling Enrollment 2026',
+       'Step-by-step freight dispatch training: finding loads, carrier setup and paperwork, rate negotiation, compliance, and managing multiple trucks.',
        52000,
        '2026-01-01T00:00:00Z',
        '2026-12-31T23:59:59Z',
        'Rolling enrollment — our team will contact you with your start date.',
        true
-where not exists (select 1 from public.freight_broker_classes where name = 'Freight Broker Masterclass — Rolling Enrollment 2026');
+where not exists (select 1 from public.freight_dispatch_masterclass_classes where name = 'Freight Dispatch Masterclass — Rolling Enrollment 2026');
 
 -- Point the page's main buttons at the on-page registration, unless staff
 -- already changed them in the content editor.

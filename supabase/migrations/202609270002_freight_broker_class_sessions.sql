@@ -6,7 +6,7 @@
 -- `status` is the source of truth for whether a session takes registrations;
 -- `open` is kept in step with it for compatibility.
 
-alter table public.freight_broker_classes
+alter table public.freight_dispatch_masterclass_classes
   add column if not exists registration_deadline timestamptz,
   add column if not exists days_of_week text,
   add column if not exists class_time text,
@@ -14,20 +14,20 @@ alter table public.freight_broker_classes
   add column if not exists instructor_name text,
   add column if not exists status text;
 
-alter table public.freight_broker_classes drop constraint if exists freight_broker_classes_delivery_mode_check;
-alter table public.freight_broker_classes add constraint freight_broker_classes_delivery_mode_check
+alter table public.freight_dispatch_masterclass_classes drop constraint if exists freight_dispatch_masterclass_classes_delivery_mode_check;
+alter table public.freight_dispatch_masterclass_classes add constraint freight_dispatch_masterclass_classes_delivery_mode_check
   check (delivery_mode is null or delivery_mode in ('online', 'in_person'));
-alter table public.freight_broker_classes drop constraint if exists freight_broker_classes_status_check;
-alter table public.freight_broker_classes add constraint freight_broker_classes_status_check
+alter table public.freight_dispatch_masterclass_classes drop constraint if exists freight_dispatch_masterclass_classes_status_check;
+alter table public.freight_dispatch_masterclass_classes add constraint freight_dispatch_masterclass_classes_status_check
   check (status in ('OPEN', 'FULL', 'CLOSED', 'COMPLETED'));
 
-update public.freight_broker_classes set status = case when open then 'OPEN' else 'CLOSED' end where status is null;
-alter table public.freight_broker_classes alter column status set default 'OPEN';
-alter table public.freight_broker_classes alter column status set not null;
+update public.freight_dispatch_masterclass_classes set status = case when open then 'OPEN' else 'CLOSED' end where status is null;
+alter table public.freight_dispatch_masterclass_classes alter column status set default 'OPEN';
+alter table public.freight_dispatch_masterclass_classes alter column status set not null;
 
 -- The live sessions have days of week and class time instead of free-form
 -- schedule notes.
-update public.freight_broker_classes
+update public.freight_dispatch_masterclass_classes
 set days_of_week = coalesce(days_of_week, 'Rolling enrollment'),
     class_time = coalesce(class_time, 'Our team will contact you with your start date'),
     delivery_mode = coalesce(delivery_mode, 'online')
@@ -43,32 +43,32 @@ begin
 end;
 $$;
 
-drop trigger if exists sync_freight_broker_class_open on public.freight_broker_classes;
+drop trigger if exists sync_freight_broker_class_open on public.freight_dispatch_masterclass_classes;
 create trigger sync_freight_broker_class_open
-  before insert or update on public.freight_broker_classes
+  before insert or update on public.freight_dispatch_masterclass_classes
   for each row execute procedure public.sync_freight_broker_class_open();
 
 -- Views and functions select the columns explicitly, so they are rebuilt
 -- before the old column is dropped.
-drop view if exists public.freight_broker_classes_admin;
+drop view if exists public.freight_dispatch_masterclass_classes_admin;
 drop function if exists public.freight_broker_open_classes();
-alter table public.freight_broker_classes drop column if exists schedule_notes;
+alter table public.freight_dispatch_masterclass_classes drop column if exists schedule_notes;
 
-create view public.freight_broker_classes_admin with (security_invoker = true) as
+create view public.freight_dispatch_masterclass_classes_admin with (security_invoker = true) as
 select
   c.*,
   coalesce(r.seats_taken, 0)::int as seats_taken,
   case when c.seat_capacity is null then null else greatest(c.seat_capacity - coalesce(r.seats_taken, 0), 0) end as seats_remaining
-from public.freight_broker_classes c
+from public.freight_dispatch_masterclass_classes c
 left join (
   select class_id, count(*) as seats_taken
-  from public.freight_broker_registrations
+  from public.freight_dispatch_masterclass_registrations
   where payment_status = 'paid' and status <> 'CANCELED'
   group by class_id
 ) r on r.class_id = c.id;
 
-revoke all on public.freight_broker_classes_admin from anon, authenticated;
-grant select on public.freight_broker_classes_admin to authenticated;
+revoke all on public.freight_dispatch_masterclass_classes_admin from anon, authenticated;
+grant select on public.freight_dispatch_masterclass_classes_admin to authenticated;
 
 -- Public "Upcoming sessions": OPEN sessions that have not ended. A session
 -- whose seats run out keeps status OPEN with seats_remaining = 0, so the page
@@ -87,11 +87,11 @@ as $$
     c.registration_deadline, c.days_of_week, c.class_time, c.delivery_mode, c.location,
     c.instructor_name, c.seat_capacity,
     case when c.seat_capacity is null then null else greatest(c.seat_capacity - (
-      select count(*) from public.freight_broker_registrations r
+      select count(*) from public.freight_dispatch_masterclass_registrations r
       where r.class_id = c.id and r.payment_status = 'paid' and r.status <> 'CANCELED'
     ), 0)::int end,
     c.status
-  from public.freight_broker_classes c
+  from public.freight_dispatch_masterclass_classes c
   where c.status = 'OPEN' and c.ends_at >= now()
   order by c.starts_at;
 $$;

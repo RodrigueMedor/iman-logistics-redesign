@@ -182,15 +182,25 @@ export const freightBrokerRegistration = z.object({
   firstName: requiredText('First name', 80).meta({ example: 'Jordan' }),
   lastName: requiredText('Last name', 80).meta({ example: 'Customer' }),
   email: z.email('Enter a valid email address').max(254),
-  phone: z.string().trim().max(30).regex(/^$|^[+()\d\s.-]{7,20}$/, 'Enter a valid phone number').optional().default('').meta({ example: '+1 555 010 2000' }),
+  phone: z.string().trim().min(7, 'Phone number is required.').max(30).regex(/^[+()\d\s.-]{7,20}$/, 'Enter a valid phone number').meta({ example: '+1 555 010 2000' }),
   address1: requiredText('Address', 200).meta({ example: '100 Main St' }),
   address2: z.string().trim().max(200).optional().default(''),
   city: requiredText('City', 120).meta({ example: 'Orlando' }),
   state: requiredText('State', 60).meta({ example: 'FL' }),
   zip: requiredText('ZIP code', 20).meta({ example: '32801' }),
   classId: z.string().trim().min(1, 'Select a class session.').max(80).meta({ description: 'A class session id from GET /freight-broker/classes.' }),
+  attendanceType: z.enum(['online', 'in_person'], 'Select Online / Zoom or In Person.'),
+  verificationId: z.uuid('Verify your email and phone before registering.'),
+  verificationToken: z.string().min(20, 'Verify your email and phone before registering.').max(200),
   website: z.string().max(0).optional().meta({ description: 'Leave empty. Bots that fill it in are rejected.' }),
 }).meta({ id: 'FreightBrokerRegistrationInput' })
+
+export const registrationVerificationStart = z.object({ email, phone: phone.optional().meta({ description: 'Required unless REGISTRATION_PHONE_VERIFICATION=off.' }) }).meta({ id: 'RegistrationVerificationStartInput' })
+export const registrationVerificationCode = z.object({
+  channel: z.enum(['email', 'phone']),
+  code: z.string().regex(/^\d{6}$/, 'Enter the six-digit verification code.'),
+}).meta({ id: 'RegistrationVerificationCodeInput' })
+export const registrationVerificationResend = z.object({ channel: z.enum(['email', 'phone']) }).meta({ id: 'RegistrationVerificationResendInput' })
 
 export const freightBrokerCheckout = z.object({
   email: z.email().max(254).meta({ description: 'Must match the registration.' }),
@@ -210,7 +220,16 @@ export const freightBrokerClassInput = z.object({
   class_time: z.string().trim().max(120).nullable().default(null).meta({ example: '6:00 PM – 9:00 PM ET' }),
   delivery_mode: z.enum(['online', 'in_person']).nullable().default('online'),
   location: z.string().trim().max(200).nullable().default(null),
+  timezone: z.string().trim().min(1).max(80).default('America/New_York'),
+  allows_online: z.boolean().default(true),
+  allows_in_person: z.boolean().default(false),
+  zoom_join_url: z.union([z.url().max(1000), z.literal(''), z.null()]).default(null),
+  online_instructions: z.string().trim().max(2000).default(''),
+  physical_location: z.string().trim().max(500).nullable().default(null),
+  in_person_instructions: z.string().trim().max(2000).default(''),
   instructor_name: z.string().trim().max(120).nullable().default(null),
   seat_capacity: z.number().int().min(0).nullable().default(null).meta({ description: 'null = unlimited seats.' }),
   status: z.enum(['OPEN', 'FULL', 'CLOSED', 'COMPLETED']).default('OPEN').meta({ description: 'Only OPEN sessions are listed and accept registrations.' }),
-}).refine(value => Date.parse(value.ends_at) >= Date.parse(value.starts_at), 'The class must end after it starts.').meta({ id: 'FreightBrokerClassInput' })
+}).refine(value => Date.parse(value.ends_at) >= Date.parse(value.starts_at), 'The class must end after it starts.')
+  .refine(value => value.allows_online || value.allows_in_person, 'Enable at least one attendance type.')
+  .meta({ id: 'FreightBrokerClassInput' })

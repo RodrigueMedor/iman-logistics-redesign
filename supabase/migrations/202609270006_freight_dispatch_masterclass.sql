@@ -3,11 +3,11 @@
 -- Dispatch Masterclass. Only rows still holding the old wording change, so
 -- anything staff edited in the back office or content editor is kept.
 
-update public.freight_broker_classes
+update public.freight_dispatch_masterclass_classes
 set name = replace(name, 'Freight Broker Masterclass', 'Freight Dispatch Masterclass')
 where name like 'Freight Broker Masterclass%';
 
-update public.freight_broker_classes
+update public.freight_dispatch_masterclass_classes
 set description = 'Step-by-step freight dispatch training: finding loads, carrier setup and paperwork, rate negotiation, compliance, and managing multiple trucks.'
 where description in (
   'Step-by-step freight brokerage training: authority and compliance, shippers, carriers, pricing, and operations.',
