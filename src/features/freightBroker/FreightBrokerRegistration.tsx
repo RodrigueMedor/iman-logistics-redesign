@@ -126,7 +126,8 @@ export function FreightBrokerRegistration() {
   const [emailVerified, setEmailVerified] = useState(false)
   const [phoneVerified, setPhoneVerified] = useState(false)
   const [verificationLoading, setVerificationLoading] = useState(false)
-  const contactVerified = emailVerified && phoneVerified && Boolean(formData.verificationToken)
+  const phoneVerificationRequired = verification?.phoneVerificationRequired !== false
+  const contactVerified = emailVerified && (phoneVerified || !phoneVerificationRequired) && Boolean(formData.verificationToken)
 
   // Restore the pending registration when returning from (or canceling) Stripe.
   useEffect(() => {
@@ -211,7 +212,7 @@ export function FreightBrokerRegistration() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!contactVerified) return setPaymentError('Verify both your email address and phone number before continuing.')
+    if (!contactVerified) return setPaymentError(phoneVerificationRequired ? 'Verify both your email address and phone number before continuing.' : 'Verify your email address before continuing.')
     if (!formData.classId) return setPaymentError('Please select a Freight Dispatch Masterclass session to continue.')
     setPaymentError('')
     setState('saving')
@@ -438,12 +439,12 @@ export function FreightBrokerRegistration() {
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Email" type="email" autoComplete="email" value={formData.email} onChange={event => changeContact('email', event.target.value)} required disabled={contactVerified} /></Grid>
                     <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Phone (include country code)" type="tel" autoComplete="tel" value={formData.phone} onChange={event => changeContact('phone', event.target.value)} required disabled={contactVerified} /></Grid>
-                    {!verification && <Grid size={12}><Button fullWidth variant="outlined" onClick={() => void sendVerificationCodes()} disabled={verificationLoading || !formData.email || !formData.phone}>{verificationLoading ? 'Sending codes…' : 'Send email and SMS verification codes'}</Button></Grid>}
+                    {!verification && <Grid size={12}><Button fullWidth variant="outlined" onClick={() => void sendVerificationCodes()} disabled={verificationLoading || !formData.email || !formData.phone}>{verificationLoading ? 'Sending codes…' : 'Send verification codes'}</Button></Grid>}
                     {verification && !contactVerified && <>
                       <Grid size={{ xs: 12, md: 6 }}><Stack spacing={1}><TextField fullWidth size="small" label="Email verification code" value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, '').slice(0, 6))} disabled={emailVerified} inputProps={{ inputMode: 'numeric' }} /><Button variant="outlined" color={emailVerified ? 'success' : 'primary'} disabled={emailVerified || emailCode.length !== 6 || verificationLoading} onClick={() => void verifyCode('email')}>{emailVerified ? 'Email verified' : 'Verify email'}</Button><Button size="small" disabled={emailVerified || verificationLoading} onClick={() => void resendRegistrationCode(verification.id, 'email').catch(error => setPaymentError(error.message))}>Resend email code</Button></Stack></Grid>
-                      <Grid size={{ xs: 12, md: 6 }}><Stack spacing={1}><TextField fullWidth size="small" label="SMS verification code" value={phoneCode} onChange={event => setPhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))} disabled={phoneVerified} inputProps={{ inputMode: 'numeric' }} /><Button variant="outlined" color={phoneVerified ? 'success' : 'primary'} disabled={phoneVerified || phoneCode.length !== 6 || verificationLoading} onClick={() => void verifyCode('phone')}>{phoneVerified ? 'Phone verified' : 'Verify phone'}</Button><Button size="small" disabled={phoneVerified || verificationLoading} onClick={() => void resendRegistrationCode(verification.id, 'phone').catch(error => setPaymentError(error.message))}>Resend SMS code</Button></Stack></Grid>
+                      {phoneVerificationRequired && <Grid size={{ xs: 12, md: 6 }}><Stack spacing={1}><TextField fullWidth size="small" label="SMS verification code" value={phoneCode} onChange={event => setPhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))} disabled={phoneVerified} inputProps={{ inputMode: 'numeric' }} /><Button variant="outlined" color={phoneVerified ? 'success' : 'primary'} disabled={phoneVerified || phoneCode.length !== 6 || verificationLoading} onClick={() => void verifyCode('phone')}>{phoneVerified ? 'Phone verified' : 'Verify phone'}</Button><Button size="small" disabled={phoneVerified || verificationLoading} onClick={() => void resendRegistrationCode(verification.id, 'phone').catch(error => setPaymentError(error.message))}>Resend SMS code</Button></Stack></Grid>}
                     </>}
-                    {contactVerified && <Grid size={12}><Alert severity="success">Email address and phone number verified.</Alert></Grid>}
+                    {contactVerified && <Grid size={12}><Alert severity="success">{phoneVerificationRequired ? 'Email address and phone number verified.' : 'Email address verified.'}</Alert></Grid>}
                   </Grid>
                 </Paper>
                 {contactVerified && <>

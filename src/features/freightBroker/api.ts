@@ -84,7 +84,7 @@ export type RegistrationPaymentStatus = {
 
 export const listBrokerClasses = () => api<BrokerClass[]>('/freight-broker/classes')
 
-export type VerificationState = { id: string; email: string; phone: string; expiresInSeconds: number }
+export type VerificationState = { id: string; email: string; phone: string; phoneVerificationRequired?: boolean; expiresInSeconds: number }
 export type VerificationResult = { emailVerified: boolean; phoneVerified: boolean; verificationToken?: string; tokenExpiresAt?: string }
 export const startRegistrationVerification = (email: string, phone: string) =>
   api<VerificationState>('/freight-broker/verifications', { body: { email, phone } })

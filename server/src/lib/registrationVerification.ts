@@ -52,13 +52,16 @@ export async function startRegistrationVerification(db: SupabaseClient, emailVal
   }).select('id').single()
   if (error) throw error
   const entity = { entityType: 'registration_verifications', entityId: data.id }
+  const phoneVerificationRequired = config.registrationPhoneVerification
   const [emailDelivery, smsDelivery] = await Promise.all([
     sendEmail({ ...entity, template: 'registration.email_verification', to: email, from: config.freightBrokerEmailFrom, subject: 'Your Iman Logistics verification code', html: `<div style="font-family:Arial,sans-serif"><h2>Verify your email</h2><p>Your Iman Logistics registration code is:</p><p style="font-size:30px;font-weight:800;letter-spacing:6px">${emailCode}</p><p>This code expires in 10 minutes. If you did not request it, you can ignore this email.</p></div>` }),
-    sendSms({ ...entity, template: 'registration.phone_verification', to: phone, body: `Iman Logistics verification code: ${phoneCode}. It expires in 10 minutes.` }),
+    phoneVerificationRequired
+      ? sendSms({ ...entity, template: 'registration.phone_verification', to: phone, body: `Iman Logistics verification code: ${phoneCode}. It expires in 10 minutes.` })
+      : { status: 'sent' as const },
   ])
   const failed = [emailDelivery.status !== 'sent' && 'email', smsDelivery.status !== 'sent' && 'SMS'].filter(Boolean)
   if (failed.length) throw new HttpError(503, `We could not send the ${failed.join(' and ')} verification code${failed.length > 1 ? 's' : ''}. Please check your ${failed.length > 1 ? 'email address and phone number' : failed[0] === 'email' ? 'email address' : 'phone number'} or try again later.`)
-  return { id: data.id, email, phone, expiresInSeconds: CODE_TTL_MS / 1000 }
+  return { id: data.id, email, phone, phoneVerificationRequired, expiresInSeconds: CODE_TTL_MS / 1000 }
 }
 
 export async function resendRegistrationCode(db: SupabaseClient, id: string, channel: 'email' | 'phone') {
@@ -66,6 +69,7 @@ export async function resendRegistrationCode(db: SupabaseClient, id: string, cha
   if (!row || row.consumed_at) throw new HttpError(404, 'Verification request not found.')
   if (row.locked_until && new Date(row.locked_until) > new Date()) throw new HttpError(429, 'Verification is temporarily locked. Please try again later.')
   if (row[`${channel}_verified_at`]) return { verified: true }
+  if (channel === 'phone' && !config.registrationPhoneVerification) throw new HttpError(400, 'Phone verification is not required.')
   const sends = Number(row[`${channel}_send_count`] ?? 0)
   if (sends >= MAX_SENDS) throw new HttpError(429, 'The resend limit has been reached. Please start again later.')
   const lastSent = new Date(row[`${channel}_sent_at`]).getTime()
@@ -108,22 +112,25 @@ export async function verifyRegistrationCode(db: SupabaseClient, id: string, cha
 }
 
 async function verificationReply(db: SupabaseClient, row: Record<string, any>) {
-  if (!row.email_verified_at || !row.phone_verified_at) return { emailVerified: Boolean(row.email_verified_at), phoneVerified: Boolean(row.phone_verified_at) }
+  const phoneVerified = Boolean(row.phone_verified_at)
+  if (!row.email_verified_at || (config.registrationPhoneVerification && !phoneVerified)) return { emailVerified: Boolean(row.email_verified_at), phoneVerified }
   const token = randomBytes(32).toString('base64url')
   const tokenExpiresAt = expires(TOKEN_TTL_MS)
   const { error } = await db.from('registration_verifications').update({ token_hash: digest('grant', token), token_expires_at: tokenExpiresAt, updated_at: new Date().toISOString() }).eq('id', row.id)
   if (error) throw error
-  return { emailVerified: true, phoneVerified: true, verificationToken: token, tokenExpiresAt }
+  return { emailVerified: true, phoneVerified, verificationToken: token, tokenExpiresAt }
 }
 
 export async function consumeRegistrationVerification(db: SupabaseClient, id: string, token: string, emailValue: string, phoneValue: string) {
   const email = normalizeVerificationEmail(emailValue)
   const phone = normalizeVerificationPhone(phoneValue)
+  // Without phone verification the second check repeats the email one.
+  const phoneColumn = config.registrationPhoneVerification ? 'phone_verified_at' : 'email_verified_at'
   const { data, error } = await db.from('registration_verifications').update({ consumed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', id).eq('email', email).eq('phone', phone).eq('token_hash', digest('grant', token)).is('consumed_at', null)
-    .gt('token_expires_at', new Date().toISOString()).not('email_verified_at', 'is', null).not('phone_verified_at', 'is', null)
+    .gt('token_expires_at', new Date().toISOString()).not('email_verified_at', 'is', null).not(phoneColumn, 'is', null)
     .select('id, email_verified_at, phone_verified_at').maybeSingle()
   if (error) throw error
-  if (!data) throw new HttpError(403, 'Verify your email address and phone number before registering.')
+  if (!data) throw new HttpError(403, config.registrationPhoneVerification ? 'Verify your email address and phone number before registering.' : 'Verify your email address before registering.')
   return data
 }
