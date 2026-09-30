@@ -73,8 +73,11 @@ export async function sendSms(message: Entity & { template: string; to: string |
       headers: { Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ To: message.to, From: fromNumber, Body: message.body }),
     })
-    if (!response.ok) throw new Error(`Twilio SMS failed with status ${response.status}`)
-    const result = await response.json().catch(() => ({})) as { sid?: string }
+    const result = await response.json().catch(() => ({})) as { sid?: string; code?: number; message?: string }
+    if (!response.ok) {
+      const detail = result.message ? `: ${result.message}` : ''
+      throw new Error(`Twilio SMS failed (${result.code ?? response.status})${detail}`)
+    }
     await log({ ...base, status: 'sent', providerId: result.sid })
     return { status: 'sent', providerId: result.sid }
   } catch (error) {
