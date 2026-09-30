@@ -127,7 +127,9 @@ export function FreightBrokerRegistration() {
   const [emailVerified, setEmailVerified] = useState(false)
   const [phoneVerified, setPhoneVerified] = useState(false)
   const [verificationLoading, setVerificationLoading] = useState(false)
-  const phoneVerificationRequired = runtimeConfig.registrationPhoneVerification
+  // Once codes are sent, trust the server's answer: a stale runtime config
+  // must not leave the student waiting for an SMS that never comes.
+  const phoneVerificationRequired = verification?.phoneVerificationRequired ?? runtimeConfig.registrationPhoneVerification
   const contactVerified = emailVerified && (phoneVerified || !phoneVerificationRequired) && Boolean(formData.verificationToken)
 
   // Restore the pending registration when returning from (or canceling) Stripe.
