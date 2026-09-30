@@ -6,7 +6,7 @@ import { escapeHtml, sendEmail, sendSms } from './notifications'
 // Freight Dispatch Masterclass registration helpers, adapted from the dispatcher
 // registration in the Iman Trucking School server (server-express.js).
 
-const registrationSelect = '*, class:freight_broker_classes(id, name, status, starts_at, ends_at, registration_deadline, days_of_week, class_time, delivery_mode, location, instructor_name, price_cents, timezone, allows_online, allows_in_person, zoom_join_url, online_instructions, physical_location, in_person_instructions)'
+const registrationSelect = '*, class:freight_dispatch_masterclass_classes(id, name, status, starts_at, ends_at, registration_deadline, days_of_week, class_time, delivery_mode, location, instructor_name, price_cents, timezone, allows_online, allows_in_person, zoom_join_url, online_instructions, physical_location, in_person_instructions)'
 
 export type RegistrationRow = {
   id: string
@@ -39,15 +39,15 @@ export function makeRegistrationNo() {
 }
 
 export async function loadRegistration(db: SupabaseClient, id: string) {
-  const { data } = await db.from('freight_broker_registrations').select(registrationSelect).eq('id', id).maybeSingle()
+  const { data } = await db.from('freight_dispatch_masterclass_registrations').select(registrationSelect).eq('id', id).maybeSingle()
   return data as RegistrationRow | null
 }
 
 // Seats are enforced at the moment of payment, like the dispatcher redesign.
 export async function classIsFull(db: SupabaseClient, classId: string) {
-  const { data: row } = await db.from('freight_broker_classes').select('seat_capacity').eq('id', classId).maybeSingle()
+  const { data: row } = await db.from('freight_dispatch_masterclass_classes').select('seat_capacity').eq('id', classId).maybeSingle()
   if (row?.seat_capacity == null) return false
-  const { count } = await db.from('freight_broker_registrations').select('id', { count: 'exact', head: true })
+  const { count } = await db.from('freight_dispatch_masterclass_registrations').select('id', { count: 'exact', head: true })
     .eq('class_id', classId).eq('payment_status', 'paid').neq('status', 'CANCELED')
   return (count ?? 0) >= row.seat_capacity
 }
@@ -169,7 +169,7 @@ const smsText = (ctx: Context, forAdmin: boolean) => forAdmin
 export async function sendRegistrationPaidNotifications(db: SupabaseClient, registrationId: string, payment: PaidPayment) {
   const row = await loadRegistration(db, registrationId)
   if (!row) return
-  const entity = { entityType: 'freight_broker_registrations', entityId: row.id }
+  const entity = { entityType: 'freight_dispatch_masterclass_registrations', entityId: row.id }
   const ctx = notificationContext(row, payment)
   const jobTypes = ['student_confirmation', 'student_sms', 'staff_notification', ...(config.freightBrokerNotifyPhone ? ['staff_sms'] : [])]
   await db.from('registration_fulfillment_jobs').upsert(jobTypes.map(jobType => ({ registration_id: row.id, payment_id: payment.id, job_type: jobType })), { onConflict: 'registration_id,payment_id,job_type', ignoreDuplicates: true })
@@ -201,9 +201,9 @@ export async function sendRegistrationPaidNotifications(db: SupabaseClient, regi
     const succeeded = delivery.status === 'sent'
     await db.from('registration_fulfillment_jobs').update({ status: succeeded ? 'succeeded' : 'failed', provider_id: delivery.providerId || '', error: delivery.error || '', completed_at: succeeded ? new Date().toISOString() : null, next_attempt_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() }).eq('id', job.id)
     if (!succeeded) failures.push(`${job.job_type}: ${delivery.error || delivery.status}`)
-    if (job.job_type === 'student_confirmation') await db.from('freight_broker_registrations').update({ notification_status: succeeded ? 'sent' : 'failed', calendar_status: succeeded ? 'sent' : 'failed', agreement_status: succeeded ? 'sent' : 'failed' }).eq('id', row.id)
+    if (job.job_type === 'student_confirmation') await db.from('freight_dispatch_masterclass_registrations').update({ notification_status: succeeded ? 'sent' : 'failed', calendar_status: succeeded ? 'sent' : 'failed', agreement_status: succeeded ? 'sent' : 'failed' }).eq('id', row.id)
   }
   const { count: remaining } = await db.from('registration_fulfillment_jobs').select('id', { count: 'exact', head: true }).eq('registration_id', row.id).eq('payment_id', payment.id).neq('status', 'succeeded')
-  await db.from('freight_broker_registrations').update({ fulfillment_status: remaining ? 'failed' : 'completed', fulfillment_error: failures.join('; ') }).eq('id', row.id)
+  await db.from('freight_dispatch_masterclass_registrations').update({ fulfillment_status: remaining ? 'failed' : 'completed', fulfillment_error: failures.join('; ') }).eq('id', row.id)
   if (failures.length) throw new Error(`Registration fulfillment incomplete: ${failures.join('; ')}`)
 }

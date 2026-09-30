@@ -1,7 +1,24 @@
 -- Verified registration contacts, student-selected attendance, and durable
 -- post-payment fulfillment for the Freight Dispatch Masterclass.
 
-alter table public.freight_broker_classes
+-- Preserve existing production data while adopting the product's correct name.
+do $$
+begin
+  if to_regclass('public.freight_dispatch_masterclass_classes') is null
+     and to_regclass('public.freight_broker_classes') is not null then
+    alter table public.freight_broker_classes
+      rename to freight_dispatch_masterclass_classes;
+  end if;
+
+  if to_regclass('public.freight_dispatch_masterclass_registrations') is null
+     and to_regclass('public.freight_broker_registrations') is not null then
+    alter table public.freight_broker_registrations
+      rename to freight_dispatch_masterclass_registrations;
+  end if;
+end
+$$;
+
+alter table public.freight_dispatch_masterclass_classes
   add column if not exists timezone text not null default 'America/New_York',
   add column if not exists allows_online boolean not null default true,
   add column if not exists allows_in_person boolean not null default false,
@@ -10,18 +27,18 @@ alter table public.freight_broker_classes
   add column if not exists physical_location text,
   add column if not exists in_person_instructions text not null default '';
 
-update public.freight_broker_classes
+update public.freight_dispatch_masterclass_classes
 set allows_online = delivery_mode is distinct from 'in_person',
-    allows_in_person = delivery_mode = 'in_person',
+    allows_in_person = delivery_mode is not distinct from 'in_person',
     physical_location = coalesce(physical_location, location)
 where zoom_join_url is null
   and online_instructions = ''
   and in_person_instructions = '';
 
-alter table public.freight_broker_classes
-  drop constraint if exists freight_broker_classes_attendance_check;
-alter table public.freight_broker_classes
-  add constraint freight_broker_classes_attendance_check
+alter table public.freight_dispatch_masterclass_classes
+  drop constraint if exists freight_dispatch_masterclass_classes_attendance_check;
+alter table public.freight_dispatch_masterclass_classes
+  add constraint freight_dispatch_masterclass_classes_attendance_check
   check (allows_online or allows_in_person);
 
 create table if not exists public.registration_verifications (
@@ -57,7 +74,7 @@ create index if not exists registration_verifications_phone_idx
 alter table public.registration_verifications enable row level security;
 revoke all on public.registration_verifications from anon, authenticated;
 
-alter table public.freight_broker_registrations
+alter table public.freight_dispatch_masterclass_registrations
   add column if not exists attendance_type text,
   add column if not exists email_verified_at timestamptz,
   add column if not exists phone_verified_at timestamptz,
@@ -69,20 +86,20 @@ alter table public.freight_broker_registrations
   add column if not exists agreement_status text not null default 'pending',
   add column if not exists fulfillment_error text not null default '';
 
-update public.freight_broker_registrations r
+update public.freight_dispatch_masterclass_registrations r
 set attendance_type = case when c.delivery_mode = 'in_person' then 'in_person' else 'online' end
-from public.freight_broker_classes c
+from public.freight_dispatch_masterclass_classes c
 where r.class_id = c.id and r.attendance_type is null;
-update public.freight_broker_registrations
+update public.freight_dispatch_masterclass_registrations
 set attendance_type = 'online'
 where attendance_type is null;
 
-alter table public.freight_broker_registrations
+alter table public.freight_dispatch_masterclass_registrations
   alter column attendance_type set not null,
   alter column attendance_type set default 'online',
-  drop constraint if exists freight_broker_registrations_attendance_check;
-alter table public.freight_broker_registrations
-  add constraint freight_broker_registrations_attendance_check
+  drop constraint if exists freight_dispatch_masterclass_registrations_attendance_check;
+alter table public.freight_dispatch_masterclass_registrations
+  add constraint freight_dispatch_masterclass_registrations_attendance_check
   check (attendance_type in ('online', 'in_person'));
 
 create table if not exists public.stripe_webhook_events (
@@ -100,7 +117,7 @@ revoke all on public.stripe_webhook_events from anon, authenticated;
 
 create table if not exists public.registration_fulfillment_jobs (
   id uuid primary key default gen_random_uuid(),
-  registration_id uuid not null references public.freight_broker_registrations(id) on delete cascade,
+  registration_id uuid not null references public.freight_dispatch_masterclass_registrations(id) on delete cascade,
   payment_id uuid not null references public.payments(id) on delete cascade,
   job_type text not null check (job_type in ('student_confirmation', 'student_sms', 'staff_notification', 'staff_sms')),
   status text not null default 'pending' check (status in ('pending', 'processing', 'succeeded', 'failed')),
@@ -149,11 +166,11 @@ as $$
     c.registration_deadline, c.days_of_week, c.class_time, c.delivery_mode, c.location,
     c.instructor_name, c.seat_capacity,
     case when c.seat_capacity is null then null else greatest(c.seat_capacity - (
-      select count(*) from public.freight_broker_registrations r
+      select count(*) from public.freight_dispatch_masterclass_registrations r
       where r.class_id = c.id and r.payment_status = 'paid' and r.status <> 'CANCELED'
     ), 0)::int end,
     c.status, c.timezone, c.allows_online, c.allows_in_person
-  from public.freight_broker_classes c
+  from public.freight_dispatch_masterclass_classes c
   where c.status = 'OPEN' and c.ends_at >= now()
   order by c.starts_at;
 $$;

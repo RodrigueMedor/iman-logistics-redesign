@@ -6,6 +6,8 @@ import { normalizeVerificationEmail, normalizeVerificationPhone } from './regist
 test('normalizes registration verification identifiers', () => {
   assert.equal(normalizeVerificationEmail(' Student@Example.COM '), 'student@example.com')
   assert.equal(normalizeVerificationPhone('+1 (407) 555-0199'), '+14075550199')
+  assert.equal(normalizeVerificationPhone('(407) 555-0199'), '+14075550199')
+  assert.equal(normalizeVerificationPhone('+44 20 7946 0958'), '+442079460958')
   assert.throws(() => normalizeVerificationPhone('123'))
 })
 

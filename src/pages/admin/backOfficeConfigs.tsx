@@ -213,7 +213,7 @@ export const paymentsBaseConfig: RecordsConfig = {
   csvName: 'iman-payments',
 }
 
-export const auditEntities: Option[] = ['contact_submissions', 'freight_broker_registrations', 'freight_broker_classes', 'consultation_bookings', 'job_applications', 'payments', 'shipments', 'work_orders', 'site_content', 'profiles']
+export const auditEntities: Option[] = ['contact_submissions', 'freight_dispatch_masterclass_registrations', 'freight_dispatch_masterclass_classes', 'consultation_bookings', 'job_applications', 'payments', 'shipments', 'work_orders', 'site_content', 'profiles']
   .map(value => ({ value, label: value.replaceAll('_', ' ') }))
 
 export const auditConfig: RecordsConfig = {
@@ -294,7 +294,7 @@ type BrokerPaymentJoin = { reference?: string; provider_reference?: string; stri
 const brokerPayment = (row: RecordRow) => row.payment as BrokerPaymentJoin
 
 export const brokerRegistrationsConfig: RecordsConfig = {
-  table: 'freight_broker_registrations',
+  table: 'freight_dispatch_masterclass_registrations',
   title: 'Dispatch Masterclass registrations',
   subtitle: 'Freight Dispatch Masterclass registrations, payments, and signed policies.',
   canonical: '/admin/dispatch-masterclass/',

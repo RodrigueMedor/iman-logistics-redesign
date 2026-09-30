@@ -14,6 +14,8 @@ export const normalizeVerificationEmail = (value: string) => value.trim().toLowe
 export function normalizeVerificationPhone(value: string) {
   const digits = value.replace(/\D/g, '')
   if (digits.length < 10 || digits.length > 15) throw new HttpError(400, 'Enter a valid phone number including country code.')
+  // A 10-digit number typed without "+" is a US number missing its +1.
+  if (digits.length === 10 && !value.trim().startsWith('+')) return `+1${digits}`
   return `+${digits}`
 }
 
@@ -54,7 +56,8 @@ export async function startRegistrationVerification(db: SupabaseClient, emailVal
     sendEmail({ ...entity, template: 'registration.email_verification', to: email, from: config.freightBrokerEmailFrom, subject: 'Your Iman Logistics verification code', html: `<div style="font-family:Arial,sans-serif"><h2>Verify your email</h2><p>Your Iman Logistics registration code is:</p><p style="font-size:30px;font-weight:800;letter-spacing:6px">${emailCode}</p><p>This code expires in 10 minutes. If you did not request it, you can ignore this email.</p></div>` }),
     sendSms({ ...entity, template: 'registration.phone_verification', to: phone, body: `Iman Logistics verification code: ${phoneCode}. It expires in 10 minutes.` }),
   ])
-  if (emailDelivery.status !== 'sent' || smsDelivery.status !== 'sent') throw new HttpError(503, 'We could not send both verification codes. Please contact Iman Logistics or try again later.')
+  const failed = [emailDelivery.status !== 'sent' && 'email', smsDelivery.status !== 'sent' && 'SMS'].filter(Boolean)
+  if (failed.length) throw new HttpError(503, `We could not send the ${failed.join(' and ')} verification code${failed.length > 1 ? 's' : ''}. Please check your ${failed.length > 1 ? 'email address and phone number' : failed[0] === 'email' ? 'email address' : 'phone number'} or try again later.`)
   return { id: data.id, email, phone, expiresInSeconds: CODE_TTL_MS / 1000 }
 }
 

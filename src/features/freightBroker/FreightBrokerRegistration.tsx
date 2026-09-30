@@ -247,6 +247,11 @@ export function FreightBrokerRegistration() {
   }
 
   function editRegistration() {
+    // The server consumed the one-time verification grant when this
+    // registration was saved, so saving again needs a fresh verification.
+    setFormData(current => ({ ...current, verificationId: '', verificationToken: '' }))
+    setVerification(null); setEmailVerified(false); setPhoneVerified(false); setEmailCode(''); setPhoneCode('')
+    setPaymentError('')
     setState('idle')
     scrollToSection()
   }

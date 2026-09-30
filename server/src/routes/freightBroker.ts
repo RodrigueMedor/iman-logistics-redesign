@@ -53,7 +53,7 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
   const now = new Date().toISOString()
   let classRow: { id: string; allows_online: boolean; allows_in_person: boolean } | null = null
   if (isUuid(input.classId)) {
-    const { data } = await db.from('freight_broker_classes').select('id, allows_online, allows_in_person').eq('id', input.classId).eq('status', 'OPEN').gte('ends_at', now).maybeSingle()
+    const { data } = await db.from('freight_dispatch_masterclass_classes').select('id, allows_online, allows_in_person').eq('id', input.classId).eq('status', 'OPEN').gte('ends_at', now).maybeSingle()
     classRow = data
   }
   if (!classRow) throw new HttpError(404, 'The selected Freight Dispatch Masterclass session is not available.')
@@ -62,11 +62,11 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
 
   const email = input.email.toLowerCase()
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-  const { count } = await db.from('freight_broker_registrations').select('id', { count: 'exact', head: true }).eq('email', email).gte('created_at', since)
+  const { count } = await db.from('freight_dispatch_masterclass_registrations').select('id', { count: 'exact', head: true }).eq('email', email).gte('created_at', since)
   if ((count ?? 0) >= 5) throw new HttpError(429, 'Too many registrations. Please try again later.')
   const verification = await consumeRegistrationVerification(db, input.verificationId, input.verificationToken, email, input.phone)
 
-  const { data, error } = await db.from('freight_broker_registrations').insert({
+  const { data, error } = await db.from('freight_dispatch_masterclass_registrations').insert({
     registration_no: makeRegistrationNo(),
     first_name: input.firstName, last_name: input.lastName, email, phone: input.phone || null,
     address_line1: input.address1, address_line2: input.address2 || null, city: input.city, state: input.state, zip_code: input.zip,
@@ -166,7 +166,7 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
 
   const { error: linkError } = await db.from('payments').update({ stripe_checkout_session_id: session.id }).eq('id', payment.id)
   if (linkError) throw linkError
-  await db.from('freight_broker_registrations').update(policy).eq('id', registration.id)
+  await db.from('freight_dispatch_masterclass_registrations').update(policy).eq('id', registration.id)
   res.json({ sessionId: session.id, url: session.url })
 })
 
@@ -175,33 +175,33 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
 // ---------------------------------------------------------------------------
 
 freightBrokerAdminRoutes.get('/classes', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('freight_broker_classes_admin').select('*').order('starts_at', { ascending: false })
+  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes_admin').select('*').order('starts_at', { ascending: false })
   if (error) throw error
   res.json(data)
 })
 
 freightBrokerAdminRoutes.post('/classes', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('freight_broker_classes').insert(parse(freightBrokerClassInput, req.body)).select('*').single()
+  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').insert(parse(freightBrokerClassInput, req.body)).select('*').single()
   if (error) throw error
   res.status(201).json(data)
 })
 
 freightBrokerAdminRoutes.put('/classes/:id', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('freight_broker_classes').update(parse(freightBrokerClassInput, req.body)).eq('id', req.params.id).select('*').maybeSingle()
+  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').update(parse(freightBrokerClassInput, req.body)).eq('id', req.params.id).select('*').maybeSingle()
   if (error) throw error
   if (!data) throw new HttpError(404, 'Class session not found.')
   res.json(data)
 })
 
 freightBrokerAdminRoutes.delete('/classes/:id', requireRole(superAdminOnly), async (req, res) => {
-  const { count, error } = await staff(req).db.from('freight_broker_classes').delete({ count: 'exact' }).eq('id', req.params.id)
+  const { count, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').delete({ count: 'exact' }).eq('id', req.params.id)
   if (error) throw error
   if (!count) throw new HttpError(404, 'Class session not found.')
   res.status(204).end()
 })
 
 freightBrokerAdminRoutes.get('/registrations/:id/notifications', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('notification_log').select('*').eq('entity_type', 'freight_broker_registrations').eq('entity_id', req.params.id).order('created_at')
+  const { data, error } = await staff(req).db.from('notification_log').select('*').eq('entity_type', 'freight_dispatch_masterclass_registrations').eq('entity_id', req.params.id).order('created_at')
   if (error) throw error
   res.json(data)
 })
