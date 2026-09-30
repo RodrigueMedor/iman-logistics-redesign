@@ -137,6 +137,8 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
 
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
+    locale: 'en',
+    submit_type: 'pay',
     payment_method_types: ['card'],
     client_reference_id: registration.registration_no,
     customer_email: registration.email,
@@ -145,7 +147,13 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
       price_data: {
         currency: 'usd',
         unit_amount: priceCents,
-        product_data: { name: `${FREIGHT_BROKER_PROGRAM.name} Registration - ${registration.class.name}`, description: `Registration ${registration.registration_no} for the ${FREIGHT_BROKER_PROGRAM.name} at Iman Logistics` },
+        product_data: {
+          name: `${FREIGHT_BROKER_PROGRAM.name} Registration - ${registration.class.name}`,
+          description: `${registration.attendance_type === 'online' ? 'Online / Zoom' : 'In Person'} attendance · Registration ${registration.registration_no} · Iman Logistics`,
+          // Stripe requires an absolute, publicly reachable image URL. Vite's
+          // content hash is stable for this promotional asset across builds.
+          images: [`${config.appUrl.replace(/\/$/, '')}/assets/freight-dispatch-session-promo-CiPnRAQU.png`],
+        },
       },
     }],
     custom_text: { submit: { message: FREIGHT_BROKER_POLICY_TEXT } },
