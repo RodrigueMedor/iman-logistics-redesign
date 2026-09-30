@@ -14,6 +14,7 @@ import SchoolIcon from '@mui/icons-material/School'
 import VideocamIcon from '@mui/icons-material/Videocam'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { runtimeConfig } from '../../lib/runtimeConfig'
+import sessionPromoImage from '../../assets/images/freight-dispatch-session-promo.png'
 import { createBrokerRegistration, listBrokerClasses, resendRegistrationCode, startBrokerCheckout, startRegistrationVerification, verifyRegistrationCode, type BrokerClass, type CreatedRegistration, type RegistrationDetails, type RegistrationForm, type VerificationState } from './api'
 import { PolicyAgreement } from './PolicyAgreement'
 import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM, FREIGHT_BROKER_STEPS, isPolicySigned } from './program'
@@ -69,32 +70,53 @@ function SessionCard({ c, selected, onSelect }: { c: BrokerClass; selected: bool
       tabIndex={selectable ? 0 : -1}
       onClick={() => selectable && onSelect()}
       onKeyDown={event => { if (selectable && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onSelect() } }}
-      sx={{ p: 2, borderRadius: 3, cursor: selectable ? 'pointer' : 'not-allowed', opacity: selectable ? 1 : 0.6, borderColor: selected ? 'secondary.main' : 'divider', borderWidth: selected ? 2 : 1, bgcolor: selected ? 'action.selected' : 'background.paper', transition: 'border-color .15s, background-color .15s', '&:focus-visible': { outline: '3px solid', outlineColor: 'primary.main' } }}
+      sx={{ overflow: 'hidden', borderRadius: 3, cursor: selectable ? 'pointer' : 'not-allowed', opacity: selectable ? 1 : 0.6, borderColor: selected ? 'secondary.main' : 'divider', borderWidth: selected ? 2 : 1, bgcolor: selected ? 'action.selected' : 'background.paper', transition: 'border-color .15s, background-color .15s', '&:focus-visible': { outline: '3px solid', outlineColor: 'primary.main' } }}
     >
-      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
-        <Typography fontWeight={800} variant="body1">{c.name}</Typography>
-        <Chip size="small" label={displayStatus} color={statusChipColor(displayStatus)} />
-      </Stack>
-      {c.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{c.description}</Typography>}
-      <Stack spacing={0.5} sx={{ mt: 1.25 }}>
-        <Stack direction="row" alignItems="center" gap={0.75}><EventAvailableIcon fontSize="small" color="action" /><Typography variant="body2" color="text.secondary">{sessionDates(c)}</Typography></Stack>
-        {(c.days_of_week || c.class_time) && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>{[c.days_of_week, c.class_time].filter(Boolean).join(' · ')}</Typography>}
-        {c.registration_deadline && <Typography variant="caption" color="warning.dark" sx={{ pl: 3.25 }}>Register by {mediumDate(c.registration_deadline)}</Typography>}
-        <Stack direction="row" alignItems="center" gap={0.75}>
-          {c.delivery_mode === 'online' ? <VideocamIcon fontSize="small" color="action" /> : <PlaceIcon fontSize="small" color="action" />}
-          <Typography variant="body2" color="text.secondary">{sessionPlace(c)}</Typography>
+      <Box
+        aria-hidden="true"
+        sx={{
+          minHeight: 225,
+          p: 2,
+          display: 'flex',
+          alignItems: 'flex-end',
+          backgroundImage: `linear-gradient(90deg, rgba(255,255,255,.99) 0%, rgba(255,255,255,.92) 45%, rgba(255,255,255,.08) 78%), url(${sessionPromoImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <Stack alignItems="flex-start" spacing={0.65} sx={{ width: '62%', pb: 0.5 }}>
+          <Box sx={{ bgcolor: '#e30613', color: '#fff', px: 1.15, py: 0.5, fontSize: '.7rem', fontWeight: 950, letterSpacing: '.08em', borderRadius: 0.75 }}>UPCOMING SESSION</Box>
+          <Typography sx={{ color: '#06254a', fontSize: '1.15rem', lineHeight: 1.05, fontWeight: 950, textTransform: 'uppercase' }}>{c.name}</Typography>
+          <Typography sx={{ color: '#e30613', fontSize: '.85rem', lineHeight: 1.15, fontWeight: 900, textTransform: 'uppercase' }}>{sessionDates(c)}</Typography>
+          <Typography sx={{ color: '#06254a', fontSize: '2rem', lineHeight: 1, fontWeight: 950 }}>${dollars(c.price_cents).toFixed(2)}</Typography>
         </Stack>
-        {c.instructor_name && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>Instructor: {c.instructor_name}</Typography>}
-      </Stack>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5, pt: 1.25, borderTop: '1px dashed', borderColor: 'divider' }}>
-        <Stack>
-          <Typography variant="h6" fontWeight={950} color="secondary.main">${dollars(c.price_cents).toFixed(2)}</Typography>
-          {c.seat_capacity != null && <Typography variant="caption" color={full ? 'error.main' : 'text.secondary'}>{full ? 'No seats left' : `${c.seats_remaining} seat${c.seats_remaining === 1 ? '' : 's'} left`}</Typography>}
+      </Box>
+      <Box sx={{ p: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
+          <Typography fontWeight={800} variant="body1">{c.name}</Typography>
+          <Chip size="small" label={displayStatus} color={statusChipColor(displayStatus)} />
         </Stack>
-        <Button size="small" variant={selected ? 'contained' : 'outlined'} color="secondary" disabled={!selectable} tabIndex={-1} onClick={event => { event.stopPropagation(); if (selectable) onSelect() }}>
-          {selected ? 'Selected' : full ? 'Full' : 'Register now'}
-        </Button>
-      </Stack>
+        {c.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{c.description}</Typography>}
+        <Stack spacing={0.5} sx={{ mt: 1.25 }}>
+          <Stack direction="row" alignItems="center" gap={0.75}><EventAvailableIcon fontSize="small" color="action" /><Typography variant="body2" color="text.secondary">{sessionDates(c)}</Typography></Stack>
+          {(c.days_of_week || c.class_time) && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>{[c.days_of_week, c.class_time].filter(Boolean).join(' · ')}</Typography>}
+          {c.registration_deadline && <Typography variant="caption" color="warning.dark" sx={{ pl: 3.25 }}>Register by {mediumDate(c.registration_deadline)}</Typography>}
+          <Stack direction="row" alignItems="center" gap={0.75}>
+            {c.delivery_mode === 'online' ? <VideocamIcon fontSize="small" color="action" /> : <PlaceIcon fontSize="small" color="action" />}
+            <Typography variant="body2" color="text.secondary">{sessionPlace(c)}</Typography>
+          </Stack>
+          {c.instructor_name && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>Instructor: {c.instructor_name}</Typography>}
+        </Stack>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5, pt: 1.25, borderTop: '1px dashed', borderColor: 'divider' }}>
+          <Stack>
+            <Typography variant="h6" fontWeight={950} color="secondary.main">${dollars(c.price_cents).toFixed(2)}</Typography>
+            {c.seat_capacity != null && <Typography variant="caption" color={full ? 'error.main' : 'text.secondary'}>{full ? 'No seats left' : `${c.seats_remaining} seat${c.seats_remaining === 1 ? '' : 's'} left`}</Typography>}
+          </Stack>
+          <Button size="small" variant={selected ? 'contained' : 'outlined'} color="secondary" disabled={!selectable} tabIndex={-1} onClick={event => { event.stopPropagation(); if (selectable) onSelect() }}>
+            {selected ? 'Selected' : full ? 'Full' : 'Register now'}
+          </Button>
+        </Stack>
+      </Box>
     </Paper>
   )
 }
