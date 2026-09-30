@@ -28,7 +28,7 @@ freightBrokerRoutes.get('/classes', async (_req, res) => {
 })
 
 freightBrokerRoutes.post('/verifications', verificationRequests, async (req, res) => {
-  const input = parse(registrationVerificationStart, req.body, 'Enter a valid email address and phone number.')
+  const input = parse(registrationVerificationStart, req.body, 'Enter a valid email address.')
   res.status(201).json(await startRegistrationVerification(serviceClient(), input.email, input.phone, req.ip || 'unknown'))
 })
 

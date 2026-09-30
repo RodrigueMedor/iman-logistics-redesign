@@ -31,14 +31,16 @@ async function enforceIdentifierLimits(db: SupabaseClient, email: string, phone:
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString()
   const [byEmail, byPhone] = await Promise.all([
     db.from('registration_verifications').select('id', { count: 'exact', head: true }).eq('email', email).gte('created_at', since),
-    db.from('registration_verifications').select('id', { count: 'exact', head: true }).eq('phone', phone).gte('created_at', since),
+    phone ? db.from('registration_verifications').select('id', { count: 'exact', head: true }).eq('phone', phone).gte('created_at', since) : { count: 0 },
   ])
   if ((byEmail.count ?? 0) >= 3 || (byPhone.count ?? 0) >= 3) throw new HttpError(429, 'Too many verification requests. Please try again later.')
 }
 
-export async function startRegistrationVerification(db: SupabaseClient, emailValue: string, phoneValue: string, ip: string) {
+export async function startRegistrationVerification(db: SupabaseClient, emailValue: string, phoneValue: string | undefined, ip: string) {
+  const phoneVerificationRequired = config.registrationPhoneVerification
   const email = normalizeVerificationEmail(emailValue)
-  const phone = normalizeVerificationPhone(phoneValue)
+  // Email-only verification leaves the phone to the registration form.
+  const phone = phoneVerificationRequired ? normalizeVerificationPhone(phoneValue ?? '') : ''
   await enforceIdentifierLimits(db, email, phone)
   const emailCode = code()
   const phoneCode = code()
@@ -52,7 +54,6 @@ export async function startRegistrationVerification(db: SupabaseClient, emailVal
   }).select('id').single()
   if (error) throw error
   const entity = { entityType: 'registration_verifications', entityId: data.id }
-  const phoneVerificationRequired = config.registrationPhoneVerification
   const [emailDelivery, smsDelivery] = await Promise.all([
     sendEmail({ ...entity, template: 'registration.email_verification', to: email, from: config.freightBrokerEmailFrom, subject: 'Your Iman Logistics verification code', html: `<div style="font-family:Arial,sans-serif"><h2>Verify your email</h2><p>Your Iman Logistics registration code is:</p><p style="font-size:30px;font-weight:800;letter-spacing:6px">${emailCode}</p><p>This code expires in 10 minutes. If you did not request it, you can ignore this email.</p></div>` }),
     phoneVerificationRequired
@@ -124,10 +125,12 @@ async function verificationReply(db: SupabaseClient, row: Record<string, any>) {
 export async function consumeRegistrationVerification(db: SupabaseClient, id: string, token: string, emailValue: string, phoneValue: string) {
   const email = normalizeVerificationEmail(emailValue)
   const phone = normalizeVerificationPhone(phoneValue)
-  // Without phone verification the second check repeats the email one.
-  const phoneColumn = config.registrationPhoneVerification ? 'phone_verified_at' : 'email_verified_at'
+  // Without phone verification the grant covers the email only, and the
+  // second check repeats the email one.
+  const phoneRequired = config.registrationPhoneVerification
+  const phoneColumn = phoneRequired ? 'phone_verified_at' : 'email_verified_at'
   const { data, error } = await db.from('registration_verifications').update({ consumed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq('id', id).eq('email', email).eq('phone', phone).eq('token_hash', digest('grant', token)).is('consumed_at', null)
+    .match({ id, email, token_hash: digest('grant', token), ...(phoneRequired ? { phone } : {}) }).is('consumed_at', null)
     .gt('token_expires_at', new Date().toISOString()).not('email_verified_at', 'is', null).not(phoneColumn, 'is', null)
     .select('id, email_verified_at, phone_verified_at').maybeSingle()
   if (error) throw error

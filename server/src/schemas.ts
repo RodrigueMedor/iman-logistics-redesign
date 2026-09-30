@@ -195,7 +195,7 @@ export const freightBrokerRegistration = z.object({
   website: z.string().max(0).optional().meta({ description: 'Leave empty. Bots that fill it in are rejected.' }),
 }).meta({ id: 'FreightBrokerRegistrationInput' })
 
-export const registrationVerificationStart = z.object({ email, phone }).meta({ id: 'RegistrationVerificationStartInput' })
+export const registrationVerificationStart = z.object({ email, phone: phone.optional().meta({ description: 'Required unless REGISTRATION_PHONE_VERIFICATION=off.' }) }).meta({ id: 'RegistrationVerificationStartInput' })
 export const registrationVerificationCode = z.object({
   channel: z.enum(['email', 'phone']),
   code: z.string().regex(/^\d{6}$/, 'Enter the six-digit verification code.'),

@@ -13,6 +13,7 @@ import PrintIcon from '@mui/icons-material/Print'
 import SchoolIcon from '@mui/icons-material/School'
 import VideocamIcon from '@mui/icons-material/Videocam'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { runtimeConfig } from '../../lib/runtimeConfig'
 import { createBrokerRegistration, listBrokerClasses, resendRegistrationCode, startBrokerCheckout, startRegistrationVerification, verifyRegistrationCode, type BrokerClass, type CreatedRegistration, type RegistrationDetails, type RegistrationForm, type VerificationState } from './api'
 import { PolicyAgreement } from './PolicyAgreement'
 import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM, FREIGHT_BROKER_STEPS, isPolicySigned } from './program'
@@ -126,7 +127,7 @@ export function FreightBrokerRegistration() {
   const [emailVerified, setEmailVerified] = useState(false)
   const [phoneVerified, setPhoneVerified] = useState(false)
   const [verificationLoading, setVerificationLoading] = useState(false)
-  const phoneVerificationRequired = verification?.phoneVerificationRequired !== false
+  const phoneVerificationRequired = runtimeConfig.registrationPhoneVerification
   const contactVerified = emailVerified && (phoneVerified || !phoneVerificationRequired) && Boolean(formData.verificationToken)
 
   // Restore the pending registration when returning from (or canceling) Stripe.
@@ -180,6 +181,8 @@ export function FreightBrokerRegistration() {
   }
 
   function changeContact(field: 'email' | 'phone', value: string) {
+    // Without SMS verification the phone is an ordinary form field.
+    if (field === 'phone' && !phoneVerificationRequired) return setFormData(current => ({ ...current, phone: value }))
     setFormData(current => ({ ...current, [field]: value, verificationId: '', verificationToken: '' }))
     setVerification(null); setEmailVerified(false); setPhoneVerified(false); setEmailCode(''); setPhoneCode('')
   }
@@ -187,9 +190,9 @@ export function FreightBrokerRegistration() {
   async function sendVerificationCodes() {
     setPaymentError(''); setVerificationLoading(true)
     try {
-      const result = await startRegistrationVerification(formData.email, formData.phone)
+      const result = await startRegistrationVerification(formData.email, phoneVerificationRequired ? formData.phone : undefined)
       setVerification(result)
-      setFormData(current => ({ ...current, email: result.email, phone: result.phone, verificationId: result.id, verificationToken: '' }))
+      setFormData(current => ({ ...current, email: result.email, phone: phoneVerificationRequired ? result.phone : current.phone, verificationId: result.id, verificationToken: '' }))
     } catch (caught) { setPaymentError(caught instanceof Error ? caught.message : 'Unable to send verification codes.') }
     finally { setVerificationLoading(false) }
   }
@@ -435,11 +438,11 @@ export function FreightBrokerRegistration() {
               <Box component="input" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={honeypot} onChange={event => setHoneypot(event.target.value)} sx={{ position: 'absolute', left: '-10000px', width: 1, height: 1, opacity: 0 }} />
               <Stack spacing={2.5}>
                 <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
-                  <SectionHeading icon={<PersonIcon color="secondary" fontSize="small" />} title="Verify your contact information" />
+                  <SectionHeading icon={<PersonIcon color="secondary" fontSize="small" />} title={phoneVerificationRequired ? 'Verify your contact information' : 'Verify your email address'} />
                   <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Email" type="email" autoComplete="email" value={formData.email} onChange={event => changeContact('email', event.target.value)} required disabled={contactVerified} /></Grid>
-                    <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Phone (include country code)" type="tel" autoComplete="tel" value={formData.phone} onChange={event => changeContact('phone', event.target.value)} required disabled={contactVerified} /></Grid>
-                    {!verification && <Grid size={12}><Button fullWidth variant="outlined" onClick={() => void sendVerificationCodes()} disabled={verificationLoading || !formData.email || !formData.phone}>{verificationLoading ? 'Sending codes…' : 'Send verification codes'}</Button></Grid>}
+                    <Grid size={{ xs: 12, md: phoneVerificationRequired ? 6 : 12 }}><TextField fullWidth size="small" label="Email" type="email" autoComplete="email" value={formData.email} onChange={event => changeContact('email', event.target.value)} required disabled={contactVerified} /></Grid>
+                    {phoneVerificationRequired && <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Phone (include country code)" type="tel" autoComplete="tel" value={formData.phone} onChange={event => changeContact('phone', event.target.value)} required disabled={contactVerified} /></Grid>}
+                    {!verification && <Grid size={12}><Button fullWidth variant="outlined" onClick={() => void sendVerificationCodes()} disabled={verificationLoading || !formData.email || (phoneVerificationRequired && !formData.phone)}>{verificationLoading ? 'Sending code…' : phoneVerificationRequired ? 'Send email and SMS verification codes' : 'Send email verification code'}</Button></Grid>}
                     {verification && !contactVerified && <>
                       <Grid size={{ xs: 12, md: 6 }}><Stack spacing={1}><TextField fullWidth size="small" label="Email verification code" value={emailCode} onChange={event => setEmailCode(event.target.value.replace(/\D/g, '').slice(0, 6))} disabled={emailVerified} inputProps={{ inputMode: 'numeric' }} /><Button variant="outlined" color={emailVerified ? 'success' : 'primary'} disabled={emailVerified || emailCode.length !== 6 || verificationLoading} onClick={() => void verifyCode('email')}>{emailVerified ? 'Email verified' : 'Verify email'}</Button><Button size="small" disabled={emailVerified || verificationLoading} onClick={() => void resendRegistrationCode(verification.id, 'email').catch(error => setPaymentError(error.message))}>Resend email code</Button></Stack></Grid>
                       {phoneVerificationRequired && <Grid size={{ xs: 12, md: 6 }}><Stack spacing={1}><TextField fullWidth size="small" label="SMS verification code" value={phoneCode} onChange={event => setPhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6))} disabled={phoneVerified} inputProps={{ inputMode: 'numeric' }} /><Button variant="outlined" color={phoneVerified ? 'success' : 'primary'} disabled={phoneVerified || phoneCode.length !== 6 || verificationLoading} onClick={() => void verifyCode('phone')}>{phoneVerified ? 'Phone verified' : 'Verify phone'}</Button><Button size="small" disabled={phoneVerified || verificationLoading} onClick={() => void resendRegistrationCode(verification.id, 'phone').catch(error => setPaymentError(error.message))}>Resend SMS code</Button></Stack></Grid>}
@@ -453,6 +456,7 @@ export function FreightBrokerRegistration() {
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="First name" autoComplete="given-name" value={formData.firstName} onChange={update('firstName')} required /></Grid>
                     <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth size="small" label="Last name" autoComplete="family-name" value={formData.lastName} onChange={update('lastName')} required /></Grid>
+                    {!phoneVerificationRequired && <Grid size={12}><TextField fullWidth size="small" label="Phone (include country code)" type="tel" autoComplete="tel" value={formData.phone} onChange={event => changeContact('phone', event.target.value)} required /></Grid>}
                   </Grid>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
