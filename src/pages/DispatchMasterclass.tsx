@@ -42,8 +42,8 @@ const sectionHeading = { fontSize: { xs: 34, md: 52 }, color: 'primary.main', te
 export default function DispatchMasterclass({ embedded = false }: { embedded?: boolean }) {
   const { content } = useContent()
   const heroContent = content('freight-dispatch-masterclass', 'hero', {
-    section_label: 'FREIGHT DISPATCH MASTERCLASS',
-    title: 'Become a Freight Dispatcher',
+    section_label: 'CAREER TRAINING',
+    title: 'Freight Dispatch Masterclass',
     body: 'The Freight Dispatch Masterclass is a step-by-step training designed to teach you how to become a professional freight dispatcher from scratch. Explore the program overview here, then continue to our dedicated masterclass website when you’re ready to enroll.',
     button_text: 'Enroll now',
     button_url: '',
