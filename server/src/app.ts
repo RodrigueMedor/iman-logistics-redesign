@@ -12,6 +12,7 @@ import { freightBrokerAdminRoutes, freightBrokerRoutes } from './routes/freightB
 import { publicRoutes } from './routes/public'
 import { siteContentAdminRoutes, siteContentRoutes } from './routes/siteContent'
 import { stripeWebhookRoutes } from './routes/stripeWebhook'
+import { twilioRoutes } from './routes/twilio'
 import { workOrderRoutes } from './routes/workOrders'
 
 export function createApp(options: { distDir?: string } = {}) {
@@ -69,6 +70,7 @@ export function createApp(options: { distDir?: string } = {}) {
 
   app.use('/api', publicRoutes)
   app.use('/api', siteContentRoutes)
+  app.use('/api', twilioRoutes)
   app.use('/api/work-orders', workOrderRoutes)
   app.use('/api/freight-broker', freightBrokerRoutes)
   // Before adminRoutes, whose generic /:resource route would otherwise match.

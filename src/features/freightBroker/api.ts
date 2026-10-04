@@ -36,6 +36,8 @@ export type RegistrationForm = {
   zip: string
   classId: string
   attendanceType: 'online' | 'in_person'
+  // Optional opt-in to SMS payment reminders.
+  smsConsent: boolean
   verificationId: string
   verificationToken: string
 }

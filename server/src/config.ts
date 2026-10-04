@@ -33,9 +33,27 @@ export const config = {
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID || '',
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
-    fromNumber: process.env.TWILIO_FROM_NUMBER || '',
+    fromNumber: process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_FROM_NUMBER || '',
+    // Sends through a Messaging Service (preferred for A2P 10DLC) when set.
+    messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || '',
+    // Public origin Twilio calls for status callbacks and incoming SMS, and
+    // that request signatures are computed against. Defaults to APP_URL.
+    webhookBaseUrl: (process.env.TWILIO_WEBHOOK_BASE_URL || process.env.APP_URL || process.env.PUBLIC_SITE_URL || 'http://localhost:5173').replace(/\/+$/, ''),
     // Only for local testing against a mock server.
     apiBaseUrl: (process.env.TWILIO_API_BASE_URL || 'https://api.twilio.com').replace(/\/+$/, ''),
+  },
+  // SMS payment reminders for submitted, unpaid masterclass registrations.
+  paymentReminders: {
+    enabled: process.env.PAYMENT_REMINDERS_ENABLED !== 'false',
+    firstDelayMinutes: Number(process.env.PAYMENT_REMINDER_FIRST_DELAY_MINUTES ?? 60),
+    intervalHours: Number(process.env.PAYMENT_REMINDER_INTERVAL_HOURS ?? 24),
+    // Reminders per registration; 0 means no limit.
+    maxReminders: Number(process.env.PAYMENT_REMINDER_MAX ?? 7),
+    // Local hours (start-end, 24h clock) in the class timezone when texts may go out.
+    sendWindow: process.env.PAYMENT_REMINDER_SEND_WINDOW || '9-20',
+    pollSeconds: Number(process.env.PAYMENT_REMINDER_POLL_SECONDS ?? 300),
+    // Optional: lets an external cron trigger a run (POST /api/internal/payment-reminders/run).
+    cronSecret: process.env.PAYMENT_REMINDER_CRON_SECRET || '',
   },
   // Set REGISTRATION_PHONE_VERIFICATION=off to verify registrations by email
   // only (e.g. while the Twilio account cannot send custom SMS).

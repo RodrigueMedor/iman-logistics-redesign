@@ -109,6 +109,14 @@ export const deleteBrokerClass = (id: string) => api(`/admin/freight-broker/clas
 export type NotificationRow = { id: number; created_at: string; channel: string; template: string; recipient: string; subject: string; status: string; provider: string; error: string }
 export const registrationNotifications = (id: string) => api<NotificationRow[]>(`/admin/freight-broker/registrations/${id}/notifications`, { auth: true })
 
+export type PaymentReminderRow = { id: string; attempt_number: number; phone: string; status: string; send_attempts: number; twilio_message_sid: string | null; delivery_status: string; error_code: string; error_message: string; sent_at: string | null; created_at: string; status_updated_at: string | null; next_retry_at: string | null }
+export type PaymentReminderState = {
+  schedule: { status: string; reminder_count: number; last_sent_at: string | null; next_reminder_at: string | null; last_delivery_status: string; last_error: string } | null
+  reminders: PaymentReminderRow[]
+  optOut: { opted_out: boolean; opted_out_at: string | null; opted_in_at: string | null; source: string; keyword: string } | null
+}
+export const registrationPaymentReminders = (id: string) => api<PaymentReminderState>(`/admin/freight-broker/registrations/${id}/payment-reminders`, { auth: true })
+
 export type DashboardStats = {
   contacts: { total: number; new: number; last7Days: number }
   bookings: { total: number; pending: number; upcoming: number; unpaid: number }

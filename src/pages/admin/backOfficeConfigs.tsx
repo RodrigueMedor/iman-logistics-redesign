@@ -292,6 +292,37 @@ type BrokerClassJoin = { name?: string; starts_at?: string; ends_at?: string; lo
 const brokerClass = (row: RecordRow) => row.class as BrokerClassJoin
 type BrokerPaymentJoin = { reference?: string; provider_reference?: string; stripe_payment_intent_id?: string } | null
 const brokerPayment = (row: RecordRow) => row.payment as BrokerPaymentJoin
+type ReminderJoin = { status: string; reminder_count: number; last_sent_at: string | null; next_reminder_at: string | null; last_delivery_status: string; last_error: string } | null
+const reminder = (row: RecordRow) => row.reminder as ReminderJoin
+
+export const reminderStatuses: Option[] = [
+  { value: 'scheduled', label: 'Active', color: 'info' },
+  { value: 'paused', label: 'Paused (payment processing)' },
+  { value: 'stopped_paid', label: 'Stopped: paid', color: 'success' },
+  { value: 'stopped_status', label: 'Stopped: status changed' },
+  { value: 'stopped_opted_out', label: 'Stopped: opted out', color: 'warning' },
+  { value: 'stopped_no_consent', label: 'Stopped: no consent' },
+  { value: 'stopped_invalid_phone', label: 'Stopped: phone unreachable', color: 'error' },
+  { value: 'stopped_class_unavailable', label: 'Stopped: class closed' },
+  { value: 'stopped_max_reached', label: 'Stopped: limit reached' },
+]
+
+export const deliveryStatuses: Option[] = [
+  { value: 'queued', label: 'Queued', color: 'info' },
+  { value: 'accepted', label: 'Accepted', color: 'info' },
+  { value: 'sending', label: 'Sending', color: 'info' },
+  { value: 'sent', label: 'Sent', color: 'primary' },
+  { value: 'delivered', label: 'Delivered', color: 'success' },
+  { value: 'undelivered', label: 'Undelivered', color: 'error' },
+  { value: 'failed', label: 'Failed', color: 'error' },
+]
+
+const smsOptIn = (row: RecordRow) => row.sms_opted_out_at ? `Opted out ${formatDateTime(row.sms_opted_out_at)}` : row.sms_consent_at ? `Opted in ${formatDateTime(row.sms_consent_at)}` : 'No SMS consent'
+const reminderSummary = (row: RecordRow) => {
+  const state = reminder(row)
+  if (!state) return <Typography variant="body2" color="text.secondary">{row.sms_consent_at ? '—' : 'No consent'}</Typography>
+  return <><StatusChip value={state.status} options={reminderStatuses} /><Typography variant="caption" display="block" color="text.secondary">{state.reminder_count} sent{state.next_reminder_at ? ` · next ${formatDateTime(state.next_reminder_at)}` : ''}</Typography></>
+}
 
 export const brokerRegistrationsConfig: RecordsConfig = {
   table: 'freight_dispatch_masterclass_registrations',
@@ -307,6 +338,7 @@ export const brokerRegistrationsConfig: RecordsConfig = {
     { key: 'attendance_type', label: 'Attendance', render: row => row.attendance_type === 'online' ? 'Online' : 'In Person', hideOnMobile: true },
     { key: 'status', label: 'Status', render: row => <StatusChip value={row.status} options={brokerStatuses} /> },
     { key: 'payment_status', label: 'Payment', render: row => <StatusChip value={row.payment_status} options={brokerPaymentStatuses} /> },
+    { key: 'reminder', label: 'SMS reminders', render: reminderSummary, hideOnMobile: true },
     { key: 'submitted_at', label: 'Submitted', render: row => formatDateTime(row.submitted_at), hideOnMobile: true },
   ],
   details: [
@@ -330,6 +362,13 @@ export const brokerRegistrationsConfig: RecordsConfig = {
     { key: 'agreement_status', label: 'Agreement status' },
     { key: 'fulfillment_status', label: 'Overall fulfillment' },
     { key: 'fulfillment_error', label: 'Fulfillment error' },
+    { key: 'sms_consent_at', label: 'SMS opt-in / opt-out', render: smsOptIn },
+    { key: 'reminder_status', label: 'SMS reminder status', render: row => reminder(row) ? <StatusChip value={reminder(row)?.status} options={reminderStatuses} /> : '—' },
+    { key: 'reminder_count', label: 'Reminders sent', render: row => String(reminder(row)?.reminder_count ?? 0) },
+    { key: 'reminder_last', label: 'Last reminder sent', render: row => formatDateTime(reminder(row)?.last_sent_at) },
+    { key: 'reminder_next', label: 'Next reminder', render: row => formatDateTime(reminder(row)?.next_reminder_at) },
+    { key: 'reminder_delivery', label: 'Last reminder delivery', render: row => reminder(row)?.last_delivery_status ? <StatusChip value={reminder(row)?.last_delivery_status} options={deliveryStatuses} /> : '—' },
+    { key: 'reminder_error', label: 'Last reminder error', render: row => reminder(row)?.last_error || '—' },
     { key: 'submitted_at', label: 'Submitted', render: row => formatDateTime(row.submitted_at) },
     updated,
   ],

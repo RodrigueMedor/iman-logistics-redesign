@@ -1,11 +1,11 @@
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
-import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_POLICY_VERSION, FREIGHT_BROKER_PROGRAM, normalizePersonName } from '../../../src/features/freightBroker/program'
+import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_POLICY_VERSION, FREIGHT_BROKER_PROGRAM, FREIGHT_BROKER_SMS_CONSENT_TEXT, normalizePersonName } from '../../../src/features/freightBroker/program'
 import { config } from '../config'
 import { backOffice, requireRole, staff, superAdminOnly } from '../lib/auth'
 import { classIsFull, loadRegistration, makeRegistrationNo } from '../lib/freightBroker'
 import { HttpError, parse } from '../lib/http'
-import { consumeRegistrationVerification, resendRegistrationCode, startRegistrationVerification, verifyRegistrationCode } from '../lib/registrationVerification'
+import { consumeRegistrationVerification, normalizeVerificationPhone, resendRegistrationCode, startRegistrationVerification, verifyRegistrationCode } from '../lib/registrationVerification'
 import { checkoutReturnUrl, stripeClient } from '../lib/stripe'
 import { publicClient, serviceClient } from '../lib/supabase'
 import { freightBrokerCheckout, freightBrokerClassInput, freightBrokerRegistration, registrationVerificationCode, registrationVerificationResend, registrationVerificationStart } from '../schemas'
@@ -19,6 +19,8 @@ export const freightBrokerAdminRoutes = Router()
 const submissions = rateLimit({ windowMs: 15 * 60 * 1000, limit: config.submissionRateLimit, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many requests. Please try again later.' } })
 const verificationRequests = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many verification requests. Please try again later.' } })
 const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+// Stored as E.164 so SMS opt-outs (keyed by the number Twilio reports) match.
+const e164OrRaw = (value: string) => { try { return normalizeVerificationPhone(value) } catch { return value || null } }
 
 freightBrokerRoutes.get('/classes', async (_req, res) => {
   const { data, error } = await publicClient().rpc('freight_broker_open_classes')
@@ -68,11 +70,13 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
 
   const { data, error } = await db.from('freight_dispatch_masterclass_registrations').insert({
     registration_no: makeRegistrationNo(),
-    first_name: input.firstName, last_name: input.lastName, email, phone: input.phone || null,
+    first_name: input.firstName, last_name: input.lastName, email, phone: e164OrRaw(input.phone),
     address_line1: input.address1, address_line2: input.address2 || null, city: input.city, state: input.state, zip_code: input.zip,
     class_id: classRow.id, attendance_type: input.attendanceType,
     email_verified_at: verification.email_verified_at, phone_verified_at: verification.phone_verified_at, verification_id: verification.id,
     status: 'SUBMITTED', payment_status: 'pending',
+    // A database trigger schedules SMS payment reminders when consent is given.
+    ...(input.smsConsent ? { sms_consent_at: now, sms_consent_text: FREIGHT_BROKER_SMS_CONSENT_TEXT } : {}),
   }).select('id, registration_no, class_id').single()
   if (error) throw error
   res.status(201).json(data)
@@ -212,4 +216,17 @@ freightBrokerAdminRoutes.get('/registrations/:id/notifications', requireRole(bac
   const { data, error } = await staff(req).db.from('notification_log').select('*').eq('entity_type', 'freight_dispatch_masterclass_registrations').eq('entity_id', req.params.id).order('created_at')
   if (error) throw error
   res.json(data)
+})
+
+freightBrokerAdminRoutes.get('/registrations/:id/payment-reminders', requireRole(backOffice), async (req, res) => {
+  const { db } = staff(req)
+  const { data: registration } = await db.from('freight_dispatch_masterclass_registrations').select('phone').eq('id', req.params.id).maybeSingle()
+  if (!registration) throw new HttpError(404, 'Registration not found.')
+  const [schedule, reminders, optOut] = await Promise.all([
+    db.from('payment_reminder_schedules').select('*').eq('registration_id', req.params.id).maybeSingle(),
+    db.from('payment_reminders').select('*').eq('registration_id', req.params.id).order('attempt_number', { ascending: false }),
+    registration.phone ? db.from('sms_opt_outs').select('*').eq('phone', registration.phone).maybeSingle() : { data: null, error: null },
+  ])
+  for (const result of [schedule, reminders, optOut]) if (result.error) throw result.error
+  res.json({ schedule: schedule.data, reminders: reminders.data, optOut: optOut.data })
 })
