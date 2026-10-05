@@ -19,7 +19,10 @@ import { serviceClient } from './supabase'
 // process died mid-request, or Twilio timed out) is never repeated.
 
 export const PAYMENT_REMINDER_TEXT = 'IMAN Logistics: Your Dispatch Masterclass registration was received, but your payment is still pending. Please complete your payment to secure your registration. Reply STOP to unsubscribe.'
-export const REMINDABLE_PAYMENT_STATUSES = ['pending', 'failed', 'canceled']
+// Payment reminders are only for a submitted registration whose payment is
+// currently pending. Failed/canceled checkouts must not cause a reminder: the
+// student can start a new checkout, but that is a separate payment flow.
+export const REMINDABLE_PAYMENT_STATUSES = ['pending']
 
 const NOTIFICATION_TYPE = 'payment_reminder'
 const TEMPLATE = 'freight_broker.payment_reminder_sms'

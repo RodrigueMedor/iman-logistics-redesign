@@ -103,7 +103,7 @@ begin
   from public.freight_dispatch_masterclass_registrations r where r.id = new.registration_id;
   select coalesce(bool_or(o.opted_out), false) into opted_out from public.sms_opt_outs o where o.phone = reg.phone;
 
-  if reg.status is distinct from 'SUBMITTED' or reg.payment_status not in ('pending', 'failed', 'canceled') then
+  if reg.status is distinct from 'SUBMITTED' or reg.payment_status is distinct from 'pending' then
     if new.next_reminder_at is not null or new.status in ('scheduled', 'paused') then
       new.next_reminder_at := null;
       new.status := case

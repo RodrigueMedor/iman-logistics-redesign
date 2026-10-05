@@ -14,8 +14,8 @@ const stop = (changes: Partial<ReminderRegistration>, count = 0, optedOut = fals
 
 test('reminds only submitted, unpaid, consenting, reachable registrations', () => {
   assert.equal(stop({}), null)
-  assert.equal(stop({ payment_status: 'failed' }), null)
-  assert.equal(stop({ payment_status: 'canceled' }), null)
+  assert.equal(stop({ payment_status: 'failed' }), 'stopped_status')
+  assert.equal(stop({ payment_status: 'canceled' }), 'stopped_status')
   assert.equal(stop({ payment_status: 'paid', status: 'CONFIRMED' }), 'stopped_paid')
   assert.equal(stop({ payment_status: 'processing' }), 'paused')
   assert.equal(stop({ payment_status: 'refunded' }), 'stopped_status')
