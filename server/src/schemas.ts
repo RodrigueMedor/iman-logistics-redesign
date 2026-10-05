@@ -190,6 +190,7 @@ export const freightBrokerRegistration = z.object({
   zip: requiredText('ZIP code', 20).meta({ example: '32801' }),
   classId: z.string().trim().min(1, 'Select a class session.').max(80).meta({ description: 'A class session id from GET /freight-broker/classes.' }),
   attendanceType: z.enum(['online', 'in_person'], 'Select Online / Zoom or In Person.'),
+  smsConsent: z.boolean().optional().default(false).meta({ description: 'Opt in to SMS payment reminders. Optional; never required to register.' }),
   verificationId: z.uuid('Verify your email and phone before registering.'),
   verificationToken: z.string().min(20, 'Verify your email and phone before registering.').max(200),
   website: z.string().max(0).optional().meta({ description: 'Leave empty. Bots that fill it in are rejected.' }),

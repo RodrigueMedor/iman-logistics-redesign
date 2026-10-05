@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, FormControl, Grid, InputLabel, MenuItem, Paper, Select, Stack, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, Divider, FormControl, FormControlLabel, Grid, InputLabel, MenuItem, Paper, Select, Stack, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material'
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import EditIcon from '@mui/icons-material/Edit'
@@ -17,7 +17,7 @@ import { runtimeConfig } from '../../lib/runtimeConfig'
 import sessionPromoImage from '../../assets/images/freight-dispatch-session-promo.png'
 import { createBrokerRegistration, listBrokerClasses, resendRegistrationCode, startBrokerCheckout, startRegistrationVerification, verifyRegistrationCode, type BrokerClass, type CreatedRegistration, type RegistrationDetails, type RegistrationForm, type VerificationState } from './api'
 import { PolicyAgreement } from './PolicyAgreement'
-import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM, FREIGHT_BROKER_STEPS, isPolicySigned } from './program'
+import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM, FREIGHT_BROKER_SMS_CONSENT_TEXT, FREIGHT_BROKER_STEPS, isPolicySigned } from './program'
 import { RegistrationPaymentStatus } from './RegistrationPaymentStatus'
 
 // Freight Dispatch Masterclass registration, matching the live Dispatcher Class
@@ -27,7 +27,7 @@ import { RegistrationPaymentStatus } from './RegistrationPaymentStatus'
 // Masterclass page as the #register section.
 
 const pendingRegistrationStorageKey = 'iman_freight_broker_pending_reg'
-const emptyForm: RegistrationForm = { firstName: '', lastName: '', email: '', phone: '', address1: '', address2: '', city: '', state: '', zip: '', classId: '', attendanceType: 'online', verificationId: '', verificationToken: '' }
+const emptyForm: RegistrationForm = { firstName: '', lastName: '', email: '', phone: '', address1: '', address2: '', city: '', state: '', zip: '', classId: '', attendanceType: 'online', smsConsent: false, verificationId: '', verificationToken: '' }
 const dollars = (cents?: number | null) => (cents ?? FREIGHT_BROKER_PROGRAM.defaultPriceCents) / 100
 const mediumDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' }) : null
 const scrollToSection = () => window.setTimeout(() => document.getElementById('register')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
@@ -512,6 +512,7 @@ export function FreightBrokerRegistration() {
                     </Select>
                   </FormControl>
                 </Paper>
+                <FormControlLabel sx={{ alignItems: 'flex-start', mx: 0 }} control={<Checkbox checked={Boolean(formData.smsConsent)} onChange={event => setFormData(current => ({ ...current, smsConsent: event.target.checked }))} sx={{ mt: -0.75 }} />} label={<Typography variant="body2" color="text.secondary">{FREIGHT_BROKER_SMS_CONSENT_TEXT}</Typography>} />
                 <Button type="submit" variant="contained" color="secondary" size="large" fullWidth disabled={state === 'saving' || noSessions || classesLoading} sx={{ py: 1.75, fontSize: '1.05rem', fontWeight: 700 }}>
                   {state === 'saving' ? 'Saving Registration...' : 'Continue to Review & Policy Agreement'}
                 </Button>

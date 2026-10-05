@@ -5,8 +5,8 @@ import EditIcon from '@mui/icons-material/Edit'
 import { Seo } from '../../components/common/Seo'
 import { useAuth } from '../../contexts/AuthContext'
 import { RecordsPage, StatusChip } from '../../features/backoffice/RecordsPage'
-import { brokerClassStatuses, deleteBrokerClass, formatDate, formatDateTime, formatMoney, listBrokerClassesAdmin, registrationNotifications, saveBrokerClass, type BrokerClassRow, type NotificationRow, type RecordRow } from '../../services/backoffice'
-import { brokerRegistrationsConfig, notificationLogConfig, notificationStatuses } from './backOfficeConfigs'
+import { brokerClassStatuses, deleteBrokerClass, formatDate, formatDateTime, formatMoney, listBrokerClassesAdmin, registrationNotifications, registrationPaymentReminders, saveBrokerClass, type BrokerClassRow, type NotificationRow, type PaymentReminderState, type RecordRow } from '../../services/backoffice'
+import { brokerRegistrationsConfig, deliveryStatuses, notificationLogConfig, notificationStatuses, reminderStatuses } from './backOfficeConfigs'
 
 function RegistrationNotifications({ id }: { id: string }) {
   const [rows, setRows] = useState<NotificationRow[] | null>(null)
@@ -23,7 +23,40 @@ function RegistrationNotifications({ id }: { id: string }) {
   </Box>
 }
 
-const registrationsPageConfig = { ...brokerRegistrationsConfig, renderDetail: (row: RecordRow) => <RegistrationNotifications id={String(row.id)} /> }
+const reminderSendStatuses = [
+  { value: 'accepted', label: 'Accepted by Twilio', color: 'success' as const },
+  { value: 'sending', label: 'Sending', color: 'info' as const },
+  { value: 'retrying', label: 'Retrying', color: 'warning' as const },
+  { value: 'failed', label: 'Failed', color: 'error' as const },
+  { value: 'canceled', label: 'Canceled' },
+]
+
+function PaymentReminders({ id }: { id: string }) {
+  const [state, setState] = useState<PaymentReminderState | null>(null)
+  useEffect(() => { registrationPaymentReminders(id).then(setState).catch(() => setState({ schedule: null, reminders: [], optOut: null })) }, [id])
+  if (!state) return null
+  const { schedule, reminders, optOut } = state
+  return <Box mt={3}>
+    <Typography fontWeight={900} mb={1}>SMS payment reminders</Typography>
+    {!schedule && <Typography variant="body2" color="text.secondary">Not scheduled. Reminders go only to students who opted in to texts on the registration form.</Typography>}
+    {schedule && <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
+      <Stack direction="row" justifyContent="space-between" spacing={1}><Typography variant="body2" fontWeight={800}>{schedule.reminder_count} sent</Typography><StatusChip value={schedule.status} options={reminderStatuses} /></Stack>
+      <Typography variant="caption" color="text.secondary" display="block">Last sent: {formatDateTime(schedule.last_sent_at)} · Next: {formatDateTime(schedule.next_reminder_at)}</Typography>
+      {schedule.last_error && <Typography variant="caption" color="error" display="block">{schedule.last_error}</Typography>}
+    </Box>}
+    {optOut && <Alert severity={optOut.opted_out ? 'warning' : 'info'} sx={{ mt: 1 }}>{optOut.opted_out ? `This number opted out of texts ${formatDateTime(optOut.opted_out_at)}${optOut.keyword ? ` (replied "${optOut.keyword}")` : ''}.` : `This number opted back in ${formatDateTime(optOut.opted_in_at)}.`}</Alert>}
+    <Stack spacing={1} mt={1}>{reminders.map(row => <Box key={row.id} sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: 'divider' }}>
+      <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="center">
+        <Typography variant="body2" fontWeight={800}>Reminder #{row.attempt_number} · {row.phone}</Typography>
+        <Stack direction="row" spacing={.5}><StatusChip value={row.status} options={reminderSendStatuses} />{row.delivery_status && <StatusChip value={row.delivery_status} options={deliveryStatuses} />}</Stack>
+      </Stack>
+      <Typography variant="caption" color="text.secondary" display="block">{formatDateTime(row.sent_at ?? row.created_at)}{row.send_attempts > 1 ? ` · ${row.send_attempts} tries` : ''}{row.twilio_message_sid ? ` · ${row.twilio_message_sid}` : ''}{row.next_retry_at ? ` · retry ${formatDateTime(row.next_retry_at)}` : ''}</Typography>
+      {row.error_message && <Typography variant="caption" color="error" display="block">{row.error_code ? `${row.error_code}: ` : ''}{row.error_message}</Typography>}
+    </Box>)}</Stack>
+  </Box>
+}
+
+const registrationsPageConfig = { ...brokerRegistrationsConfig, renderDetail: (row: RecordRow) => <><PaymentReminders id={String(row.id)} /><RegistrationNotifications id={String(row.id)} /></> }
 export function BrokerRegistrationsPage() { return <RecordsPage {...registrationsPageConfig} /> }
 export function NotificationsPage() { return <RecordsPage {...notificationLogConfig} /> }
 

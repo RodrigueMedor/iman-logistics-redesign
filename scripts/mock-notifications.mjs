@@ -10,6 +10,8 @@ import http from 'node:http'
 
 const port = Number(process.env.MOCK_NOTIFICATIONS_PORT || 4010)
 let captured = []
+// Unique per mock run, like real Twilio SIDs.
+const started = Date.now().toString(36)
 
 const readBody = request => new Promise(resolve => {
   let body = ''
@@ -32,8 +34,10 @@ http.createServer(async (request, response) => {
   }
   if (url.pathname.startsWith('/twilio/2010-04-01/Accounts/') && url.pathname.endsWith('/Messages.json') && request.method === 'POST') {
     const form = Object.fromEntries(new URLSearchParams(body))
-    const sid = `SM${captured.length + 1}`
-    captured.push({ channel: 'sms', sid, authorization: request.headers.authorization, to: form.To, from: form.From, body: form.Body })
+    // Numbers ending in 0161 behave like a recipient who replied STOP.
+    if (form.To?.endsWith('0161')) return send(400, { code: 21610, message: 'Attempt to send to unsubscribed recipient', status: 400 })
+    const sid = `SM${started}${captured.length + 1}`
+    captured.push({ channel: 'sms', sid, authorization: request.headers.authorization, to: form.To, from: form.From, messagingServiceSid: form.MessagingServiceSid, statusCallback: form.StatusCallback, body: form.Body })
     return send(201, { sid, status: 'queued' })
   }
   send(404, { error: 'not mocked' })
