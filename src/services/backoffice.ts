@@ -132,6 +132,16 @@ export async function dashboardStats() {
   return api<DashboardStats>('/admin/stats', { auth: true })
 }
 
+export type WebsiteAnalyticsStats = {
+  pageViews: { today: number; last7Days: number; last30Days: number; total: number }
+  uniqueVisitors: { today: number; last7Days: number; last30Days: number; total: number }
+  sessions: { today: number; last30Days: number }
+  daily: { day: string; pageViews: number; uniqueVisitors: number }[]
+  topPages: { path: string; pageViews: number; uniqueVisitors: number }[]
+}
+
+export const websiteAnalytics = () => api<WebsiteAnalyticsStats>('/admin/website-analytics', { auth: true })
+
 const activityPaths: Record<string, string> = { Message: '/admin/contacts/', Booking: '/admin/bookings/', Application: '/admin/applications/' }
 export async function recentActivity(limit = 8) {
   const rows = await api<{ id: string; kind: string; reference: string; full_name: string; title: string; status: string; created_at: string }[]>(`/admin/recent-activity?limit=${limit}`, { auth: true })

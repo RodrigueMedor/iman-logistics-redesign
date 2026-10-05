@@ -6,13 +6,14 @@ import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined
 import MailOutlineRoundedIcon from '@mui/icons-material/MailOutlineRounded'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PeopleAltOutlinedIcon from '@mui/icons-material/PeopleAltOutlined'
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import WorkOutlineRoundedIcon from '@mui/icons-material/WorkOutlineRounded'
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../../components/common/Seo'
 import { useAuth } from '../../contexts/AuthContext'
 import { isSupabaseConfigured } from '../../lib/supabase'
-import { dashboardStats, formatDateTime, formatMoney, recentActivity, type DashboardStats } from '../../services/backoffice'
+import { dashboardStats, formatDateTime, formatMoney, recentActivity, websiteAnalytics, type DashboardStats, type WebsiteAnalyticsStats } from '../../services/backoffice'
 
 type Activity = Awaited<ReturnType<typeof recentActivity>>[number]
 
@@ -22,12 +23,13 @@ export default function Dashboard() {
   const { profile } = useAuth()
   const [stats, setStats] = useState<DashboardStats>()
   const [activity, setActivity] = useState<Activity[]>([])
+  const [analytics, setAnalytics] = useState<WebsiteAnalyticsStats>()
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
-    Promise.all([dashboardStats(), recentActivity(6)])
-      .then(([nextStats, nextActivity]) => { setStats(nextStats); setActivity(nextActivity) })
+    Promise.all([dashboardStats(), recentActivity(6), websiteAnalytics()])
+      .then(([nextStats, nextActivity, nextAnalytics]) => { setStats(nextStats); setActivity(nextActivity); setAnalytics(nextAnalytics) })
       .catch(() => setError('Dashboard data could not be loaded. Check that the latest migrations have been applied.'))
   }, [])
 
@@ -48,6 +50,24 @@ export default function Dashboard() {
         <StatTile icon={<PaymentsOutlinedIcon />} label="Paid, last 30 days" value={stats && formatMoney(stats.payments.paidLast30DaysCents)} detail={stats && `${formatMoney(stats.payments.paidCents)} all time · ${stats.payments.pending} pending`} to="/admin/payments/" />
         <StatTile icon={<LocalShippingOutlinedIcon />} label="Shipments in transit" value={stats?.shipments.inTransit} detail={stats && `${stats.shipments.exceptions} exceptions · ${stats.shipments.total} total`} to="/admin/shipments/" />
         <StatTile icon={<PeopleAltOutlinedIcon />} label="Customers" value={stats?.customers} detail="Unique people across all forms" to="/admin/customers/" />
+        <StatTile icon={<VisibilityOutlinedIcon />} label="Website visitors, 30 days" value={analytics?.uniqueVisitors.last30Days} detail={analytics && `${analytics.pageViews.last30Days} page views · ${analytics.uniqueVisitors.today} visitors today`} />
+      </Grid>
+
+      <Grid container spacing={2.5} mt={.5}>
+        <Grid size={{ xs: 12, lg: 8 }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
+            <Typography fontWeight={900}>Website traffic · last 14 days</Typography>
+            <Typography variant="body2" color="text.secondary">Anonymous first-party counts; staff pages and known bots are excluded.</Typography>
+            {analytics && <TrafficChart data={analytics.daily} />}
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 12, lg: 4 }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
+            <Typography fontWeight={900} mb={1.5}>Top pages · last 30 days</Typography>
+            <Stack spacing={1}>{analytics?.topPages.map(page => <Stack key={page.path} direction="row" justifyContent="space-between" spacing={2}><Typography variant="body2" noWrap title={page.path}>{page.path}</Typography><Typography variant="body2" fontWeight={800} whiteSpace="nowrap">{page.pageViews} views</Typography></Stack>)}</Stack>
+            {analytics && !analytics.topPages.length && <Typography variant="body2" color="text.secondary">Traffic will appear after the first public page visit.</Typography>}
+          </Paper>
+        </Grid>
       </Grid>
 
       <Grid container spacing={2.5} mt={.5} alignItems="flex-start">
@@ -75,15 +95,25 @@ export default function Dashboard() {
   </>
 }
 
-function StatTile({ icon, label, value, detail, to }: { icon: ReactNode; label: string; value?: ReactNode; detail?: ReactNode; to: string }) {
+function StatTile({ icon, label, value, detail, to }: { icon: ReactNode; label: string; value?: ReactNode; detail?: ReactNode; to?: string }) {
   return <Grid size={{ xs: 12, sm: 6, lg: 4 }}>
     <Paper elevation={0} sx={{ p: 2.5, borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
       <Stack direction="row" spacing={1.25} alignItems="center" color="text.secondary">{icon}<Typography fontWeight={800} fontSize={14}>{label}</Typography></Stack>
       <Typography fontSize={34} fontWeight={950} mt={1}>{value ?? '—'}</Typography>
       <Typography variant="body2" color="text.secondary" minHeight={20}>{detail}</Typography>
-      <Button component={RouterLink} to={to} size="small" endIcon={<ArrowForwardRoundedIcon />} sx={{ mt: 1, ml: -1 }}>Open</Button>
+      {to && <Button component={RouterLink} to={to} size="small" endIcon={<ArrowForwardRoundedIcon />} sx={{ mt: 1, ml: -1 }}>Open</Button>}
     </Paper>
   </Grid>
+}
+
+function TrafficChart({ data }: { data: WebsiteAnalyticsStats['daily'] }) {
+  const max = Math.max(1, ...data.map(item => item.pageViews))
+  return <Box mt={3} role="img" aria-label={`Website traffic: ${data.map(item => `${item.day}, ${item.pageViews} page views, ${item.uniqueVisitors} visitors`).join('; ')}`}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${data.length}, 1fr)`, gap: '3px', alignItems: 'end', height: 170, borderBottom: '1px solid', borderColor: 'divider' }}>
+      {data.map(item => <Tooltip key={item.day} title={`${item.pageViews} page views · ${item.uniqueVisitors} visitors`} arrow><Box sx={{ height: `${Math.max(item.pageViews ? 4 : 0, (item.pageViews / max) * 160)}px`, bgcolor: 'secondary.main', borderRadius: '4px 4px 0 0' }} /></Tooltip>)}
+    </Box>
+    <Stack direction="row" justifyContent="space-between" mt={.75}><Typography variant="caption" color="text.secondary">{data[0]?.day ?? ''}</Typography><Typography variant="caption" color="text.secondary">{data.at(-1)?.day ?? ''}</Typography></Stack>
+  </Box>
 }
 
 // Single-series column chart: one hue, no legend, per-column tooltip, peak labelled.
