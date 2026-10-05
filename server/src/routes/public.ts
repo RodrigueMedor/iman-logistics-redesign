@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { createHash } from 'node:crypto'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { serviceCatalog } from '../../../src/features/consultation/serviceCatalog'
@@ -20,6 +21,26 @@ publicRoutes.get('/public-config', (_req, res) => {
 // Per-IP limit on everything that writes, on top of the per-email limits.
 const submissions = rateLimit({ windowMs: 15 * 60 * 1000, limit: config.submissionRateLimit, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many requests. Please try again later.' } })
 const lookups = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many requests. Please try again later.' } })
+const analytics = rateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many requests.' } })
+
+const pageView = z.object({
+  path: z.string().trim().min(1).max(240).regex(/^\/[A-Za-z0-9_./-]*$/, 'Invalid page path.'),
+  visitorId: z.uuid(),
+  sessionId: z.uuid(),
+})
+
+publicRoutes.post('/analytics/page-view', analytics, async (req, res) => {
+  const input = parse(pageView, req.body, 'Invalid analytics event.')
+  if (/bot|crawler|spider|preview/i.test(req.get('user-agent') || '')) return void res.status(204).end()
+  const digest = (value: string) => createHash('sha256').update(value).digest('hex')
+  const { error } = await serviceClient().from('website_page_views').insert({
+    path: input.path,
+    visitor_hash: digest(input.visitorId),
+    session_hash: digest(input.sessionId),
+  })
+  if (error) throw error
+  res.status(204).end()
+})
 
 publicRoutes.post('/contact-submissions', submissions, async (req, res) => {
   const input = parse(contactSubmission, req.body)

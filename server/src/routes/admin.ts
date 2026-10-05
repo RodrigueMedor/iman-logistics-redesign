@@ -46,6 +46,12 @@ adminRoutes.get('/stats', requireRole(backOffice), async (req, res) => {
   res.json(data)
 })
 
+adminRoutes.get('/website-analytics', requireRole(backOffice), async (req, res) => {
+  const { data, error } = await staff(req).db.rpc('admin_website_analytics')
+  if (error) throw error
+  res.json(data)
+})
+
 adminRoutes.get('/recent-activity', requireRole(backOffice), async (req, res) => {
   const { db } = staff(req)
   const limit = parse(z.object({ limit: z.coerce.number().int().min(1).max(50).default(8) }), req.query).limit
