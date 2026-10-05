@@ -18,6 +18,9 @@ test('registration requires attendance and a dual-verification grant', () => {
     classId: '9cdfa539-01a0-48ea-a046-0baace555f2c', website: '',
   }
   assert.equal(freightBrokerRegistration.safeParse(base).success, false)
-  assert.equal(freightBrokerRegistration.safeParse({ ...base, attendanceType: 'online', verificationId: '64af632d-88ea-47b0-84bd-d972e04b21f9', verificationToken: 'a'.repeat(32) }).success, true)
+  const verified = { ...base, attendanceType: 'online', verificationId: '64af632d-88ea-47b0-84bd-d972e04b21f9', verificationToken: 'a'.repeat(32) }
+  assert.equal(freightBrokerRegistration.safeParse(verified).success, false)
+  assert.equal(freightBrokerRegistration.safeParse({ ...verified, smsConsent: true }).success, true)
+  assert.equal(freightBrokerRegistration.safeParse({ ...verified, smsConsent: false }).success, true)
   assert.equal(freightBrokerRegistration.safeParse({ ...base, attendanceType: 'mail', verificationId: '64af632d-88ea-47b0-84bd-d972e04b21f9', verificationToken: 'a'.repeat(32) }).success, false)
 })

@@ -76,7 +76,9 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
     email_verified_at: verification.email_verified_at, phone_verified_at: verification.phone_verified_at, verification_id: verification.id,
     status: 'SUBMITTED', payment_status: 'pending',
     // A database trigger schedules SMS payment reminders when consent is given.
-    ...(input.smsConsent ? { sms_consent_at: now, sms_consent_text: FREIGHT_BROKER_SMS_CONSENT_TEXT } : {}),
+    ...(input.smsConsent
+      ? { sms_consent_at: now, sms_consent_text: FREIGHT_BROKER_SMS_CONSENT_TEXT, sms_consent_declined_at: null }
+      : { sms_consent_at: null, sms_consent_text: null, sms_consent_declined_at: now }),
   }).select('id, registration_no, class_id').single()
   if (error) throw error
   res.status(201).json(data)

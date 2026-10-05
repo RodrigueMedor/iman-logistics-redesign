@@ -317,10 +317,16 @@ export const deliveryStatuses: Option[] = [
   { value: 'failed', label: 'Failed', color: 'error' },
 ]
 
-const smsOptIn = (row: RecordRow) => row.sms_opted_out_at ? `Opted out ${formatDateTime(row.sms_opted_out_at)}` : row.sms_consent_at ? `Opted in ${formatDateTime(row.sms_consent_at)}` : 'No SMS consent'
+const smsOptIn = (row: RecordRow) => row.sms_opted_out_at
+  ? `Opted out ${formatDateTime(row.sms_opted_out_at)}`
+  : row.sms_consent_at
+    ? `Opted in ${formatDateTime(row.sms_consent_at)}`
+    : row.sms_consent_declined_at
+      ? `Declined SMS ${formatDateTime(row.sms_consent_declined_at)}`
+      : 'No SMS choice recorded'
 const reminderSummary = (row: RecordRow) => {
   const state = reminder(row)
-  if (!state) return <Typography variant="body2" color="text.secondary">{row.sms_consent_at ? '—' : 'No consent'}</Typography>
+  if (!state) return <Typography variant="body2" color="text.secondary">{row.sms_consent_at ? '—' : row.sms_consent_declined_at ? 'Declined SMS' : 'No choice recorded'}</Typography>
   return <><StatusChip value={state.status} options={reminderStatuses} /><Typography variant="caption" display="block" color="text.secondary">{state.reminder_count} sent{state.next_reminder_at ? ` · next ${formatDateTime(state.next_reminder_at)}` : ''}</Typography></>
 }
 
