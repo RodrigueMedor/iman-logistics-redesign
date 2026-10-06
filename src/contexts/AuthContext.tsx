@@ -6,6 +6,9 @@ import { api } from '../services/api'
 
 export type AppRole = 'super_admin' | 'admin' | 'employee'
 export const backOfficeRoles: AppRole[] = ['super_admin', 'admin']
+// Mirrors the API: only this account may act as super admin.
+export const superAdminEmail = 'info@imanlogistics.com'
+export const unauthorizedSuperAdmin = 'Unauthorized Super Admin account.'
 export type UserProfile = {
   id: string
   full_name: string
@@ -25,8 +28,7 @@ type AuthContextValue = {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
-const demoEmail = 'superadmin@imanlogistics.com'
-const demoUsername = 'superadmin'
+const demoEmail = superAdminEmail
 const demoPassword = 'Admin123!'
 const demoSessionKey = 'iman-local-super-admin-session'
 const lastActivityKey = 'iman-auth-last-activity'
@@ -149,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn: async (email, password) => {
       if (!supabase && import.meta.env.DEV) {
         const normalizedLogin = email.trim().toLowerCase()
-        const isAdmin = [demoEmail, demoUsername].includes(normalizedLogin) && password === demoPassword
+        const isAdmin = normalizedLogin === demoEmail && password === demoPassword
         const employee = getDemoEmployees().find(account => account.email === normalizedLogin && account.password === password && account.active)
         if (!isAdmin && !employee) return 'Invalid temporary username or password.'
         const account = isAdmin

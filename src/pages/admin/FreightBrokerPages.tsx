@@ -5,7 +5,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import { Seo } from '../../components/common/Seo'
 import { useAuth } from '../../contexts/AuthContext'
 import { RecordsPage, StatusChip } from '../../features/backoffice/RecordsPage'
-import { brokerClassStatuses, deleteBrokerClass, formatDate, formatDateTime, formatMoney, listBrokerClassesAdmin, registrationNotifications, registrationPaymentReminders, saveBrokerClass, type BrokerClassRow, type NotificationRow, type PaymentReminderState, type RecordRow } from '../../services/backoffice'
+import { brokerClassStatuses, deleteBrokerClass, formatDate, formatDateTime, formatMoney, listBrokerClassesAdmin, registrationNotifications, registrationPaymentReminders, retryRegistrationPaymentReminder, saveBrokerClass, type BrokerClassRow, type NotificationRow, type PaymentReminderState, type RecordRow } from '../../services/backoffice'
 import { brokerRegistrationsConfig, deliveryStatuses, notificationLogConfig, notificationStatuses, reminderStatuses } from './backOfficeConfigs'
 
 function RegistrationNotifications({ id }: { id: string }) {
@@ -33,9 +33,25 @@ const reminderSendStatuses = [
 
 function PaymentReminders({ id }: { id: string }) {
   const [state, setState] = useState<PaymentReminderState | null>(null)
-  useEffect(() => { registrationPaymentReminders(id).then(setState).catch(() => setState({ schedule: null, reminders: [], optOut: null })) }, [id])
+  const [retrying, setRetrying] = useState(false)
+  const [retryError, setRetryError] = useState('')
+  const load = () => registrationPaymentReminders(id).then(setState).catch(() => setState({ schedule: null, reminders: [], optOut: null }))
+  useEffect(() => { void load() }, [id])
   if (!state) return null
   const { schedule, reminders, optOut } = state
+  const canRetry = schedule?.status === 'scheduled' && reminders[0]?.status === 'failed'
+  const retryNow = async () => {
+    setRetrying(true)
+    setRetryError('')
+    try {
+      await retryRegistrationPaymentReminder(id)
+      await load()
+    } catch (caught) {
+      setRetryError(caught instanceof Error ? caught.message : 'Unable to queue the reminder retry.')
+    } finally {
+      setRetrying(false)
+    }
+  }
   return <Box mt={3}>
     <Typography fontWeight={900} mb={1}>SMS payment reminders</Typography>
     {!schedule && <Typography variant="body2" color="text.secondary">Not scheduled. Reminders go only to students who opted in to texts on the registration form.</Typography>}
@@ -43,6 +59,8 @@ function PaymentReminders({ id }: { id: string }) {
       <Stack direction="row" justifyContent="space-between" spacing={1}><Typography variant="body2" fontWeight={800}>{schedule.reminder_count} sent</Typography><StatusChip value={schedule.status} options={reminderStatuses} /></Stack>
       <Typography variant="caption" color="text.secondary" display="block">Last sent: {formatDateTime(schedule.last_sent_at)} · Next: {formatDateTime(schedule.next_reminder_at)}</Typography>
       {schedule.last_error && <Typography variant="caption" color="error" display="block">{schedule.last_error}</Typography>}
+      {canRetry && <Button size="small" sx={{ mt: 1 }} disabled={retrying} onClick={() => void retryNow()}>{retrying ? 'Queuing…' : 'Retry after fixing Twilio'}</Button>}
+      {retryError && <Alert severity="error" sx={{ mt: 1 }}>{retryError}</Alert>}
     </Box>}
     {optOut && <Alert severity={optOut.opted_out ? 'warning' : 'info'} sx={{ mt: 1 }}>{optOut.opted_out ? `This number opted out of texts ${formatDateTime(optOut.opted_out_at)}${optOut.keyword ? ` (replied "${optOut.keyword}")` : ''}.` : `This number opted back in ${formatDateTime(optOut.opted_in_at)}.`}</Alert>}
     <Stack spacing={1} mt={1}>{reminders.map(row => <Box key={row.id} sx={{ p: 1.5, borderRadius: 2, border: 1, borderColor: 'divider' }}>

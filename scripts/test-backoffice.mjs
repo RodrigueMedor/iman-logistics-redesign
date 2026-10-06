@@ -52,6 +52,29 @@ async function makeUser(role, label = role) {
   return { id: data.user.id, email, client, token: session.session.access_token }
 }
 
+// Only info@imanlogistics.com may be super admin, so reuse that local account.
+async function makeSuperAdmin() {
+  const email = 'info@imanlogistics.com'
+  const password = `Test-${run}-password!`
+  const { data: list, error: listError } = await service.auth.admin.listUsers({ perPage: 1000 })
+  if (listError) throw listError
+  let id = list.users.find(user => user.email?.toLowerCase() === email)?.id
+  if (id) {
+    const { error } = await service.auth.admin.updateUserById(id, { password, ban_duration: 'none' })
+    if (error) throw error
+  } else {
+    const { data, error } = await service.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: 'Iman Super Admin' } })
+    if (error) throw error
+    id = data.user.id
+  }
+  const { error: profileError } = await service.from('profiles').update({ role: 'super_admin', email, active: true }).eq('id', id)
+  if (profileError) throw profileError
+  const client = createClient(url, publishableKey, { auth: { persistSession: false } })
+  const { data: session, error: signInError } = await client.auth.signInWithPassword({ email, password })
+  if (signInError) throw signInError
+  return { id, email, client, token: session.session.access_token }
+}
+
 const usedDates = new Set()
 const nextWeekday = () => {
   let date
@@ -64,7 +87,7 @@ const nextWeekday = () => {
   return date.toISOString().slice(0, 10)
 }
 
-const superAdmin = await makeUser('super_admin')
+const superAdmin = await makeSuperAdmin()
 const admin = await makeUser('admin')
 const employee = await makeUser('employee')
 const customerEmail = `customer-${run}@example.test`
@@ -198,8 +221,30 @@ const newUser = await call('/admin/users', { body: { fullName: 'New Admin', emai
 check('super admin creates an admin account', newUser.status === 201, newUser.text)
 check('the new account appears with the admin role', (await call('/admin/users', { token: superAdmin.token })).json?.some(user => user.id === newUser.json.id && user.role === 'admin'))
 check('short passwords are rejected (400)', (await call(`/admin/users/${newUser.json.id}`, { method: 'PATCH', body: { password: 'short' }, token: superAdmin.token })).status === 400)
-const otherSuper = await makeUser('super_admin', 'second-super-admin')
-check('another super admin cannot be changed (403)', (await call(`/admin/users/${otherSuper.id}`, { method: 'PATCH', body: { active: false }, token: superAdmin.token })).status === 403)
+
+section('Super admin is restricted to info@imanlogistics.com')
+const superMe = await call('/admin/me', { token: superAdmin.token })
+check('info@imanlogistics.com signs in as super admin', superMe.status === 200 && superMe.json?.role === 'super_admin', superMe.text)
+check('admins still sign in', (await call('/admin/me', { token: admin.token })).json?.role === 'admin')
+check('employees still sign in', (await call('/admin/me', { token: employee.token })).json?.role === 'employee')
+const rogue = await makeUser('employee', 'rogue-super-admin')
+const promote = await service.from('profiles').update({ role: 'super_admin' }).eq('id', rogue.id)
+check('the database refuses super_admin for any other email', promote.error?.message === 'Unauthorized Super Admin account.', promote.error?.message)
+check('the API cannot grant super_admin (400)', (await call(`/admin/users/${rogue.id}`, { method: 'PATCH', body: { role: 'super_admin' }, token: superAdmin.token })).status === 400)
+check('that account gets no super-admin access (403)', (await call('/admin/users', { token: rogue.token })).status === 403)
+// A super_admin profile whose sign-in email is anything else (e.g. the old
+// rodriguemedor@yahoo.fr owner) is rejected by the API and by row-level security.
+const { error: moveError } = await service.auth.admin.updateUserById(superAdmin.id, { email: `old-owner-${run}@example.test`, email_confirm: true })
+if (moveError) throw moveError
+const wrongEmailMe = await call('/admin/me', { token: superAdmin.token })
+check('a super_admin profile with another email is rejected (403)', wrongEmailMe.status === 403 && wrongEmailMe.json?.error === 'Unauthorized Super Admin account.', wrongEmailMe.text)
+check('row-level security denies it super-admin data too', (await superAdmin.client.from('audit_logs').select('id').limit(1)).data?.length === 0)
+const wrongEmailReset = await call('/auth/password-reset', { body: { email: `old-owner-${run}@example.test` } })
+check('password reset stays generic for other emails', wrongEmailReset.status === 200)
+const { error: restoreError } = await service.auth.admin.updateUserById(superAdmin.id, { email: superAdmin.email, email_confirm: true })
+if (restoreError) throw restoreError
+check('access returns once the email is info@imanlogistics.com again', (await call('/admin/me', { token: superAdmin.token })).json?.role === 'super_admin')
+
 check('a role change is saved', (await call(`/admin/users/${newUser.json.id}`, { method: 'PATCH', body: { role: 'employee' }, token: superAdmin.token })).status === 200)
 const userAudit = await call(`/admin/audit-logs?search=${newUser.json.id}&entity_type=profiles`, { token: superAdmin.token })
 check('user management actions are audited', ['user.create', 'user.update'].every(action => userAudit.json?.data?.some(row => row.action === action)))

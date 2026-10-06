@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { serviceCatalog } from '../../../src/features/consultation/serviceCatalog'
 import { config } from '../config'
 import { HttpError, parse } from '../lib/http'
+import { isSuperAdminEmail } from '../lib/auth'
 import { createUploadSlot, enforceEmailLimit } from '../lib/submissions'
 import { publicClient, serviceClient } from '../lib/supabase'
 import { BOOKING_PAYMENT_POLICY_TEXT, BOOKING_PAYMENT_POLICY_VERSION, checkoutReturnUrl, reconcileSession, stripeClient, stripeConfigured } from '../lib/stripe'
@@ -197,7 +198,9 @@ publicRoutes.get('/tracking/:reference', lookups, async (req, res) => {
 // reveals whether an account exists.
 publicRoutes.post('/auth/password-reset', submissions, async (req, res) => {
   const email = parse(passwordReset, req.body, 'Enter a valid email address.').email.toLowerCase()
-  const { data: profile } = await serviceClient().from('profiles').select('id').eq('email', email).eq('role', 'super_admin').eq('active', true).maybeSingle()
+  const { data: profile } = isSuperAdminEmail(email)
+    ? await serviceClient().from('profiles').select('id').eq('email', email).eq('role', 'super_admin').eq('active', true).maybeSingle()
+    : { data: null }
   if (profile) {
     const { error } = await publicClient().auth.resetPasswordForEmail(email, { redirectTo: new URL('/admin/reset-password/', config.appUrl).toString() })
     if (error) console.error('Password reset email failed', error)
