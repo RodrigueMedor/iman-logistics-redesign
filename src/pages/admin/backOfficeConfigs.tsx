@@ -340,6 +340,7 @@ export const brokerRegistrationsConfig: RecordsConfig = {
   columns: [
     { key: 'registration_no', label: 'Registration', render: strong('registration_no') },
     { key: 'first_name', label: 'Registrant', render: row => `${String(row.first_name)} ${String(row.last_name)}` },
+    phone,
     { key: 'class', label: 'Class', render: row => brokerClass(row)?.name ?? '—', hideOnMobile: true },
     { key: 'attendance_type', label: 'Attendance', render: row => row.attendance_type === 'online' ? 'Online' : 'In Person', hideOnMobile: true },
     { key: 'status', label: 'Status', render: row => <StatusChip value={row.status} options={brokerStatuses} /> },

@@ -18,19 +18,16 @@ API documentation (Swagger UI): `http://localhost:3001/api/docs`
 2. Apply every file in `supabase/migrations/` in filename order, either with
    `npx supabase link --project-ref <ref> && npx supabase db push`, or by
    pasting each file into the SQL Editor.
-3. In Supabase Authentication, create the user `info@imanlogistics.com` with a
-   password, then promote it (migration `202610060001_super_admin_email.sql`
-   does this automatically if the account already exists):
-
-   ```sql
-   update public.profiles
-   set role = 'super_admin'
-   where id = (select id from auth.users where email = 'info@imanlogistics.com');
-   ```
+3. In Supabase Authentication → Users → Add user, create `info@imanlogistics.com`
+   with a password and tick "Auto Confirm User". It becomes super admin as soon
+   as it is created (migration `202610060002_super_admin_auto_promote.sql`); an
+   account that already existed is promoted by `202610060001_super_admin_email.sql`.
 
    Only `info@imanlogistics.com` can be super admin. The database refuses the
    role for any other account, and the API rejects any other `super_admin`
-   profile with "Unauthorized Super Admin account."
+   profile with "Unauthorized Super Admin account." Password-recovery emails are
+   sent by Supabase Auth: without custom SMTP (Authentication → Emails → SMTP
+   Settings) they only reach members of the Supabase organization.
 
 4. In Supabase Authentication → URL configuration, set the site URL to the
    production domain and add `https://<domain>/admin/reset-password/` as a
