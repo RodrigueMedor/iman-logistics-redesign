@@ -29,7 +29,7 @@ export default function AdminUsers() {
   const loadMembers = async () => {
     if (!supabase && import.meta.env.DEV) {
       setMembers([
-        { id: 'local-super-admin', full_name: 'Iman Super Admin', email: 'superadmin@imanlogistics.com', role: 'super_admin', active: true },
+        { id: 'local-super-admin', full_name: 'Iman Super Admin', email: 'info@imanlogistics.com', role: 'super_admin', active: true },
         ...getDemoEmployees().map(employee => ({ id: employee.id, full_name: employee.fullName, email: employee.email, role: 'employee' as const, active: employee.active })),
       ])
       return

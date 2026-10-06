@@ -232,3 +232,31 @@ freightBrokerAdminRoutes.get('/registrations/:id/payment-reminders', requireRole
   for (const result of [schedule, reminders, optOut]) if (result.error) throw result.error
   res.json({ schedule: schedule.data, reminders: reminders.data, optOut: optOut.data })
 })
+
+// Re-queue only a reminder that has definitively failed. The scheduler still
+// re-reads registration/payment/consent/opt-out state immediately before the
+// send, and the database guard prevents this update from reviving an
+// ineligible registration. Accepted, in-flight, and retrying messages cannot
+// be manually re-queued, which preserves the at-most-once guarantee.
+freightBrokerAdminRoutes.post('/registrations/:id/payment-reminders/retry', requireRole(backOffice), async (req, res) => {
+  const { db } = staff(req)
+  const [scheduleResult, latestResult] = await Promise.all([
+    db.from('payment_reminder_schedules').select('status').eq('registration_id', req.params.id).maybeSingle(),
+    db.from('payment_reminders').select('status').eq('registration_id', req.params.id).eq('notification_type', 'payment_reminder').order('attempt_number', { ascending: false }).limit(1).maybeSingle(),
+  ])
+  if (scheduleResult.error) throw scheduleResult.error
+  if (latestResult.error) throw latestResult.error
+  if (!scheduleResult.data) throw new HttpError(404, 'Payment reminder schedule not found.')
+  if (latestResult.data?.status !== 'failed') throw new HttpError(409, 'Only a failed payment reminder can be retried.')
+  if (scheduleResult.data.status !== 'scheduled') throw new HttpError(409, 'This payment reminder schedule is not active.')
+
+  const { data, error } = await db.from('payment_reminder_schedules')
+    .update({ next_reminder_at: new Date().toISOString(), locked_until: null, last_error: '' })
+    .eq('registration_id', req.params.id)
+    .eq('status', 'scheduled')
+    .select('status, next_reminder_at')
+    .maybeSingle()
+  if (error) throw error
+  if (!data || data.status !== 'scheduled' || !data.next_reminder_at) throw new HttpError(409, 'The registration is no longer eligible for SMS reminders.')
+  res.json({ queued: true, nextReminderAt: data.next_reminder_at })
+})

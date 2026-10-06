@@ -52,6 +52,29 @@ async function makeUser(role, label = role) {
   return { id: data.user.id, email, client, token: session.session.access_token }
 }
 
+// Only info@imanlogistics.com may be super admin, so reuse that local account.
+async function makeSuperAdmin() {
+  const email = 'info@imanlogistics.com'
+  const password = `Test-${run}-password!`
+  const { data: list, error: listError } = await service.auth.admin.listUsers({ perPage: 1000 })
+  if (listError) throw listError
+  let id = list.users.find(user => user.email?.toLowerCase() === email)?.id
+  if (id) {
+    const { error } = await service.auth.admin.updateUserById(id, { password, ban_duration: 'none' })
+    if (error) throw error
+  } else {
+    const { data, error } = await service.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: 'Iman Super Admin' } })
+    if (error) throw error
+    id = data.user.id
+  }
+  const { error: profileError } = await service.from('profiles').update({ role: 'super_admin', email, active: true }).eq('id', id)
+  if (profileError) throw profileError
+  const client = createClient(url, publishableKey, { auth: { persistSession: false } })
+  const { data: session, error: signInError } = await client.auth.signInWithPassword({ email, password })
+  if (signInError) throw signInError
+  return { id, email, client, token: session.session.access_token }
+}
+
 const usedDates = new Set()
 const nextWeekday = () => {
   let date
@@ -64,7 +87,7 @@ const nextWeekday = () => {
   return date.toISOString().slice(0, 10)
 }
 
-const superAdmin = await makeUser('super_admin')
+const superAdmin = await makeSuperAdmin()
 const admin = await makeUser('admin')
 const employee = await makeUser('employee')
 const customerEmail = `customer-${run}@example.test`
@@ -198,8 +221,30 @@ const newUser = await call('/admin/users', { body: { fullName: 'New Admin', emai
 check('super admin creates an admin account', newUser.status === 201, newUser.text)
 check('the new account appears with the admin role', (await call('/admin/users', { token: superAdmin.token })).json?.some(user => user.id === newUser.json.id && user.role === 'admin'))
 check('short passwords are rejected (400)', (await call(`/admin/users/${newUser.json.id}`, { method: 'PATCH', body: { password: 'short' }, token: superAdmin.token })).status === 400)
-const otherSuper = await makeUser('super_admin', 'second-super-admin')
-check('another super admin cannot be changed (403)', (await call(`/admin/users/${otherSuper.id}`, { method: 'PATCH', body: { active: false }, token: superAdmin.token })).status === 403)
+
+section('Super admin is restricted to info@imanlogistics.com')
+const superMe = await call('/admin/me', { token: superAdmin.token })
+check('info@imanlogistics.com signs in as super admin', superMe.status === 200 && superMe.json?.role === 'super_admin', superMe.text)
+check('admins still sign in', (await call('/admin/me', { token: admin.token })).json?.role === 'admin')
+check('employees still sign in', (await call('/admin/me', { token: employee.token })).json?.role === 'employee')
+const rogue = await makeUser('employee', 'rogue-super-admin')
+const promote = await service.from('profiles').update({ role: 'super_admin' }).eq('id', rogue.id)
+check('the database refuses super_admin for any other email', promote.error?.message === 'Unauthorized Super Admin account.', promote.error?.message)
+check('the API cannot grant super_admin (400)', (await call(`/admin/users/${rogue.id}`, { method: 'PATCH', body: { role: 'super_admin' }, token: superAdmin.token })).status === 400)
+check('that account gets no super-admin access (403)', (await call('/admin/users', { token: rogue.token })).status === 403)
+// A super_admin profile whose sign-in email is anything else (e.g. the old
+// rodriguemedor@yahoo.fr owner) is rejected by the API and by row-level security.
+const { error: moveError } = await service.auth.admin.updateUserById(superAdmin.id, { email: `old-owner-${run}@example.test`, email_confirm: true })
+if (moveError) throw moveError
+const wrongEmailMe = await call('/admin/me', { token: superAdmin.token })
+check('a super_admin profile with another email is rejected (403)', wrongEmailMe.status === 403 && wrongEmailMe.json?.error === 'Unauthorized Super Admin account.', wrongEmailMe.text)
+check('row-level security denies it super-admin data too', (await superAdmin.client.from('audit_logs').select('id').limit(1)).data?.length === 0)
+const wrongEmailReset = await call('/auth/password-reset', { body: { email: `old-owner-${run}@example.test` } })
+check('password reset stays generic for other emails', wrongEmailReset.status === 200)
+const { error: restoreError } = await service.auth.admin.updateUserById(superAdmin.id, { email: superAdmin.email, email_confirm: true })
+if (restoreError) throw restoreError
+check('access returns once the email is info@imanlogistics.com again', (await call('/admin/me', { token: superAdmin.token })).json?.role === 'super_admin')
+
 check('a role change is saved', (await call(`/admin/users/${newUser.json.id}`, { method: 'PATCH', body: { role: 'employee' }, token: superAdmin.token })).status === 200)
 const userAudit = await call(`/admin/audit-logs?search=${newUser.json.id}&entity_type=profiles`, { token: superAdmin.token })
 check('user management actions are audited', ['user.create', 'user.update'].every(action => userAudit.json?.data?.some(row => row.action === action)))
@@ -284,17 +329,47 @@ if (process.env.STRIPE_SECRET_KEY) {
   const mockUrl = process.env.MOCK_NOTIFICATIONS_URL || 'http://localhost:4010'
   const captured = async () => (await fetch(`${mockUrl}/captured`)).json()
   await fetch(`${mockUrl}/captured`, { method: 'DELETE' })
+  // Registration needs a verified email and phone: read the codes the API sent
+  // to the mock, confirm them, and return the one-time verification grant.
+  // Each check uses its own documentation-range client IP (the API trusts one
+  // proxy hop) so the per-IP verification rate limit does not trip.
+  let verificationClient = 0
+  const verifyContact = async (email, phone) => {
+    const headers = { 'X-Forwarded-For': `198.51.100.${(verificationClient += 1)}` }
+    const start = await call('/freight-broker/verifications', { body: { email, phone }, headers })
+    if (start.status !== 201) return { start }
+    const sent = await captured()
+    const emailCode = sent.findLast(message => message.channel === 'email' && message.to === email.toLowerCase())?.html.match(/>(\d{6})</)?.[1]
+    const phoneCode = sent.findLast(message => message.channel === 'sms' && message.to === start.json.phone)?.body.match(/code: (\d{6})/)?.[1]
+    let verified = await call(`/freight-broker/verifications/${start.json.id}/verify`, { body: { channel: 'email', code: emailCode }, headers })
+    if (start.json.phoneVerificationRequired) verified = await call(`/freight-broker/verifications/${start.json.id}/verify`, { body: { channel: 'phone', code: phoneCode }, headers })
+    return { start, verified, verificationId: start.json.id, verificationToken: verified.json?.verificationToken }
+  }
+  // A fresh number per registration keeps repeat runs under the per-phone verification limit.
+  const testPhone = () => `+1555${String(Math.floor(Math.random() * 1e7)).padStart(7, '0').replace(/0161$/, '0162')}`
+  const register = async body => {
+    const { verificationId, verificationToken } = await verifyContact(body.email, body.phone)
+    return call('/freight-broker/registrations', { body: { ...body, verificationId, verificationToken } })
+  }
 
   const classes = await call('/freight-broker/classes')
-  const rolling = classes.json?.find(item => item.name.startsWith('Freight Broker Masterclass'))
-  check('the page lists open Freight Broker class sessions with price', classes.status === 200 && rolling?.price_cents === 52000, classes.text.slice(0, 200))
+  const rolling = classes.json?.find(item => item.name.startsWith('Freight Dispatch Masterclass'))
+  check('the page lists open Freight Dispatch class sessions with price', classes.status === 200 && rolling?.price_cents === 52000, classes.text.slice(0, 200))
   check('public class data exposes no registrations', rolling && !('registrations' in rolling) && 'seats_remaining' in rolling)
 
-  const registrant = { firstName: 'Taylor', lastName: `Broker <b>${run}</b>`, email: `broker-${run}@example.test`, phone: '+1 555 010 7000', address1: '100 Main St', address2: 'Suite 5', city: 'Orlando', state: 'FL', zip: '32801', classId: rolling.id }
+  const registrant = { firstName: 'Taylor', lastName: `Broker <b>${run}</b>`, email: `broker-${run}@example.test`, phone: testPhone(), address1: '100 Main St', address2: 'Suite 5', city: 'Orlando', state: 'FL', zip: '32801', classId: rolling.id, attendanceType: rolling.allows_online === false ? 'in_person' : 'online', smsConsent: false }
   check('registration requires the address fields (400)', (await call('/freight-broker/registrations', { body: { ...registrant, address1: '' } })).status === 400)
   check('registration rejects bots (400)', (await call('/freight-broker/registrations', { body: { ...registrant, website: 'spam' } })).status === 400)
-  const reg = await call('/freight-broker/registrations', { body: registrant })
+  check('registration requires an attendance choice (400)', (await call('/freight-broker/registrations', { body: { ...registrant, attendanceType: undefined } })).status === 400)
+  check('registration requires a verification grant (400)', (await call('/freight-broker/registrations', { body: registrant })).status === 400)
+  const verification = await verifyContact(registrant.email, registrant.phone)
+  check('the email and phone verification codes are sent', verification.start.status === 201 && Boolean(verification.verificationToken), `${verification.start.text} ${verification.verified?.text}`)
+  check('an unverified grant is refused (403)', (await call('/freight-broker/registrations', { body: { ...registrant, verificationId: crypto.randomUUID(), verificationToken: 'x'.repeat(43) } })).status === 403)
+  const reg = await call('/freight-broker/registrations', { body: { ...registrant, verificationId: verification.verificationId, verificationToken: verification.verificationToken } })
   check('step 1 creates a registration with an FBM number', reg.status === 201 && /^FBM-\d{4}-/.test(reg.json?.registration_no) && reg.json.class_id === rolling.id, reg.text)
+  check('a verification grant works only once (403)', (await call('/freight-broker/registrations', { body: { ...registrant, verificationId: verification.verificationId, verificationToken: verification.verificationToken } })).status === 403)
+  // Only the payment notifications should be counted below.
+  await fetch(`${mockUrl}/captured`, { method: 'DELETE' })
   const regRow = async () => (await service.from('freight_dispatch_masterclass_registrations').select('*').eq('id', reg.json.id).single()).data
   const initial = await regRow()
   check('the registration is SUBMITTED with payment pending', initial.status === 'SUBMITTED' && initial.payment_status === 'pending' && initial.email === registrant.email)
@@ -309,9 +384,9 @@ if (process.env.STRIPE_SECRET_KEY) {
   const brokerCheckout = await call(`/freight-broker/registrations/${reg.json.id}/checkout`, { body: checkoutBody })
   check('step 2 returns a Stripe Checkout URL', brokerCheckout.status === 200 && brokerCheckout.json?.url?.startsWith('https://'), brokerCheckout.text)
   const { data: brokerPayment } = await service.from('payments').select('*').eq('broker_registration_id', reg.json.id).eq('status', 'pending').single()
-  check('the payment is priced from the class and tagged Freight Broker Masterclass', brokerPayment?.amount_cents === 52000 && brokerPayment.provider === 'stripe' && brokerPayment.metadata.program === 'freight_broker_masterclass' && brokerPayment.metadata.registration_no === reg.json.registration_no && brokerPayment.description.startsWith('Freight Broker Masterclass'), JSON.stringify(brokerPayment?.metadata))
+  check('the payment is priced from the class and tagged Freight Dispatch Masterclass', brokerPayment?.amount_cents === 52000 && brokerPayment.provider === 'stripe' && brokerPayment.metadata.program === 'freight_broker_masterclass' && brokerPayment.metadata.registration_no === reg.json.registration_no && brokerPayment.description.startsWith('Freight Dispatch Masterclass'), JSON.stringify(brokerPayment?.metadata))
   const afterCheckout = await regRow()
-  check('the signed policy is recorded on the registration', afterCheckout.payment_policy_signature === signature && afterCheckout.payment_policy_version === 'v1-freight-broker-nonrefundable-credit' && Boolean(afterCheckout.payment_policy_accepted_at))
+  check('the signed policy is recorded on the registration', afterCheckout.payment_policy_signature === signature && afterCheckout.payment_policy_version === 'v2-freight-dispatch-nonrefundable-credit' && Boolean(afterCheckout.payment_policy_accepted_at))
   const brokerSession = `cs_test_${crypto.randomUUID().replaceAll('-', '')}`
   await service.from('payments').update({ stripe_checkout_session_id: brokerSession }).eq('id', brokerPayment.id)
   const brokerEvent = { id: brokerSession, object: 'checkout.session', payment_status: 'paid', status: 'complete', amount_total: 52000, currency: 'usd', payment_intent: `pi_${brokerPayment.id.replaceAll('-', '')}`, metadata: { payment_id: brokerPayment.id, program: 'freight_broker_masterclass' } }
@@ -326,10 +401,10 @@ if (process.env.STRIPE_SECRET_KEY) {
   const staffEmail = messages.find(message => message.channel === 'email' && message.to === process.env.FREIGHT_BROKER_NOTIFY_EMAIL)
   const sms = messages.find(message => message.channel === 'sms' && message.to === registrant.phone)
   const staffSms = messages.find(message => message.channel === 'sms' && message.to === process.env.FREIGHT_BROKER_NOTIFY_PHONE)
-  check('the registrant receives a "Payment Confirmed" email', customerEmail?.subject === `Payment Confirmed - ${reg.json.registration_no}` && customerEmail.html.includes('Payment Confirmation') && customerEmail.html.includes('$520.00') && customerEmail.html.includes(rolling.name), customerEmail?.subject)
+  check('the registrant receives a "Registration & Payment Confirmed" email', customerEmail?.subject === `Registration & Payment Confirmed - ${reg.json.registration_no}` && customerEmail.html.includes('Payment Confirmation') && customerEmail.html.includes('$520.00') && customerEmail.html.includes(rolling.name), customerEmail?.subject)
   check('the email lists the transaction ID and registration number', customerEmail?.html.includes(`pi_${brokerPayment.id.replaceAll('-', '')}`) && customerEmail.html.includes(reg.json.registration_no))
   check('registrant-typed HTML is escaped in emails', customerEmail && !customerEmail.html.includes(`<b>${run}</b>`) && customerEmail.html.includes(`&lt;b&gt;${run}&lt;/b&gt;`))
-  check('staff receive a "New payment received" email', staffEmail?.subject === `New payment received - ${rolling.name}` && staffEmail.html.includes('New Payment Received') && staffEmail.html.includes('/admin/freight-broker/'), staffEmail?.subject)
+  check('staff receive a "New payment received" email', staffEmail?.subject === `New payment received - ${rolling.name}` && staffEmail.html.includes('New Payment Received') && staffEmail.html.includes('/admin/dispatch-masterclass/'), staffEmail?.subject)
   check('the registrant receives an SMS confirmation', sms?.body === `Iman Logistics: your payment of $520.00 for ${rolling.name} was received. Thank you, Taylor!`, sms?.body)
   check('staff receive a payment SMS', staffSms?.body?.startsWith('Iman Logistics: payment received from Taylor') && staffSms.body.includes('$520.00'), staffSms?.body)
   check('duplicate Stripe events do not send duplicate notifications', messages.length === 4, String(messages.length))
@@ -349,7 +424,8 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('employees cannot see registrations (403)', (await call('/admin/freight-broker-registrations', { token: employee.token })).status === 403)
   const regNotifications = await call(`/admin/freight-broker/registrations/${reg.json.id}/notifications`, { token: admin.token })
   check('staff can see the notifications sent for the registration', regNotifications.json?.length === 4)
-  check('the notification log is searchable in the back office', (await call(`/admin/notification-log?search=${encodeURIComponent(registrant.email)}`, { token: admin.token })).json?.total === 1)
+  // The registrant's email also received the verification code before registering.
+  check('the notification log is searchable in the back office', (await call(`/admin/notification-log?search=${encodeURIComponent(registrant.email)}`, { token: admin.token })).json?.total === 2)
   const brokerPaymentAdmin = await call(`/admin/payments/${brokerPayment.id}`, { token: admin.token })
   check('the payment shows its Freight Broker registration in the back office', brokerPaymentAdmin.json?.registration?.registration_no === reg.json.registration_no && brokerPaymentAdmin.json.status === 'paid')
   const brokerCustomer = await call(`/admin/customers/${encodeURIComponent(registrant.email)}`, { token: admin.token })
@@ -363,8 +439,8 @@ if (process.env.STRIPE_SECRET_KEY) {
   const seatClass = await call('/admin/freight-broker/classes', { body: { name: `Test cohort ${run}`, price_cents: 49900, starts_at: '2026-11-02T14:00:00Z', ends_at: '2026-11-20T22:00:00Z', days_of_week: 'Mon–Thu', class_time: '6:00 PM – 9:00 PM ET', delivery_mode: 'online', instructor_name: 'Test Instructor', seat_capacity: 1, status: 'OPEN' }, token: admin.token })
   check('staff create a class session with seats', seatClass.status === 201, seatClass.text)
   check('employees cannot manage class sessions (403)', (await call('/admin/freight-broker/classes', { token: employee.token })).status === 403)
-  const firstSeat = await call('/freight-broker/registrations', { body: { ...registrant, email: `seat1-${run}@example.test`, lastName: 'One', classId: seatClass.json.id } })
-  const secondSeat = await call('/freight-broker/registrations', { body: { ...registrant, email: `seat2-${run}@example.test`, lastName: 'Two', classId: seatClass.json.id } })
+  const firstSeat = await register({ ...registrant, email: `seat1-${run}@example.test`, phone: testPhone(), lastName: 'One', classId: seatClass.json.id, attendanceType: 'online' })
+  const secondSeat = await register({ ...registrant, email: `seat2-${run}@example.test`, phone: testPhone(), lastName: 'Two', classId: seatClass.json.id, attendanceType: 'online' })
   await call(`/freight-broker/registrations/${firstSeat.json.id}/checkout`, { body: { email: `seat1-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: 'Taylor One' } })
   const { data: seatPayment } = await service.from('payments').select('*').eq('broker_registration_id', firstSeat.json.id).eq('status', 'pending').single()
   check('checkout charges that session’s own price', seatPayment?.amount_cents === 49900)
@@ -377,7 +453,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('checkout is refused once the class is full (409)', (await call(`/freight-broker/registrations/${secondSeat.json.id}/checkout`, { body: { email: `seat2-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: 'Taylor Two' } })).status === 409)
 
   // Abandoned checkout: the registration stays SUBMITTED, payment canceled.
-  const abandonedReg = await call('/freight-broker/registrations', { body: { ...registrant, email: `abandon-${run}@example.test`, classId: rolling.id } })
+  const abandonedReg = await register({ ...registrant, email: `abandon-${run}@example.test`, phone: testPhone(), classId: rolling.id })
   await call(`/freight-broker/registrations/${abandonedReg.json.id}/checkout`, { body: { email: `abandon-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: signature } })
   const { data: abandonedPayment } = await service.from('payments').select('*').eq('broker_registration_id', abandonedReg.json.id).eq('status', 'pending').single()
   const abandonedSession = `cs_test_${crypto.randomUUID().replaceAll('-', '')}`
@@ -391,7 +467,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   // Session status and registration deadline (the live checkout rules).
   const sessionBody = { name: `Test cohort ${run}`, price_cents: 49900, starts_at: '2026-11-02T14:00:00Z', ends_at: '2026-11-20T22:00:00Z', seat_capacity: null, status: 'OPEN' }
   const ruleClass = await call('/admin/freight-broker/classes', { body: { ...sessionBody, name: `Rule cohort ${run}` }, token: admin.token })
-  const ruleReg = await call('/freight-broker/registrations', { body: { ...registrant, email: `rules-${run}@example.test`, lastName: 'Rules', classId: ruleClass.json.id } })
+  const ruleReg = await register({ ...registrant, email: `rules-${run}@example.test`, phone: testPhone(), lastName: 'Rules', classId: ruleClass.json.id, attendanceType: 'online' })
   const ruleCheckout = () => call(`/freight-broker/registrations/${ruleReg.json.id}/checkout`, { body: { email: `rules-${run}@example.test`, paymentPolicyAccepted: true, paymentPolicySignature: 'Taylor Rules' } })
   await call(`/admin/freight-broker/classes/${ruleClass.json.id}`, { method: 'PUT', body: { ...sessionBody, name: `Rule cohort ${run}`, registration_deadline: '2026-01-01T00:00:00Z' }, token: admin.token })
   check('checkout is refused after the registration deadline (409)', (await ruleCheckout()).status === 409)

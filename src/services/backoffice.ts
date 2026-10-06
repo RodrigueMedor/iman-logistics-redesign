@@ -116,6 +116,7 @@ export type PaymentReminderState = {
   optOut: { opted_out: boolean; opted_out_at: string | null; opted_in_at: string | null; source: string; keyword: string } | null
 }
 export const registrationPaymentReminders = (id: string) => api<PaymentReminderState>(`/admin/freight-broker/registrations/${id}/payment-reminders`, { auth: true })
+export const retryRegistrationPaymentReminder = (id: string) => api<{ queued: boolean; nextReminderAt: string }>(`/admin/freight-broker/registrations/${id}/payment-reminders/retry`, { method: 'POST', auth: true })
 
 export type DashboardStats = {
   contacts: { total: number; new: number; last7Days: number }

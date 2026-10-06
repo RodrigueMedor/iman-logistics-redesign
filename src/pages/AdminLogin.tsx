@@ -3,12 +3,12 @@ import { Alert, Box, Button, Container, Dialog, DialogActions, DialogContent, Di
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
-import { useAuth, type AppRole } from '../contexts/AuthContext'
+import { superAdminEmail, unauthorizedSuperAdmin, useAuth, type AppRole } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { api } from '../services/api'
 
 export default function AdminLogin() {
-  const { configured, user, profile, signIn } = useAuth()
+  const { configured, user, profile, signIn, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [email, setEmail] = useState('')
@@ -29,13 +29,18 @@ export default function AdminLogin() {
     setSubmitting(false)
     if (message) return setError(message)
     const normalizedLogin = email.trim().toLowerCase()
-    let role: AppRole = ['superadmin', 'superadmin@imanlogistics.com'].includes(normalizedLogin) && import.meta.env.DEV
+    let role: AppRole = normalizedLogin === superAdminEmail && import.meta.env.DEV
       ? 'super_admin'
       : 'employee'
     if (supabase) {
       try {
         role = (await api<{ role: AppRole }>('/admin/me', { auth: true })).role
-      } catch {
+      } catch (caught) {
+        // The API refuses super_admin profiles that are not info@imanlogistics.com.
+        if (caught instanceof Error && caught.message === unauthorizedSuperAdmin) {
+          await signOut()
+          return setError(unauthorizedSuperAdmin)
+        }
         role = 'employee'
       }
     }
@@ -73,7 +78,7 @@ export default function AdminLogin() {
             <Box sx={{ width: 56, height: 56, borderRadius: 3, display: 'grid', placeItems: 'center', bgcolor: 'action.selected', color: 'primary.main' }}><LockOutlinedIcon /></Box>
             <Box><Typography variant="h3" fontWeight={900}>Team sign in</Typography><Typography color="text.secondary" mt={1}>Use the email and password provided by your super admin.</Typography></Box>
             {!configured && <Alert severity="warning">Authentication has not been configured for this deployment.</Alert>}
-            {import.meta.env.DEV && <Alert severity="info"><strong>Local test access</strong><br />Username: superadmin<br />Password: Admin123!</Alert>}
+            {import.meta.env.DEV && <Alert severity="info"><strong>Local test access</strong><br />Email: {superAdminEmail}<br />Password: Admin123!</Alert>}
             {error && <Alert severity="error">{error}</Alert>}
             {notice && <Alert severity="success">{notice}</Alert>}
             <TextField required type={import.meta.env.DEV ? 'text' : 'email'} label={import.meta.env.DEV ? 'Username or email' : 'Email address'} autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} />
