@@ -58,13 +58,6 @@ export default function DispatchMasterclass({ embedded = false }: { embedded?: b
     title: 'Your Step-by-Step Training Guide',
     body: 'Learn freight dispatch fundamentals, carrier relationships, rate negotiation, paperwork, compliance, professional communication, and how to manage multiple trucks.',
   })
-  const cta = content('freight-dispatch-masterclass', 'cta', {
-    section_label: 'ENROLLMENT',
-    title: 'Success belongs to those who possess the right information and are prepared to execute',
-    body: 'Stop waiting. Secure your spot and take the next step.',
-    button_text: 'Secure your spot',
-    button_url: '',
-  })
   return <>
     {!embedded && <Seo title="Freight Dispatch Masterclass - Iman Logistics" canonical="/freight-dispatch-masterclass/" />}
     <Box sx={{ bgcolor: '#0A005A', color: 'white', py: { xs: 7, md: 10 } }}>
@@ -79,6 +72,11 @@ export default function DispatchMasterclass({ embedded = false }: { embedded?: b
         </Grid>
       </Container>
     </Box>
+    {!embedded && <Box id="register" component="section" aria-label="Freight Dispatch Masterclass registration" sx={{ py: { xs: 5, md: 7 }, scrollMarginTop: 110, bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f5f7fb' }}>
+      <Container maxWidth="lg">
+        <FreightBrokerRegistration />
+      </Container>
+    </Box>}
 
     <Box sx={{ py: { xs: 8, md: 12 } }}>
       <Container>
@@ -142,18 +140,6 @@ export default function DispatchMasterclass({ embedded = false }: { embedded?: b
         <Grid container spacing={3}>{[1,2,3,4].map(n => <Grid size={{ xs: 12, sm: 6 }} key={n}><VideoPoster src={testimonial} alt={`Client success story ${n}`} /></Grid>)}</Grid>
       </Container>
     </Box>
-    <Box sx={{ bgcolor: '#0A005A', color: 'white', py: { xs: 8, md: 11 }, textAlign: 'center' }}>
-      <Container maxWidth="md">
-        <Typography component="h2" variant="h2" fontSize={{ xs: 36, md: 52 }} mb={3}>{cta.title}</Typography>
-        <Typography component="h2" variant="h3" fontSize={{ xs: 24, md: 35 }} mb={4}>{cta.body}</Typography>
-        <BuyButton />
-      </Container>
-    </Box>
-    {!embedded && <Box id="register" component="section" aria-label="Freight Dispatch Masterclass registration" sx={{ py: { xs: 5, md: 7 }, scrollMarginTop: 110, bgcolor: theme => theme.palette.mode === 'dark' ? '#10131e' : '#f5f7fb' }}>
-      <Container maxWidth="lg">
-        <FreightBrokerRegistration />
-      </Container>
-    </Box>}
   </>
 }
 

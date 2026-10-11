@@ -21,6 +21,8 @@ const AutoSales = lazy(() => import('../pages/AutoSales'))
 const AdminLogin = lazy(() => import('../pages/AdminLogin'))
 const AdminUsers = lazy(() => import('../pages/AdminUsers'))
 const Careers = lazy(() => import('../pages/Careers'))
+const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy'))
+const TermsAndConditions = lazy(() => import('../pages/TermsAndConditions'))
 const AdminContent = lazy(() => import('../pages/AdminContent'))
 const AdminResetPassword = lazy(() => import('../pages/AdminResetPassword'))
 const ContentDashboard = lazy(() => import('../pages/ContentDashboard'))
@@ -87,6 +89,8 @@ export function AppRoutes() {
       <Route path="careers/" element={<Careers />} />
       <Route path="about-us/" element={<About />} />
       <Route path="contact-us/" element={<Contact />} />
+      <Route path="privacy-policy/" element={<PrivacyPolicy />} />
+      <Route path="terms-and-conditions/" element={<TermsAndConditions />} />
       <Route path="home/" element={<Navigate to="/" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Route>

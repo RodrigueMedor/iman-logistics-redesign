@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, Divider, FormControl, FormControlLabel, FormLabel, Grid, InputLabel, MenuItem, Paper, Radio, RadioGroup, Select, Stack, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, Divider, FormControl, FormControlLabel, FormLabel, GlobalStyles, Grid, InputLabel, Link, MenuItem, Paper, Radio, RadioGroup, Select, Stack, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material'
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import EditIcon from '@mui/icons-material/Edit'
@@ -12,7 +12,8 @@ import PolicyIcon from '@mui/icons-material/Policy'
 import PrintIcon from '@mui/icons-material/Print'
 import SchoolIcon from '@mui/icons-material/School'
 import VideocamIcon from '@mui/icons-material/Videocam'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { createPortal } from 'react-dom'
+import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
 import { runtimeConfig } from '../../lib/runtimeConfig'
 import sessionPromoImage from '../../assets/images/freight-dispatch-session-promo.png'
 import { createBrokerRegistration, listBrokerClasses, resendRegistrationCode, startBrokerCheckout, startRegistrationVerification, verifyRegistrationCode, type BrokerClass, type CreatedRegistration, type RegistrationDetails, type RegistrationForm, type VerificationState } from './api'
@@ -331,12 +332,10 @@ export function FreightBrokerRegistration() {
       ['Class enrolled', confirmed?.className || selectedClass?.name || FREIGHT_BROKER_PROGRAM.defaultClassName],
       ['Attendance', (confirmed?.attendanceType || formData.attendanceType) === 'online' ? 'Online / Zoom' : 'In Person'],
     ]
-    return (
-      <Box sx={{ maxWidth: 600, mx: 'auto' }}>
-        {header}
-        {stepper}
-        <Card sx={{ boxShadow: '0 20px 45px rgba(10,0,90,.08)', borderRadius: 4 }}>
-          <CardContent sx={{ p: { xs: 3, md: 5 }, textAlign: 'center' }}>
+    // The receipt is shown on the page and, for printing, also rendered as a
+    // direct child of <body> so "Print confirmation" prints only the receipt.
+    const receipt = (
+      <>
             <CheckCircleIcon sx={{ fontSize: 60, color: '#4caf50', mb: 1.5 }} />
             <Typography variant="h5" component="h3" fontWeight={900} gutterBottom>Registration completed!</Typography>
             <Typography color="text.secondary" sx={{ mb: 3 }}>Thank you, {firstName}! Your seat in the {FREIGHT_BROKER_PROGRAM.name} is confirmed.</Typography>
@@ -365,6 +364,26 @@ export function FreightBrokerRegistration() {
                 Electronically signed by {confirmed?.policySignature || paymentPolicySignature}{confirmed?.policyAcceptedAt ? ` on ${new Date(confirmed.policyAcceptedAt).toLocaleString('en-US')}` : ''}
               </Typography>}
             </Alert>
+      </>
+    )
+    return (
+      <Box sx={{ maxWidth: 600, mx: 'auto' }}>
+        <GlobalStyles styles={{
+          '#freight-broker-print-receipt': { display: 'none' },
+          '@media print': {
+            'body > *:not(#freight-broker-print-receipt)': { display: 'none !important' },
+            '#freight-broker-print-receipt': { display: 'block', maxWidth: 600, margin: '0 auto', textAlign: 'center' },
+          },
+        }} />
+        {createPortal(<Box id="freight-broker-print-receipt">
+          <Typography variant="subtitle2" fontWeight={900} color="#0A005A" sx={{ mb: 2 }}>Iman Logistics · {FREIGHT_BROKER_PROGRAM.name} registration receipt</Typography>
+          {receipt}
+        </Box>, document.body)}
+        {header}
+        {stepper}
+        <Card sx={{ boxShadow: '0 20px 45px rgba(10,0,90,.08)', borderRadius: 4 }}>
+          <CardContent sx={{ p: { xs: 3, md: 5 }, textAlign: 'center' }}>
+            {receipt}
             <Alert severity="success" sx={{ mb: 3, textAlign: 'left' }}>A formal confirmation email has been sent to your inbox. Our team will contact you with course access and materials prior to start.</Alert>
             <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="center" gap={1.5}>
               <Button variant="outlined" onClick={() => window.print()} startIcon={<PrintIcon />}>Print confirmation</Button>
@@ -523,7 +542,7 @@ export function FreightBrokerRegistration() {
                     <FormControlLabel value="true" control={<Radio />} label="Yes, send me SMS payment reminders." />
                     <FormControlLabel value="false" control={<Radio />} label="No, do not send me SMS payment reminders." />
                   </RadioGroup>
-                  <Typography variant="caption" color="text.secondary">{FREIGHT_BROKER_SMS_CONSENT_TEXT}</Typography>
+                  <Typography variant="caption" color="text.secondary">{FREIGHT_BROKER_SMS_CONSENT_TEXT} See our <Link component={RouterLink} to="/privacy-policy/" target="_blank">Privacy Policy</Link> and <Link component={RouterLink} to="/terms-and-conditions/" target="_blank">Terms &amp; Conditions</Link>.</Typography>
                 </FormControl>
                 <Button type="submit" variant="contained" color="secondary" size="large" fullWidth disabled={state === 'saving' || noSessions || classesLoading} sx={{ py: 1.75, fontSize: '1.05rem', fontWeight: 700 }}>
                   {state === 'saving' ? 'Saving Registration...' : 'Continue to Review & Policy Agreement'}
