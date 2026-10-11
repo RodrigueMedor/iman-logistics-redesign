@@ -2,6 +2,7 @@ import { Router, type Request } from 'express'
 import { z } from 'zod'
 import { backOffice, requireRole, staff, superAdminOnly, type Role } from '../lib/auth'
 import { HttpError, parse } from '../lib/http'
+import { reconcilePendingStripePayments, stripeClient, stripeConfigured } from '../lib/stripe'
 import { audit, serviceClient } from '../lib/supabase'
 import { listQuery, paymentInput, recordUpdate, shipmentInput, userCreate, userUpdate } from '../schemas'
 
@@ -121,6 +122,12 @@ adminRoutes.put('/payments/:id', requireRole(backOffice), async (req, res) => {
   const { data, error } = await db.from('payments').update({ ...paymentValues(input), booking_id: await bookingIdFor(req, input.booking_reference) }).eq('id', req.params.id).select('*').single()
   if (error) throw error
   res.json(data)
+})
+
+// Recovers payments whose Stripe webhook never arrived by asking Stripe directly.
+adminRoutes.post('/payments/reconcile-stripe', requireRole(backOffice), async (_req, res) => {
+  if (!stripeConfigured()) throw new HttpError(503, 'Stripe is not configured on the server.')
+  res.json(await reconcilePendingStripePayments(serviceClient(), stripeClient()))
 })
 
 // ---------------------------------------------------------------------------

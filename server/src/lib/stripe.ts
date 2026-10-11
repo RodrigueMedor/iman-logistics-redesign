@@ -1,8 +1,9 @@
 import Stripe from 'stripe'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { config } from '../config'
+import { config, databaseConfigured } from '../config'
 import { sendRegistrationPaidNotifications } from './freightBroker'
 import { HttpError } from './http'
+import { serviceClient } from './supabase'
 
 // Mirrors the Iman Trucking School payment server (server-express.js):
 // STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are server-only and must never
@@ -170,8 +171,9 @@ export async function handleStripeEvent(db: SupabaseClient, stripe: Stripe, even
   }
 }
 
-// Fallback used by the status page when the webhook is delayed (or not
-// reachable in local testing): ask Stripe directly.
+// Asks Stripe directly for the session's state. Used by the status page and
+// the back office so a payment is confirmed even when the webhook is delayed,
+// misconfigured or unreachable; amounts are still checked before marking paid.
 export async function reconcileSession(db: SupabaseClient, stripe: Stripe, payment: PaymentRow & { stripe_checkout_session_id: string }) {
   if (!['pending', 'processing'].includes(payment.status)) return
   try {
@@ -181,4 +183,47 @@ export async function reconcileSession(db: SupabaseClient, stripe: Stripe, payme
   } catch (error) {
     console.warn('Could not reconcile Stripe session during status check:', error instanceof Error ? error.message : error)
   }
+}
+
+// Back-office recovery: re-checks every unfinished Stripe checkout with Stripe.
+// Paid sessions are finalized (registration confirmed, emails sent) and expired
+// ones are marked canceled; the registration itself is never canceled here.
+export async function reconcilePendingStripePayments(db: SupabaseClient, stripe: Stripe, { limit = 200, createdAfter }: { limit?: number; createdAfter?: string } = {}) {
+  let query = db.from('payments').select('*').eq('provider', 'stripe').in('status', ['pending', 'processing'])
+    .not('stripe_checkout_session_id', 'is', null)
+  if (createdAfter) query = query.gte('created_at', createdAfter)
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit)
+  if (error) throw error
+  const payments = (data ?? []) as (PaymentRow & { stripe_checkout_session_id: string })[]
+  for (const payment of payments) await reconcileSession(db, stripe, payment)
+  const ids = payments.map(payment => payment.id)
+  const { data: after } = ids.length ? await db.from('payments').select('status').in('id', ids) : { data: [] }
+  const count = (status: string) => (after ?? []).filter(row => row.status === status).length
+  return { checked: payments.length, paid: count('paid'), canceled: count('canceled'), failed: count('failed'), stillPending: count('pending') + count('processing') }
+}
+
+// Runs the same check automatically for recent checkouts, so a student who
+// pays and closes the page is still confirmed and emailed within minutes.
+export function startStripeReconcileScheduler() {
+  const settings = config.stripeReconcile
+  if (!settings.enabled) return console.log('[stripe-reconcile] scheduler disabled (STRIPE_RECONCILE_ENABLED=false)')
+  if (!stripeConfigured() || !databaseConfigured()) return console.log('[stripe-reconcile] scheduler not started: Stripe or the database is not configured')
+  let running = false
+  const tick = async () => {
+    if (running) return
+    running = true
+    try {
+      const createdAfter = new Date(Date.now() - settings.lookbackHours * 60 * 60 * 1000).toISOString()
+      const totals = await reconcilePendingStripePayments(serviceClient(), stripeClient(), { createdAfter })
+      if (totals.paid || totals.canceled || totals.failed) console.log('[stripe-reconcile] run finished', totals)
+    } catch (caught) {
+      console.error('[stripe-reconcile] run failed', caught)
+    } finally {
+      running = false
+    }
+  }
+  const pollMs = Math.max(30, settings.pollSeconds) * 1000
+  setInterval(() => void tick(), pollMs)
+  setTimeout(() => void tick(), 15_000)
+  console.log('[stripe-reconcile] scheduler started', { everySeconds: pollMs / 1000, lookbackHours: settings.lookbackHours })
 }

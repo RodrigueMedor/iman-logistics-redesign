@@ -42,6 +42,14 @@ export const config = {
     // Only for local testing against a mock server.
     apiBaseUrl: (process.env.TWILIO_API_BASE_URL || 'https://api.twilio.com').replace(/\/+$/, ''),
   },
+  // Background check of recent unfinished Stripe checkouts, so payments are
+  // confirmed even when the Stripe webhook is missing or misconfigured.
+  stripeReconcile: {
+    enabled: process.env.STRIPE_RECONCILE_ENABLED !== 'false',
+    pollSeconds: Number(process.env.STRIPE_RECONCILE_POLL_SECONDS ?? 300),
+    // Checkout sessions expire after 24h; older ones can't change state.
+    lookbackHours: Number(process.env.STRIPE_RECONCILE_LOOKBACK_HOURS ?? 48),
+  },
   // SMS payment reminders for submitted, unpaid masterclass registrations.
   paymentReminders: {
     enabled: process.env.PAYMENT_REMINDERS_ENABLED !== 'false',

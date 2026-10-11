@@ -60,6 +60,10 @@ export async function fileUrl(path: string) {
   return (await api<{ url: string }>(`/admin/files/signed-url?path=${encodeURIComponent(path)}`, { auth: true })).url
 }
 
+export type StripeReconcileResult = { checked: number; paid: number; canceled: number; failed: number; stillPending: number }
+// Asks Stripe for the real state of every unfinished checkout (recovers missed webhooks).
+export const reconcileStripePayments = () => api<StripeReconcileResult>('/admin/payments/reconcile-stripe', { body: {}, auth: true })
+
 type Activity<T> = (T & { reference: string; status: string; created_at: string })[]
 export async function recordsForEmail(email: string) {
   return api<{
