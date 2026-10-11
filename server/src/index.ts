@@ -8,6 +8,7 @@ const { createApp } = await import('./app')
 const { config, databaseConfigured } = await import('./config')
 const { startPaymentReminderScheduler } = await import('./lib/paymentReminders')
 const { startStripeReconcileScheduler } = await import('./lib/stripe')
+const { startPaymentFollowUpScheduler } = await import('./lib/paymentFollowUp')
 
 createApp().listen(config.port, () => {
   console.log(`Iman Logistics listening on http://localhost:${config.port}`)
@@ -17,4 +18,6 @@ createApp().listen(config.port, () => {
   startPaymentReminderScheduler()
   // Confirms recent Stripe payments even if the webhook never arrives.
   startStripeReconcileScheduler()
+  // Emails students whose registration is still unpaid a day later.
+  startPaymentFollowUpScheduler()
 })
