@@ -170,8 +170,9 @@ export async function handleStripeEvent(db: SupabaseClient, stripe: Stripe, even
   }
 }
 
-// Fallback used by the status page when the webhook is delayed (or not
-// reachable in local testing): ask Stripe directly.
+// Asks Stripe directly for the session's state. Used by the status page and
+// the back office so a payment is confirmed even when the webhook is delayed,
+// misconfigured or unreachable; amounts are still checked before marking paid.
 export async function reconcileSession(db: SupabaseClient, stripe: Stripe, payment: PaymentRow & { stripe_checkout_session_id: string }) {
   if (!['pending', 'processing'].includes(payment.status)) return
   try {
@@ -181,4 +182,19 @@ export async function reconcileSession(db: SupabaseClient, stripe: Stripe, payme
   } catch (error) {
     console.warn('Could not reconcile Stripe session during status check:', error instanceof Error ? error.message : error)
   }
+}
+
+// Back-office recovery: re-checks every unfinished Stripe checkout with Stripe.
+// Paid sessions are finalized (registration confirmed, emails sent) and expired
+// ones are marked canceled; the registration itself is never canceled here.
+export async function reconcilePendingStripePayments(db: SupabaseClient, stripe: Stripe, limit = 200) {
+  const { data, error } = await db.from('payments').select('*').eq('provider', 'stripe').in('status', ['pending', 'processing'])
+    .not('stripe_checkout_session_id', 'is', null).order('created_at', { ascending: false }).limit(limit)
+  if (error) throw error
+  const payments = (data ?? []) as (PaymentRow & { stripe_checkout_session_id: string })[]
+  for (const payment of payments) await reconcileSession(db, stripe, payment)
+  const ids = payments.map(payment => payment.id)
+  const { data: after } = ids.length ? await db.from('payments').select('status').in('id', ids) : { data: [] }
+  const count = (status: string) => (after ?? []).filter(row => row.status === status).length
+  return { checked: payments.length, paid: count('paid'), canceled: count('canceled'), failed: count('failed'), stillPending: count('pending') + count('processing') }
 }

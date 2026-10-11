@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Grid, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import SyncRoundedIcon from '@mui/icons-material/SyncRounded'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import { RecordsPage } from '../../features/backoffice/RecordsPage'
-import { formatDateTime, formatMoney, recordsForEmail, savePayment, type RecordRow } from '../../services/backoffice'
+import { formatDateTime, formatMoney, reconcileStripePayments, recordsForEmail, savePayment, type RecordRow, type StripeReconcileResult } from '../../services/backoffice'
 import { applicationsConfig, auditConfig, bookingsConfig, contactsConfig, customersConfig, paymentMethods, paymentsBaseConfig, paymentStatuses } from './backOfficeConfigs'
 
 export function ContactsPage() { return <RecordsPage {...contactsConfig} /> }
@@ -16,7 +17,7 @@ export function CustomersPage() { return <RecordsPage {...customersPageConfig} /
 
 const paymentsPageConfig = {
   ...paymentsBaseConfig,
-  headerAction: (reload: () => void) => <PaymentButton onSaved={reload} />,
+  headerAction: (reload: () => void) => <Stack direction="row" gap={1}><CheckStripeButton onDone={reload} /><PaymentButton onSaved={reload} /></Stack>,
   renderDetail: (row: RecordRow, reload: () => void) => <PaymentButton payment={row} onSaved={reload} />,
 }
 export function PaymentsPage() { return <RecordsPage {...paymentsPageConfig} /> }
@@ -127,6 +128,30 @@ function PaymentButton({ payment, onSaved }: { payment?: RecordRow; onSaved: () 
         <Button onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
         <Button variant="contained" onClick={() => void save()} disabled={saving}>{saving ? 'Saving…' : 'Save payment'}</Button>
       </DialogActions>
+    </Dialog>
+  </>
+}
+
+// Confirms payments whose Stripe webhook never arrived: the server asks Stripe
+// for each unfinished checkout, then confirms registrations and sends emails.
+function CheckStripeButton({ onDone }: { onDone: () => void }) {
+  const [running, setRunning] = useState(false)
+  const [result, setResult] = useState<StripeReconcileResult | null>(null)
+  const [error, setError] = useState('')
+  const run = async () => {
+    setRunning(true); setError(''); setResult(null)
+    try { setResult(await reconcileStripePayments()); onDone() } catch (err) { setError(err instanceof Error ? err.message : 'Stripe could not be checked.') } finally { setRunning(false) }
+  }
+  return <>
+    <Button variant="outlined" startIcon={<SyncRoundedIcon />} onClick={run} disabled={running}>{running ? 'Checking with Stripe…' : 'Check pending with Stripe'}</Button>
+    <Dialog open={Boolean(result || error)} onClose={() => { setResult(null); setError('') }}>
+      <DialogTitle>Stripe check</DialogTitle>
+      <DialogContent>
+        {error ? <Alert severity="error">{error}</Alert> : result && <Typography>
+          Checked {result.checked} unfinished Stripe payment{result.checked === 1 ? '' : 's'}: {result.paid} confirmed as paid, {result.canceled} expired without payment{result.failed ? `, ${result.failed} failed` : ''}, {result.stillPending} still awaiting payment.
+        </Typography>}
+      </DialogContent>
+      <DialogActions><Button onClick={() => { setResult(null); setError('') }}>Close</Button></DialogActions>
     </Dialog>
   </>
 }
