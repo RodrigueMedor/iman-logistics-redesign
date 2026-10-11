@@ -7,6 +7,7 @@ if (fs.existsSync('.env') && typeof process.loadEnvFile === 'function') process.
 const { createApp } = await import('./app')
 const { config, databaseConfigured } = await import('./config')
 const { startPaymentReminderScheduler } = await import('./lib/paymentReminders')
+const { startStripeReconcileScheduler } = await import('./lib/stripe')
 
 createApp().listen(config.port, () => {
   console.log(`Iman Logistics listening on http://localhost:${config.port}`)
@@ -14,4 +15,6 @@ createApp().listen(config.port, () => {
   console.log(`Database configured: ${databaseConfigured()} · Stripe configured: ${Boolean(config.stripeSecretKey)} · Serving website: ${config.serveWebsite}`)
   // SMS payment reminders run on the server, independent of the back office.
   startPaymentReminderScheduler()
+  // Confirms recent Stripe payments even if the webhook never arrives.
+  startStripeReconcileScheduler()
 })
