@@ -401,13 +401,14 @@ if (process.env.STRIPE_SECRET_KEY) {
   const staffEmail = messages.find(message => message.channel === 'email' && message.to === process.env.FREIGHT_BROKER_NOTIFY_EMAIL)
   const sms = messages.find(message => message.channel === 'sms' && message.to === registrant.phone)
   const staffSms = messages.find(message => message.channel === 'sms' && message.to === process.env.FREIGHT_BROKER_NOTIFY_PHONE)
-  check('the registrant receives a "Registration & Payment Confirmed" email', customerEmail?.subject === `Registration & Payment Confirmed - ${reg.json.registration_no}` && customerEmail.html.includes('Payment Confirmation') && customerEmail.html.includes('$520.00') && customerEmail.html.includes(rolling.name), customerEmail?.subject)
+  check('the registrant receives a "Registration & Payment Confirmed" email', customerEmail?.subject === `Registration & Payment Confirmed - ${reg.json.registration_no}` && customerEmail.html.includes('Registration completed!') && customerEmail.html.includes('$520.00') && customerEmail.html.includes(rolling.name), customerEmail?.subject)
   check('the email lists the transaction ID and registration number', customerEmail?.html.includes(`pi_${brokerPayment.id.replaceAll('-', '')}`) && customerEmail.html.includes(reg.json.registration_no))
   check('registrant-typed HTML is escaped in emails', customerEmail && !customerEmail.html.includes(`<b>${run}</b>`) && customerEmail.html.includes(`&lt;b&gt;${run}&lt;/b&gt;`))
-  check('staff receive a "New payment received" email', staffEmail?.subject === `New payment received - ${rolling.name}` && staffEmail.html.includes('New Payment Received') && staffEmail.html.includes('/admin/dispatch-masterclass/'), staffEmail?.subject)
-  check('the registrant receives an SMS confirmation', sms?.body === `Iman Logistics: your payment of $520.00 for ${rolling.name} was received. Thank you, Taylor!`, sms?.body)
+  check('staff receive a "[Staff] New student payment" email', staffEmail?.subject === `[Staff] New student payment - ${registrant.firstName} ${registrant.lastName} (${reg.json.registration_no})` && staffEmail.html.includes('Staff Notice: New Student Payment') && staffEmail.html.includes('/admin/dispatch-masterclass/'), staffEmail?.subject)
+  // The registrant declined SMS on the form, so only staff are texted.
+  check('a registrant who declined SMS gets no confirmation text', !sms, sms?.body)
   check('staff receive a payment SMS', staffSms?.body?.startsWith('Iman Logistics: payment received from Taylor') && staffSms.body.includes('$520.00'), staffSms?.body)
-  check('duplicate Stripe events do not send duplicate notifications', messages.length === 4, String(messages.length))
+  check('duplicate Stripe events do not send duplicate notifications', messages.length === 3, String(messages.length))
   const { data: logged } = await service.from('notification_log').select('channel, status, template').eq('entity_id', reg.json.id)
   check('all four notifications are logged as sent', logged?.length === 4 && logged.every(row => row.status === 'sent'), JSON.stringify(logged))
 
