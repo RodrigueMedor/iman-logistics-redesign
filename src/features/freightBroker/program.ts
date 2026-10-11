@@ -25,7 +25,7 @@ export const FREIGHT_BROKER_POLICY_CHECKBOX =
 // Optional SMS consent for payment reminders. The exact wording the student
 // agreed to is stored with the registration. Never a condition of purchase.
 export const FREIGHT_BROKER_SMS_CONSENT_TEXT =
-  'Text me payment reminders about this registration from IMAN Logistics at the phone number above, up to one message per day while my payment is pending. Message and data rates may apply. Reply STOP to unsubscribe or HELP for help. Consent is not a condition of registration.'
+  'Text me payment reminders and a payment confirmation about this registration from IMAN Logistics at the phone number above. Reminders are sent up to once per day while my payment is pending. Message and data rates may apply. Reply STOP to unsubscribe or HELP for help. Consent is not a condition of registration.'
 
 export const FREIGHT_BROKER_STEPS =['Your information', 'Review & policy', 'Confirmation'] as const
 
