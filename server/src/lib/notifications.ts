@@ -38,7 +38,7 @@ export function escapeHtml(value: unknown) {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 }
 
-export async function sendEmail(message: Entity & { template: string; to: string; subject: string; html: string; from?: string; idempotencyKey?: string; attachments?: { filename: string; content: Buffer }[] }): Promise<Delivery> {
+export async function sendEmail(message: Entity & { template: string; to: string; subject: string; html: string; from?: string; replyTo?: string; idempotencyKey?: string; attachments?: { filename: string; content: Buffer }[] }): Promise<Delivery> {
   const client = resendClient()
   const base = { channel: 'email' as const, template: message.template, recipient: message.to, subject: message.subject, entityType: message.entityType, entityId: message.entityId, provider: 'resend', idempotencyKey: message.idempotencyKey }
   if (message.idempotencyKey) {
@@ -47,7 +47,7 @@ export async function sendEmail(message: Entity & { template: string; to: string
   }
   if (!client) { const result = { status: 'skipped' as const, error: 'RESEND_API_KEY is not set' }; await log({ ...base, ...result }); return result }
   try {
-    const payload = { from: message.from ?? config.emailFrom, to: message.to, subject: message.subject, html: message.html, attachments: message.attachments }
+    const payload = { from: message.from ?? config.emailFrom, to: message.to, subject: message.subject, html: message.html, attachments: message.attachments, ...(message.replyTo ? { replyTo: message.replyTo } : {}) }
     const { data, error } = await client.emails.send(payload, message.idempotencyKey ? { idempotencyKey: message.idempotencyKey } : undefined)
     if (error) throw new Error(error.message)
     await log({ ...base, status: 'sent', providerId: data?.id })

@@ -174,14 +174,20 @@ export async function handleStripeEvent(db: SupabaseClient, stripe: Stripe, even
 // Asks Stripe directly for the session's state. Used by the status page and
 // the back office so a payment is confirmed even when the webhook is delayed,
 // misconfigured or unreachable; amounts are still checked before marking paid.
-export async function reconcileSession(db: SupabaseClient, stripe: Stripe, payment: PaymentRow & { stripe_checkout_session_id: string }) {
-  if (!['pending', 'processing'].includes(payment.status)) return
+// Returns whether Stripe gave a definite answer: false means the check failed
+// (network, Stripe or database error) and the payment's state is unknown.
+export async function reconcileSession(db: SupabaseClient, stripe: Stripe, payment: PaymentRow & { stripe_checkout_session_id: string }): Promise<boolean> {
+  if (!['pending', 'processing'].includes(payment.status)) return true
   try {
     const session = await stripe.checkout.sessions.retrieve(payment.stripe_checkout_session_id)
     if (session.payment_status === 'paid') await finalizeSuccessfulPayment(db, payment, session.amount_total, session.currency, intentId(session.payment_intent))
     else if (session.status === 'expired') await sessionFailedOrExpired(db, session, 'canceled')
+    return true
   } catch (error) {
+    // A session Stripe doesn't know about was never paid; anything else is unknown.
+    if ((error as { code?: string }).code === 'resource_missing') return true
     console.warn('Could not reconcile Stripe session during status check:', error instanceof Error ? error.message : error)
+    return false
   }
 }
 

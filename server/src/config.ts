@@ -50,6 +50,15 @@ export const config = {
     // Checkout sessions expire after 24h; older ones can't change state.
     lookbackHours: Number(process.env.STRIPE_RECONCILE_LOOKBACK_HOURS ?? 48),
   },
+  // One follow-up email to registrations still unpaid after delayHours, asking
+  // whether they were charged (reply to confirm) or to complete payment.
+  paymentFollowUp: {
+    enabled: process.env.PAYMENT_FOLLOW_UP_EMAILS_ENABLED !== 'false',
+    delayHours: Number(process.env.PAYMENT_FOLLOW_UP_DELAY_HOURS ?? 24),
+    pollSeconds: Number(process.env.PAYMENT_FOLLOW_UP_POLL_SECONDS ?? 900),
+    // Emails per run, so a large backlog goes out gradually.
+    batchSize: Number(process.env.PAYMENT_FOLLOW_UP_BATCH_SIZE ?? 50),
+  },
   // SMS payment reminders for submitted, unpaid masterclass registrations.
   paymentReminders: {
     enabled: process.env.PAYMENT_REMINDERS_ENABLED !== 'false',
