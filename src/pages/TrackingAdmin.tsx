@@ -14,7 +14,6 @@ import {
   Typography,
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
@@ -172,7 +171,6 @@ export default function TrackingAdmin() {
             <Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>Create and update shipment records used by the customer-facing tracker.</Typography>
           </Box>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
-            <Button component={RouterLink} to="/admin/work-orders/" variant="contained" color="secondary" startIcon={<AssignmentOutlinedIcon />}>Work orders</Button>
             <Button component={RouterLink} to="/tracking/" variant="outlined" endIcon={<OpenInNewRoundedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.6)' }}>Open customer tracker</Button>
           </Stack>
         </Stack>

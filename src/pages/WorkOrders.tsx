@@ -1,17 +1,14 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { Alert, Autocomplete, Box, Button, Chip, Container, Grid, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material'
 import AddTaskRoundedIcon from '@mui/icons-material/AddTaskRounded'
-import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined'
-import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined'
-import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import { Link as RouterLink } from 'react-router-dom'
 import { Seo } from '../components/common/Seo'
-import { formatElapsed, generateShipmentReference, listSupabaseWorkOrders, listWorkOrderEmployees, saveAdminWorkOrder, type WorkOrder, type WorkOrderEmployee, type WorkOrderPriority, type WorkOrderStatus } from '../services/workOrders'
+import { formatElapsed, formatWhen, generateShipmentReference, listSupabaseWorkOrders, listWorkOrderEmployees, saveAdminWorkOrder, type WorkOrder, type WorkOrderEmployee, type WorkOrderPriority, type WorkOrderStatus } from '../services/workOrders'
 import { useAuth } from '../contexts/AuthContext'
 import { usCityOptions } from '../data/usCities'
 
@@ -22,7 +19,7 @@ const priorityOptions: WorkOrderPriority[] = ['Low', 'Normal', 'High', 'Urgent']
 const createEmptyForm = (): WorkOrderForm => ({ id: '', title: '', description: '', assignee: '', assigneeId: '', priority: 'Normal', status: 'Open', dueDate: '', shipmentReference: generateShipmentReference(), pickupLocation: '', destination: '', deliveryAppointment: '' })
 
 export default function WorkOrders() {
-  const { user, profile, signOut } = useAuth()
+  const { user, profile } = useAuth()
   const [orders, setOrders] = useState<WorkOrder[]>([])
   const [employees, setEmployees] = useState<WorkOrderEmployee[]>([])
   const [form, setForm] = useState<WorkOrderForm>(() => createEmptyForm())
@@ -89,7 +86,7 @@ export default function WorkOrders() {
         title: form.title.trim(),
         description: form.description.trim(),
         shipmentReference: form.shipmentReference.trim().toUpperCase(),
-        createdAt: existing?.createdAt ?? now,
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
         updatedAt: now,
         statusHistory: existing?.statusHistory ?? [{ id: `EVENT-${Date.now()}`, status: form.status, actor: profile?.full_name || 'Super Admin', createdAt: new Date().toISOString(), detail: 'Work order created and assigned.' }],
       }
@@ -141,16 +138,13 @@ export default function WorkOrders() {
           <Box><Chip label="SUPER ADMIN · SECURE ACCESS" color="secondary" sx={{ mb: 2, fontWeight: 900 }} /><Typography component="h1" variant="h2" sx={{ fontSize: { xs: 40, md: 58 } }}>Work order dashboard</Typography><Typography color="rgba(255,255,255,.76)" fontSize={18} mt={1.5}>{profile?.full_name ? `Signed in as ${profile.full_name}. ` : ''}Create assignments, connect them to shipments, and keep the team’s operational work moving.</Typography></Box>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', sm: 'center' }}>
             <Button component={RouterLink} to="/tracking/team/work-orders/" variant="contained" color="secondary" startIcon={<PersonOutlineRoundedIcon />}>Employee view</Button>
-            <Button component={RouterLink} to="/admin/users/" variant="outlined" startIcon={<GroupOutlinedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.6)' }}>Manage users</Button>
-            <Button component={RouterLink} to="/admin/shipments/" variant="outlined" startIcon={<ArrowBackRoundedIcon />} sx={{ color: 'white', borderColor: 'rgba(255,255,255,.6)' }}>Shipment dashboard</Button>
-            <Button onClick={() => void signOut()} variant="text" startIcon={<LogoutRoundedIcon />} sx={{ color: 'white' }}>Sign out</Button>
           </Stack>
         </Stack>
       </Container>
     </Box>
 
     <Container sx={{ py: { xs: 6, md: 8 } }}>
-      <Alert severity="success" sx={{ mb: 4, borderRadius: 3 }}>This page is restricted to the super admin. Employee accounts cannot open the assignment controls.</Alert>
+      <Alert severity="info" sx={{ mb: 4, borderRadius: 3 }}>This page is restricted to the super admin. Employee accounts cannot open the assignment controls.</Alert>
       {loading && <Alert severity="info" sx={{ mb: 4 }}>Loading shared work orders…</Alert>}
       <Grid container spacing={4} alignItems="flex-start">
         <Grid size={{ xs: 12, lg: 4 }}>
@@ -178,7 +172,7 @@ export default function WorkOrders() {
         </Grid>
 
         <Grid size={{ xs: 12, lg: 8 }}>
-          <Grid container spacing={2} mb={3}>{counts.map(([status, count]) => <Grid size={{ xs: 6, sm: 3 }} key={status}><Paper sx={{ p: 2.25, borderRadius: 3, border: 1, borderColor: 'divider' }}><Typography color="text.secondary" fontSize={12} fontWeight={800}>{status}</Typography><Typography variant="h4" fontWeight={900} mt={.5}>{count}</Typography></Paper></Grid>)}</Grid>
+          <Grid container spacing={2} mb={3}>{counts.map(([status, count]) => <Grid size={{ xs: 6, sm: 4, lg: 'grow' }} key={status}><Paper sx={{ p: 2.25, height: '100%', borderRadius: 3, border: 1, borderColor: 'divider' }}><Typography color="text.secondary" fontSize={12} fontWeight={800}>{status}</Typography><Typography variant="h4" fontWeight={900} mt={.5}>{count}</Typography></Paper></Grid>)}</Grid>
           <Paper sx={{ p: 2, mb: 3, borderRadius: 3, border: 1, borderColor: 'divider' }}><Grid container spacing={1.5}><Grid size={{ xs: 12, sm: 8 }}><TextField fullWidth size="small" placeholder="Search tasks, teams, or shipments" value={query} onChange={event => setQuery(event.target.value)} slotProps={{ input: { startAdornment: <SearchOutlinedIcon color="action" sx={{ mr: 1 }} /> } }} /></Grid><Grid size={{ xs: 12, sm: 4 }}><TextField select fullWidth size="small" label="Status" value={statusFilter} onChange={event => setStatusFilter(event.target.value as 'All' | WorkOrderStatus)}><MenuItem value="All">All work orders</MenuItem>{statusOptions.map(item => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid></Grid></Paper>
 
           <Stack spacing={2}>
@@ -189,10 +183,10 @@ export default function WorkOrders() {
               </Stack>
               <Typography color="text.secondary" mt={2}>{order.description}</Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 3 }} mt={2}><Typography variant="body2"><strong>Due:</strong> {order.dueDate}</Typography>{order.shipmentReference && <Typography variant="body2"><strong>Shipment:</strong> {order.shipmentReference}</Typography>}</Stack>
-              {(order.pickupLocation || order.destination) && <Paper variant="outlined" sx={{ mt: 2.5, p: 2, borderRadius: 2.5, bgcolor: 'action.hover' }}><Grid container spacing={2}><Grid size={{ xs: 12, sm: 4 }}><Typography variant="caption" color="text.secondary" fontWeight={800}>PICKUP</Typography><Typography fontWeight={800}>{order.pickupLocation || 'Not provided'}</Typography></Grid><Grid size={{ xs: 12, sm: 4 }}><Typography variant="caption" color="text.secondary" fontWeight={800}>DESTINATION</Typography><Typography fontWeight={800}>{order.destination || 'Not provided'}</Typography></Grid><Grid size={{ xs: 12, sm: 4 }}><Typography variant="caption" color="text.secondary" fontWeight={800}>DELIVERY APPOINTMENT</Typography><Typography fontWeight={800}>{order.deliveryAppointment ? new Date(order.deliveryAppointment).toLocaleString() : 'Not provided'}</Typography></Grid></Grid></Paper>}
-              {(order.startedAt || order.completedAt || order.actualDeliveryAt) && <Grid container spacing={1.5} mt={2}><Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">TIME TO RESOLVE</Typography><Typography fontWeight={900}>{formatElapsed(order.startedAt || order.createdAt, order.completedAt)}</Typography></Grid><Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">ACTUAL DELIVERY</Typography><Typography fontWeight={900}>{order.actualDeliveryAt ? new Date(order.actualDeliveryAt).toLocaleString() : 'Pending'}</Typography></Grid><Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">DELIVERY RESULT</Typography><Typography fontWeight={900} color={order.actualDeliveryAt && order.deliveryAppointment && new Date(order.actualDeliveryAt) > new Date(order.deliveryAppointment) ? 'error.main' : 'success.main'}>{!order.actualDeliveryAt ? 'Pending delivery' : !order.deliveryAppointment ? 'Delivered · appointment not set' : new Date(order.actualDeliveryAt) <= new Date(order.deliveryAppointment) ? 'Delivered on time' : 'Delivered late'}</Typography></Grid></Grid>}
+              {(order.pickupLocation || order.destination) && <Paper variant="outlined" sx={{ mt: 2.5, p: 2, borderRadius: 2.5, bgcolor: 'action.hover' }}><Grid container spacing={2}><Grid size={{ xs: 12, sm: 4 }}><Typography variant="caption" color="text.secondary" fontWeight={800}>PICKUP</Typography><Typography fontWeight={800}>{order.pickupLocation || 'Not provided'}</Typography></Grid><Grid size={{ xs: 12, sm: 4 }}><Typography variant="caption" color="text.secondary" fontWeight={800}>DESTINATION</Typography><Typography fontWeight={800}>{order.destination || 'Not provided'}</Typography></Grid><Grid size={{ xs: 12, sm: 4 }}><Typography variant="caption" color="text.secondary" fontWeight={800}>DELIVERY APPOINTMENT</Typography><Typography fontWeight={800}>{order.deliveryAppointment ? formatWhen(order.deliveryAppointment) : 'Not provided'}</Typography></Grid></Grid></Paper>}
+              {(order.startedAt || order.completedAt || order.actualDeliveryAt) && <Grid container spacing={1.5} mt={2}><Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">TIME TO RESOLVE</Typography><Typography fontWeight={900}>{formatElapsed(order.startedAt || order.createdAt, order.completedAt)}</Typography></Grid><Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">ACTUAL DELIVERY</Typography><Typography fontWeight={900}>{order.actualDeliveryAt ? formatWhen(order.actualDeliveryAt) : 'Pending'}</Typography></Grid><Grid size={{ xs: 12, sm: 6 }}><Typography variant="caption" color="text.secondary">DELIVERY RESULT</Typography><Typography fontWeight={900} color={order.actualDeliveryAt && order.deliveryAppointment && new Date(order.actualDeliveryAt) > new Date(order.deliveryAppointment) ? 'error.main' : 'success.main'}>{!order.actualDeliveryAt ? 'Pending delivery' : !order.deliveryAppointment ? 'Delivered · appointment not set' : new Date(order.actualDeliveryAt) <= new Date(order.deliveryAppointment) ? 'Delivered on time' : 'Delivered late'}</Typography></Grid></Grid>}
               {order.resolutionSummary && <Alert severity="success" sx={{ mt: 2 }}><strong>Resolution:</strong> {order.resolutionSummary}</Alert>}
-              {!!order.statusHistory?.length && <Box mt={2.5}><Typography fontWeight={900} mb={1}>Activity timeline</Typography><Stack spacing={.75}>{order.statusHistory.slice().reverse().map(event => <Stack key={event.id} direction="row" justifyContent="space-between" spacing={2}><Typography variant="body2"><strong>{event.status}</strong> · {event.actor}{event.detail ? ` — ${event.detail}` : ''}</Typography><Typography variant="caption" color="text.secondary" flexShrink={0}>{new Date(event.createdAt).toLocaleString()}</Typography></Stack>)}</Stack></Box>}
+              {!!order.statusHistory?.length && <Box mt={2.5}><Typography fontWeight={900} mb={1}>Activity timeline</Typography><Stack spacing={.75}>{order.statusHistory.slice().reverse().map(event => <Stack key={event.id} direction="row" justifyContent="space-between" spacing={2}><Typography variant="body2"><strong>{event.status}</strong> · {event.actor}{event.detail ? ` — ${event.detail}` : ''}</Typography><Typography variant="caption" color="text.secondary" flexShrink={0}>{formatWhen(event.createdAt)}</Typography></Stack>)}</Stack></Box>}
               {!!order.notes?.length && <Box mt={2.5}><Typography fontWeight={900} mb={1}>Employee notes</Typography><Stack spacing={1}>{order.notes.map(note => <Paper key={note.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}><Typography variant="caption" fontWeight={900}>{note.kind} · {note.author}</Typography><Typography>{note.message}</Typography></Paper>)}</Stack></Box>}
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap mt={2.5}><Typography variant="caption" color="text.secondary" sx={{ mr: 'auto', alignSelf: 'center' }}>Updated {order.updatedAt}</Typography>{order.status === 'Pending approval' && <><Button size="small" color="warning" variant="outlined" onClick={() => quickStatus(order, 'In progress')}>Return for correction</Button><Button size="small" color="success" variant="contained" onClick={() => quickStatus(order, 'Completed')}>Approve completion</Button></>}{order.status !== 'In progress' && order.status !== 'Pending approval' && order.status !== 'Completed' && <Button size="small" onClick={() => quickStatus(order, 'In progress')}>Start task</Button>}</Stack>
             </Paper>)}

@@ -25,6 +25,8 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined'
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined'
+import FilterAltOffOutlinedIcon from '@mui/icons-material/FilterAltOffOutlined'
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded'
 import SaveOutlinedIcon from '@mui/icons-material/SaveOutlined'
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined'
@@ -58,6 +60,10 @@ export type RecordsConfig = {
   csvName: string
   headerAction?: (reload: () => void) => ReactNode
   renderDetail?: (row: RecordRow, reload: () => void) => ReactNode
+  // Count tiles for the first filter's options (default on when it has at most 8 options).
+  summary?: boolean
+  // Shown in the empty table when there are no records at all.
+  emptyHint?: string
 }
 
 const pageSize = 25
@@ -79,6 +85,22 @@ export function RecordsPage(config: RecordsConfig) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<RecordRow | null>(null)
+  const summaryFilter = config.summary === false ? undefined : config.filters?.[0]
+  const showSummary = Boolean(summaryFilter && summaryFilter.options.length <= 8)
+  const [summary, setSummary] = useState<{ total: number; counts: Record<string, number> } | null>(null)
+  const loadSummary = useCallback(async () => {
+    if (!isSupabaseConfigured || !showSummary || !summaryFilter) return
+    try {
+      const fixed = config.fixedFilters ?? {}
+      const [all, ...each] = await Promise.all([
+        listRecords({ table: config.table, filters: fixed, page: 0, pageSize: 1 }),
+        ...summaryFilter.options.map(option => listRecords({ table: config.table, filters: { ...fixed, [summaryFilter.key]: option.value }, page: 0, pageSize: 1 })),
+      ])
+      setSummary({ total: all.count, counts: Object.fromEntries(summaryFilter.options.map((option, index) => [option.value, each[index].count])) })
+    } catch { setSummary(null) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.table, JSON.stringify(config.fixedFilters ?? {}), showSummary, summaryFilter?.key])
+  useEffect(() => { void loadSummary() }, [loadSummary])
 
   useEffect(() => {
     const timer = window.setTimeout(() => { setDebouncedSearch(search); setPage(0) }, 300)
@@ -103,6 +125,10 @@ export function RecordsPage(config: RecordsConfig) {
   }, [config.table, JSON.stringify(config.fixedFilters ?? {}), debouncedSearch, filters, page, idKey])
 
   useEffect(() => { void load() }, [load])
+  // Refreshes the table and the count tiles together.
+  const reload = useCallback(async () => { await Promise.all([load(), loadSummary()]) }, [load, loadSummary])
+  const filtered = Boolean(debouncedSearch.trim() || Object.values(filters).some(Boolean))
+  const clearFilters = () => { setSearch(''); setDebouncedSearch(''); setFilters({}); setPage(0) }
 
   const exportCsv = () => {
     const header = config.details.map(column => column.label)
@@ -121,11 +147,25 @@ export function RecordsPage(config: RecordsConfig) {
     <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'flex-end' }} spacing={2} mb={3}>
         <Box><Typography component="h1" variant="h4" fontWeight={950}>{config.title}</Typography><Typography color="text.secondary" mt={.5}>{config.subtitle}</Typography></Box>
-        <Stack direction="row" spacing={1}>{config.headerAction?.(load)}</Stack>
+        <Stack direction="row" spacing={1}>{config.headerAction?.(() => void reload())}</Stack>
       </Stack>
 
       {!isSupabaseConfigured && <Alert severity="info" sx={{ mb: 3 }}>The back office needs Supabase. Add the values from <strong>.env.example</strong> and run the migrations in <strong>supabase/migrations</strong>.</Alert>}
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+
+      {showSummary && summaryFilter && <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: `repeat(${summaryFilter.options.length + 1}, minmax(0, 1fr))` }, gap: 1.5, mb: 2 }}>
+        {[{ value: '', label: 'All', color: 'primary' as Option['color'] }, ...summaryFilter.options].map(option => {
+          const active = (filters[summaryFilter.key] ?? '') === option.value
+          const value = option.value ? summary?.counts[option.value] : summary?.total
+          const tone = option.color && option.color !== 'default' ? `${option.color}.main` : 'text.disabled'
+          return <Paper key={option.value || 'all'} component="button" type="button" elevation={0} aria-pressed={active}
+            onClick={() => { setFilters(current => ({ ...current, [summaryFilter.key]: option.value })); setPage(0) }}
+            sx={{ p: 1.75, textAlign: 'left', cursor: 'pointer', borderRadius: 3, border: 1, borderColor: active ? 'primary.main' : 'divider', boxShadow: active ? '0 0 0 1px currentColor inset' : 'none', color: active ? 'primary.main' : 'text.primary', bgcolor: 'background.paper', font: 'inherit', transition: 'border-color .15s, transform .15s', '&:hover': { borderColor: 'primary.light', transform: 'translateY(-1px)' } }}>
+            <Stack direction="row" alignItems="center" gap={.75}><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: tone, flexShrink: 0 }} /><Typography variant="caption" color="text.secondary" fontWeight={800} noWrap>{option.label}</Typography></Stack>
+            <Typography fontSize={24} fontWeight={950} lineHeight={1.2} mt={.5} color="text.primary">{value ?? '—'}</Typography>
+          </Paper>
+        })}
+      </Box>}
 
       <Paper sx={{ p: 2, mb: 2, borderRadius: 3, border: 1, borderColor: 'divider' }} elevation={0}>
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }}>
@@ -134,7 +174,7 @@ export function RecordsPage(config: RecordsConfig) {
             <MenuItem value="">All</MenuItem>
             {filter.options.map(option => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
           </TextField>)}
-          <Button onClick={() => void load()} startIcon={<RefreshRoundedIcon />} disabled={loading}>Refresh</Button>
+          <Button onClick={() => void reload()} startIcon={<RefreshRoundedIcon />} disabled={loading}>Refresh</Button>
           <Button onClick={exportCsv} startIcon={<DownloadRoundedIcon />} disabled={!rows.length}>Export CSV</Button>
         </Stack>
       </Paper>
@@ -147,7 +187,14 @@ export function RecordsPage(config: RecordsConfig) {
               {rows.map(row => <TableRow key={String(row[idKey])} hover selected={selected?.[idKey] === row[idKey]} onClick={() => setSelected(row)} sx={{ cursor: 'pointer' }}>
                 {config.columns.map(column => <TableCell key={column.key} sx={{ py: 1.5, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', display: column.hideOnMobile ? { xs: 'none', md: 'table-cell' } : undefined }}>{column.render ? column.render(row) : String(row[column.key] ?? '—')}</TableCell>)}
               </TableRow>)}
-              {!rows.length && <TableRow><TableCell colSpan={config.columns.length} sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>{loading ? 'Loading…' : 'No records match your search.'}</TableCell></TableRow>}
+              {!rows.length && <TableRow><TableCell colSpan={config.columns.length} sx={{ py: { xs: 6, md: 9 }, textAlign: 'center', borderBottom: 0 }}>
+                {loading ? <Typography color="text.secondary">Loading…</Typography> : <Stack alignItems="center" spacing={1.25} sx={{ maxWidth: 420, mx: 'auto' }}>
+                  <Box sx={{ display: 'grid', placeItems: 'center', width: 64, height: 64, borderRadius: '50%', bgcolor: 'action.hover', color: 'text.secondary' }}>{filtered ? <FilterAltOffOutlinedIcon fontSize="large" /> : <InboxOutlinedIcon fontSize="large" />}</Box>
+                  <Typography fontWeight={900} fontSize={18}>{filtered ? 'No records match these filters' : `No ${config.title.toLowerCase()} yet`}</Typography>
+                  <Typography variant="body2" color="text.secondary">{filtered ? 'Try another search term or clear the filters to see everything.' : config.emptyHint ?? 'New records appear here automatically as soon as they come in.'}</Typography>
+                  {filtered && <Button variant="outlined" size="small" onClick={clearFilters} sx={{ mt: .5 }}>Clear filters</Button>}
+                </Stack>}
+              </TableCell></TableRow>}
             </TableBody>
           </Table>
         </TableContainer>
@@ -156,7 +203,7 @@ export function RecordsPage(config: RecordsConfig) {
     </Container>
 
     <Drawer anchor="right" open={Boolean(selected)} onClose={() => setSelected(null)} sx={{ '& .MuiDrawer-paper': { width: { xs: '100%', sm: 520 } } }}>
-      {selected && <RecordDetail key={String(selected[idKey])} config={config} row={selected} idKey={idKey} canDelete={Boolean(config.deletable && profile?.role === 'super_admin')} onClose={() => setSelected(null)} onChanged={load} />}
+      {selected && <RecordDetail key={String(selected[idKey])} config={config} row={selected} idKey={idKey} canDelete={Boolean(config.deletable && profile?.role === 'super_admin')} onClose={() => setSelected(null)} onChanged={reload} />}
     </Drawer>
   </>
 }

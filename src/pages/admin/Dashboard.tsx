@@ -71,16 +71,17 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
-      <Grid container spacing={2.5} mt={.5} alignItems="flex-start">
+      <Grid container spacing={2.5} mt={.5}>
         <Grid size={{ xs: 12, lg: 7 }}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: 1, borderColor: 'divider' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: 1, borderColor: 'divider', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Typography fontWeight={900}>Website submissions per day</Typography>
             <Typography variant="body2" color="text.secondary">Messages, bookings, applications, and registrations · last 14 days{stats ? ` · ${stats.daily.reduce((sum, item) => sum + item.count, 0)} total` : ''}</Typography>
             {stats && <DailyChart data={stats.daily} />}
+            {stats && <NeedsAttention stats={stats} />}
           </Paper>
         </Grid>
         <Grid size={{ xs: 12, lg: 5 }}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: 1, borderColor: 'divider' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: 1, borderColor: 'divider', height: '100%' }}>
             <Typography fontWeight={900} mb={2}>Latest submissions</Typography>
             <Stack spacing={1.25}>
               {activity.map(item => <Box key={`${item.kind}-${item.id}`} component={RouterLink} to={item.path} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover', color: 'inherit', textDecoration: 'none', '&:hover': { bgcolor: 'action.selected' } }}>
@@ -110,7 +111,7 @@ function StatTile({ icon, label, value, detail, to }: { icon: ReactNode; label: 
 function TrafficChart({ data }: { data: WebsiteAnalyticsStats['daily'] }) {
   const max = Math.max(1, ...data.map(item => item.pageViews))
   return <Box mt={3} role="img" aria-label={`Website traffic: ${data.map(item => `${item.day}, ${item.pageViews} page views, ${item.uniqueVisitors} visitors`).join('; ')}`}>
-    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${data.length}, 1fr)`, gap: '3px', alignItems: 'end', height: 170, borderBottom: '1px solid', borderColor: 'divider' }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`, gap: '3px', alignItems: 'end', height: 170, borderBottom: '1px solid', borderColor: 'divider' }}>
       {data.map(item => <Tooltip key={item.day} title={`${item.pageViews} page views · ${item.uniqueVisitors} visitors`} arrow><Box sx={{ height: `${Math.max(item.pageViews ? 4 : 0, (item.pageViews / max) * 160)}px`, bgcolor: 'secondary.main', borderRadius: '4px 4px 0 0' }} /></Tooltip>)}
     </Box>
     <Stack direction="row" justifyContent="space-between" mt={.75}><Typography variant="caption" color="text.secondary">{data[0]?.day ?? ''}</Typography><Typography variant="caption" color="text.secondary">{data.at(-1)?.day ?? ''}</Typography></Stack>
@@ -123,7 +124,7 @@ function DailyChart({ data }: { data: DashboardStats['daily'] }) {
   const peak = data.reduce((best, item) => item.count > best.count ? item : best, data[0])
   const label = (day: string, style: 'short' | 'long') => new Intl.DateTimeFormat('en-US', style === 'short' ? { month: 'numeric', day: 'numeric', timeZone: 'UTC' } : { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`))
   return <Box mt={3}>
-    <Box role="img" aria-label={`Daily submissions: ${data.map(item => `${label(item.day, 'long')} ${item.count}`).join(', ')}`} sx={{ display: 'grid', gridTemplateColumns: `repeat(${data.length}, 1fr)`, gap: '2px', alignItems: 'end', height: 180, borderBottom: '1px solid', borderColor: 'divider' }}>
+    <Box role="img" aria-label={`Daily submissions: ${data.map(item => `${label(item.day, 'long')} ${item.count}`).join(', ')}`} sx={{ display: 'grid', gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`, gap: '2px', alignItems: 'end', height: 180, borderBottom: '1px solid', borderColor: 'divider' }}>
       {data.map(item => <Tooltip key={item.day} title={`${label(item.day, 'long')}: ${item.count} submission${item.count === 1 ? '' : 's'}`} placement="top" arrow>
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', cursor: 'default' }}>
           {peak.count > 0 && item.day === peak.day && <Typography variant="caption" fontWeight={800} color="text.primary">{item.count}</Typography>}
@@ -131,12 +132,39 @@ function DailyChart({ data }: { data: DashboardStats['daily'] }) {
         </Box>
       </Tooltip>)}
     </Box>
-    <Box aria-hidden sx={{ display: 'grid', gridTemplateColumns: `repeat(${data.length}, 1fr)`, gap: '2px', mt: .75 }}>
+    <Box aria-hidden sx={{ display: 'grid', gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`, gap: '2px', mt: .75 }}>
       {data.map((item, index) => {
         const edge = index === 0 ? 'start' : index === data.length - 1 ? 'end' : 'center'
         const shown = index === 0 || index === data.length - 1 || index === Math.floor(data.length / 2)
         return <Typography key={item.day} variant="caption" color="text.secondary" sx={{ visibility: shown ? 'visible' : 'hidden', justifySelf: edge, whiteSpace: 'nowrap', fontSize: 11 }}>{label(item.day, 'short')}</Typography>
       })}
     </Box>
+  </Box>
+}
+
+// Everything waiting on staff, with a link to the filtered list.
+function NeedsAttention({ stats }: { stats: DashboardStats }) {
+  const items = [
+    { label: 'Bookings awaiting confirmation', count: stats.bookings.pending, to: '/admin/bookings/' },
+    { label: 'Unpaid bookings', count: stats.bookings.unpaid, to: '/admin/bookings/' },
+    { label: 'New contact messages', count: stats.contacts.new, to: '/admin/contacts/' },
+    { label: 'New job applications', count: stats.applications.new, to: '/admin/applications/' },
+    { label: 'Dispatch Masterclass awaiting payment', count: stats.brokerRegistrations.awaitingPayment, to: '/admin/dispatch-masterclass/' },
+    ...(stats.brokerMasterclassRegistrations ? [{ label: 'Broker Master Class awaiting payment', count: stats.brokerMasterclassRegistrations.awaitingPayment, to: '/admin/broker-masterclass/' }] : []),
+    { label: 'Pending payments', count: stats.payments.pending, to: '/admin/payments/' },
+    { label: 'Shipment exceptions', count: stats.shipments.exceptions, to: '/admin/shipments/' },
+  ]
+  const open = items.filter(item => item.count > 0)
+  return <Box sx={{ mt: 3, pt: 2.5, borderTop: 1, borderColor: 'divider', flex: 1 }}>
+    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+      <Typography fontWeight={900}>Needs attention</Typography>
+      <Chip size="small" label={open.length ? `${open.reduce((sum, item) => sum + item.count, 0)} open` : 'All clear'} color={open.length ? 'warning' : 'success'} sx={{ fontWeight: 800 }} />
+    </Stack>
+    {open.length ? <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
+      {open.map(item => <Box key={item.label} component={RouterLink} to={item.to} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, px: 1.5, py: 1.1, borderRadius: 2, border: 1, borderColor: 'divider', color: 'inherit', textDecoration: 'none', '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.light' } }}>
+        <Typography variant="body2" fontWeight={700}>{item.label}</Typography>
+        <Box component="span" sx={{ minWidth: 26, height: 22, px: .75, borderRadius: 11, bgcolor: 'secondary.main', color: '#fff', fontSize: 12, fontWeight: 900, display: 'grid', placeItems: 'center' }}>{item.count}</Box>
+      </Box>)}
+    </Box> : <Typography variant="body2" color="text.secondary">Nothing is waiting on the team right now.</Typography>}
   </Box>
 }

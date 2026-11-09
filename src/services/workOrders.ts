@@ -47,6 +47,14 @@ export type WorkOrderEmployee = {
   email: string
 }
 
+// Older records stored display text (or placeholders) instead of ISO dates, so
+// never show "Invalid Date": fall back to the stored text, or a dash.
+export function formatWhen(value?: string | null) {
+  if (!value) return '—'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? (/\d/.test(value) ? value : '—') : new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+}
+
 export function formatElapsed(start?: string, end?: string) {
   if (!start || !end) return 'Not available'
   const milliseconds = new Date(end).getTime() - new Date(start).getTime()
