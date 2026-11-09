@@ -45,7 +45,7 @@ export function RegistrationPaymentStatus({ sessionId, returnState, onContinue, 
   }, [sessionId, returnState])
 
   const isProcessing = status === null || status === 'pending' || status === 'processing'
-  const dollars = result?.amount_cents != null ? `$${(result.amount_cents / 100).toFixed(2)}` : null
+  const dollars = result?.amount_cents != null ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(result.amount_cents / 100) : null
   let icon: ReactNode = null
   let title = 'Processing your payment'
   let message = 'We are confirming your payment with the bank. This usually takes a few seconds.'

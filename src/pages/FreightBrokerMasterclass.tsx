@@ -1,9 +1,10 @@
 import { Box, Button, Container, Grid, Stack, Typography } from '@mui/material'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded'
-import GavelRoundedIcon from '@mui/icons-material/GavelRounded'
-import LockRoundedIcon from '@mui/icons-material/LockRounded'
+import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
+import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded'
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded'
+import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded'
 import { Seo } from '../components/common/Seo'
 import { BuyButton } from '../components/common/BuyButton'
 import { useContent } from '../contexts/ContentContext'
@@ -19,30 +20,28 @@ const CMS_PAGE = 'freight-broker-master-class'
 const logo = '/images/freight-broker-master-class.jpg'
 const navy = '#010081'
 
-const learning = [
-  'How freight brokerage works: the roles of shippers, brokers, and carriers',
-  'Getting your broker authority: USDOT and MC numbers, the BOC-3, and the BMC-84 surety bond',
-  'Finding shippers and building a customer base',
-  'Vetting and onboarding carriers: authority, insurance, and safety checks',
-  'Pricing loads, negotiating rates, and protecting your margin',
-  'Rate confirmations, broker-carrier agreements, and shipper contracts',
-  'Load boards, tracking, and day-to-day load management',
-  'Invoicing, credit checks, payment terms, and getting paid',
-]
+const BROKER_PHONE = '888-991-4776'
+const phoneHref = `tel:+1${BROKER_PHONE.replace(/\D/g, '')}`
 
-const modules = [
-  ['Brokerage foundations', 'Understand where a freight broker fits in the supply chain, how a brokerage makes money, and what separates a broker from a dispatcher or a carrier.'],
-  ['Authority, bonding, and compliance', 'Walk through registering your brokerage with the FMCSA, the financial-security and process-agent requirements, and the records a broker is expected to keep.'],
-  ['Shippers and sales', 'Learn how to identify shippers, present your services, quote a lane, and turn one-time loads into repeat customers.'],
-  ['Carriers and operations', 'Build a reliable carrier network, check every carrier before tendering a load, and manage loads from booking through delivery.'],
-  ['Money and growth', 'Price freight with confidence, manage cash flow between shipper and carrier payments, and put systems in place to grow your brokerage.'],
+const learning = [
+  ['Broker setup', 'Navigate FMCSA registration, understand USDOT and MC numbers, and learn how to apply for freight broker authority.'],
+  ['Surety bonds', 'Understand how a freight broker surety bond works and what to look for when comparing providers.'],
+  ['Load boards and carrier vetting', 'Post loads, find carriers, and verify carrier authority, insurance, and safety records before booking.'],
+  ['Credit checks and factoring', 'Check shipper credit before extending payment terms, understand how carriers and factoring companies evaluate broker credit, and learn how invoice factoring works.'],
+  ['Sales and daily operations', 'Find shippers, quote freight, negotiate rates, calculate margins, and manage shipment tracking, paperwork, and invoicing.'],
+] as const
+
+const steps = [
+  ['Week 1', 'Live on Zoom', 'Join the live class on Zoom. Choose the time that fits you: 10:00 AM–2:00 PM or 4:00 PM–8:00 PM Eastern.'],
+  ['Weeks 2–4', 'Hands-on workshops', 'Practice the steps involved in setting up a brokerage and moving freight.'],
+  ['Enroll', 'Reserve your seat', `Register and pay online below, or call ${BROKER_PHONE} to register by phone.`],
 ] as const
 
 const highlights = [
-  [SchoolRoundedIcon, '5 modules', 'From foundations to growing your brokerage'],
-  [GavelRoundedIcon, 'Authority & compliance', 'USDOT, MC, BOC-3 and the BMC-84 bond'],
-  [EventAvailableRoundedIcon, 'Scheduled sessions', 'Pick the start date that fits you'],
-  [LockRoundedIcon, 'Secure enrollment', 'Register online and pay with Stripe'],
+  [EventAvailableRoundedIcon, 'Starts December 7, 2026', 'A one-month program'],
+  [VideocamRoundedIcon, 'Live on Zoom', '10 AM–2 PM or 4–8 PM Eastern'],
+  [SchoolRoundedIcon, 'Hands-on workshops', 'Practice setting up a brokerage'],
+  [PaymentsRoundedIcon, '$1,500 tuition', `Register online or call ${BROKER_PHONE}`],
 ] as const
 
 const sectionHeading = { fontSize: { xs: 34, md: 52 }, color: 'primary.main', textAlign: 'center', mb: 5 }
@@ -52,17 +51,17 @@ export default function FreightBrokerMasterclass() {
   const hero = content(CMS_PAGE, 'hero', {
     section_label: 'CAREER TRAINING',
     title: program.name,
-    body: 'A step-by-step program that teaches you how to start and run a freight brokerage: getting your authority, finding shippers, working with carriers, and pricing freight. Choose an upcoming session below, register, and pay securely online.',
+    body: 'The IMAN Freight Broker Masterclass is a one-month program. The first week is live on Zoom, followed by workshops where you’ll practice the steps involved in setting up a brokerage and moving freight.',
     button_text: 'Register now',
   })
   const learnSection = content(CMS_PAGE, 'curriculum', {
     section_label: 'WHAT YOU’LL LEARN',
     title: 'What You’ll Learn',
-    body: 'Everything you need to understand the brokerage business and move your first loads with confidence.',
+    body: 'From getting your broker authority to quoting freight and getting paid.',
   })
   const modulesSection = content(CMS_PAGE, 'modules', {
-    section_label: 'PROGRAM MODULES',
-    title: 'Your Step-by-Step Brokerage Roadmap',
+    section_label: 'HOW IT WORKS',
+    title: 'One Month, Step by Step',
     body: '',
   })
 
@@ -112,10 +111,13 @@ export default function FreightBrokerMasterclass() {
         <Typography component="h2" variant="h2" sx={sectionHeading}>{learnSection.title}</Typography>
         {learnSection.body && <Typography textAlign="center" fontSize={20} color="text.secondary" sx={{ maxWidth: 760, mx: 'auto', mt: -2, mb: 5 }}>{learnSection.body}</Typography>}
         <Grid container spacing={2.5}>
-          {learning.map(item => <Grid size={{ xs: 12, md: 6 }} key={item}>
-            <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: 2.5, height: '100%', border: 1, borderColor: 'divider', borderRadius: 3, bgcolor: 'background.paper' }}>
-              <CheckCircleRoundedIcon color="secondary" sx={{ mt: '2px' }} />
-              <Typography fontSize={18}>{item}</Typography>
+          {learning.map(([title, text], index) => <Grid size={{ xs: 12, md: index < 2 ? 6 : 4 }} key={title}>
+            <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ p: 3, height: '100%', border: 1, borderColor: 'divider', borderRadius: 3, bgcolor: 'background.paper' }}>
+              <CheckCircleRoundedIcon color="secondary" sx={{ mt: '3px' }} />
+              <Box>
+                <Typography component="h3" fontWeight={900} color="primary" fontSize={20} mb={0.75}>{title}</Typography>
+                <Typography fontSize={17} color="text.secondary">{text}</Typography>
+              </Box>
             </Stack>
           </Grid>)}
         </Grid>
@@ -127,9 +129,9 @@ export default function FreightBrokerMasterclass() {
         <Typography sx={{ color: 'secondary.main', fontWeight: 900, letterSpacing: '.12em', textAlign: 'center', mb: 1 }}>{modulesSection.section_label}</Typography>
         <Typography component="h2" variant="h2" sx={sectionHeading}>{modulesSection.title}</Typography>
         <Grid container spacing={3}>
-          {modules.map(([title, text], index) => <Grid size={{ xs: 12, sm: 6, md: index < 2 ? 6 : 4 }} key={title}>
+          {steps.map(([when, title, text]) => <Grid size={{ xs: 12, md: 4 }} key={title}>
             <Box sx={{ p: 4, height: '100%', bgcolor: 'background.paper', borderRadius: 3, borderTop: '5px solid', borderColor: 'secondary.main', boxShadow: '0 5px 18px rgba(0,0,0,.08)' }}>
-              <Typography sx={{ color: 'secondary.main', fontWeight: 900, mb: 1 }}>Module {index + 1}</Typography>
+              <Typography sx={{ color: 'secondary.main', fontWeight: 900, mb: 1 }}>{when}</Typography>
               <Typography component="h3" variant="h3" color="primary" fontSize={26} mb={1.5}>{title}</Typography>
               <Typography fontSize={17}>{text}</Typography>
             </Box>
@@ -141,8 +143,11 @@ export default function FreightBrokerMasterclass() {
     <Box sx={{ bgcolor: navy, color: 'white', py: { xs: 7, md: 9 }, textAlign: 'center' }}>
       <Container maxWidth="md">
         <Typography component="h2" variant="h2" sx={{ fontSize: { xs: 32, md: 46 }, mb: 2 }}>Ready to start your brokerage?</Typography>
-        <Typography fontSize={19} mb={4}>Seats are confirmed once your registration is paid. Payments are processed securely by Stripe.</Typography>
-        <Button href="#register" variant="contained" color="secondary" size="large" sx={{ minWidth: 220, fontSize: 17 }}>Reserve your seat</Button>
+        <Typography fontSize={19} mb={4}>Classes start December 7, 2026. Tuition is $1,500. Register online and pay securely with Stripe, or call us to register by phone.</Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} gap={2} justifyContent="center">
+          <Button href="#register" variant="contained" color="secondary" size="large" sx={{ minWidth: 220, fontSize: 17 }}>Reserve your seat</Button>
+          <Button href={phoneHref} variant="outlined" size="large" startIcon={<PhoneRoundedIcon />} sx={{ minWidth: 220, fontSize: 17, color: '#fff', borderColor: 'rgba(255,255,255,.5)', '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,.08)' } }}>Call {BROKER_PHONE}</Button>
+        </Stack>
       </Container>
     </Box>
   </>
