@@ -65,7 +65,7 @@ export const MASTERCLASS_PROGRAMS: Record<MasterclassProgramId, MasterclassProgr
     policyText: policyText('Freight Broker Master Class'),
     policyCheckbox: policyCheckbox('Freight Broker Master Class'),
     smsConsentText: SMS_CONSENT_TEXT,
-    defaultDescription: 'Learn how to start and run a freight brokerage: broker authority and bonding, finding shippers, carrier vetting, pricing and margins, contracts, and getting paid. Choose a session from the list to see its price.',
+    defaultDescription: 'A one-month program: the first week is live on Zoom, followed by workshops where you practice setting up a brokerage and moving freight. Broker setup, surety bonds, load boards and carrier vetting, credit checks and factoring, and sales and daily operations. Choose a session from the list to see its price.',
   },
 }
 

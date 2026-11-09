@@ -37,8 +37,15 @@ import { RegistrationPaymentStatus } from './RegistrationPaymentStatus'
 const pendingRegistrationStorageKey = (program: MasterclassProgramId) => program === 'dispatch_masterclass' ? 'iman_freight_broker_pending_reg' : `iman_${program}_pending_reg`
 const brokerLogo = '/images/freight-broker-master-class.jpg'
 const emptyForm: RegistrationForm = { firstName: '', lastName: '', email: '', phone: '', address1: '', address2: '', city: '', state: '', zip: '', classId: '', attendanceType: 'online', smsConsent: null, verificationId: '', verificationToken: '' }
+// $1,500 for whole dollars, $599.50 otherwise.
+const usd = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: Number.isInteger(amount) ? 0 : 2 }).format(amount)
 const dollars = (cents?: number | null, program: MasterclassProgram = MASTERCLASS_PROGRAMS.dispatch_masterclass) => (cents ?? program.defaultPriceCents) / 100
-const mediumDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' }) : null
+// Shown in the session's own timezone, so an 8 PM Eastern end isn't shown as the next day.
+const mediumDate = (value?: string | null, timeZone?: string | null) => {
+  if (!value) return null
+  try { return new Date(value).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: timeZone || 'America/New_York' }) }
+  catch { return new Date(value).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'America/New_York' }) }
+}
 const scrollToSection = () => window.setTimeout(() => document.getElementById('register')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
 
 type Pending = { formData?: RegistrationForm; registration?: CreatedRegistration; paymentPolicyAccepted?: boolean; paymentPolicySignature?: string }
@@ -62,7 +69,7 @@ function statusChipColor(status?: string) {
 const isSessionFull = (c: BrokerClass) => c.status === 'FULL' || (c.seat_capacity != null && (c.seats_remaining ?? 0) <= 0)
 const deadlinePassed = (c: BrokerClass) => Boolean(c.registration_deadline && new Date(c.registration_deadline) < new Date())
 const isSessionSelectable = (c: BrokerClass) => (c.status || 'OPEN') === 'OPEN' && !isSessionFull(c) && !deadlinePassed(c)
-const sessionDates = (c?: BrokerClass) => c?.starts_at ? `${mediumDate(c.starts_at)}${c.ends_at ? ` – ${mediumDate(c.ends_at)}` : ''}` : 'Rolling enrollment'
+const sessionDates = (c?: BrokerClass) => c?.starts_at ? `${mediumDate(c.starts_at, c.timezone)}${c.ends_at ? ` – ${mediumDate(c.ends_at, c.timezone)}` : ''}` : 'Rolling enrollment'
 const sessionPlace = (c?: BrokerClass) => c?.allows_online && c?.allows_in_person ? 'Online / Zoom or In Person' : c?.allows_in_person ? (c.location || 'In Person') : 'Online / Zoom'
 
 function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selected: boolean; onSelect: () => void; program: MasterclassProgram }) {
@@ -99,7 +106,7 @@ function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selec
           <Box sx={{ bgcolor: '#e30613', color: '#fff', px: 1.15, py: 0.5, fontSize: '.7rem', fontWeight: 950, letterSpacing: '.08em', borderRadius: 0.75 }}>UPCOMING SESSION</Box>
           <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: broker ? '1rem' : '1.15rem', lineHeight: 1.05, fontWeight: 950, textTransform: 'uppercase' }}>{c.name}</Typography>
           <Typography sx={{ color: broker ? '#ff5a5f' : '#e30613', fontSize: '.85rem', lineHeight: 1.15, fontWeight: 900, textTransform: 'uppercase' }}>{sessionDates(c)}</Typography>
-          <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: broker ? '1.75rem' : '2rem', lineHeight: 1, fontWeight: 950 }}>${dollars(c.price_cents, program).toFixed(2)}</Typography>
+          <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: broker ? '1.75rem' : '2rem', lineHeight: 1, fontWeight: 950 }}>{usd(dollars(c.price_cents, program))}</Typography>
         </Stack>
         {broker && <Box component="img" src={brokerLogo} alt="" sx={{ width: 112, height: 112, flexShrink: 0, objectFit: 'cover', borderRadius: 2, border: '1px solid rgba(255,255,255,.18)' }} />}
       </Box>
@@ -112,7 +119,7 @@ function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selec
         <Stack spacing={0.5} sx={{ mt: 1.25 }}>
           <Stack direction="row" alignItems="center" gap={0.75}><EventAvailableIcon fontSize="small" color="action" /><Typography variant="body2" color="text.secondary">{sessionDates(c)}</Typography></Stack>
           {(c.days_of_week || c.class_time) && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>{[c.days_of_week, c.class_time].filter(Boolean).join(' · ')}</Typography>}
-          {c.registration_deadline && <Typography variant="caption" color="warning.dark" sx={{ pl: 3.25 }}>Register by {mediumDate(c.registration_deadline)}</Typography>}
+          {c.registration_deadline && <Typography variant="caption" color="warning.dark" sx={{ pl: 3.25 }}>Register by {mediumDate(c.registration_deadline, c.timezone)}</Typography>}
           <Stack direction="row" alignItems="center" gap={0.75}>
             {c.delivery_mode === 'online' ? <VideocamIcon fontSize="small" color="action" /> : <PlaceIcon fontSize="small" color="action" />}
             <Typography variant="body2" color="text.secondary">{sessionPlace(c)}</Typography>
@@ -121,7 +128,7 @@ function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selec
         </Stack>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5, pt: 1.25, borderTop: '1px dashed', borderColor: 'divider' }}>
           <Stack>
-            <Typography variant="h6" fontWeight={950} color="secondary.main">${dollars(c.price_cents, program).toFixed(2)}</Typography>
+            <Typography variant="h6" fontWeight={950} color="secondary.main">{usd(dollars(c.price_cents, program))}</Typography>
             {c.seat_capacity != null && <Typography variant="caption" color={full ? 'error.main' : 'text.secondary'}>{full ? 'No seats left' : `${c.seats_remaining} seat${c.seats_remaining === 1 ? '' : 's'} left`}</Typography>}
           </Stack>
           <Button size="small" variant={selected ? 'contained' : 'outlined'} color="secondary" disabled={!selectable} tabIndex={-1} onClick={event => { event.stopPropagation(); if (selectable) onSelect() }}>
@@ -372,7 +379,7 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
                 </Stack>)}
                 <Stack direction="row" justifyContent="space-between" gap={2} sx={{ py: 0.5 }}>
                   <Typography variant="body2" fontWeight={800}>Amount paid</Typography>
-                  <Typography variant="body2" fontWeight={800} color="success.main">${total.toFixed(2)} USD (Stripe)</Typography>
+                  <Typography variant="body2" fontWeight={800} color="success.main">{usd(total)} USD (Stripe)</Typography>
                 </Stack>
               </Stack>
             </Paper>
@@ -434,7 +441,7 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
                 {selectedClass && <Typography variant="body2" color="text.secondary">{formData.attendanceType === 'online' ? 'Online / Zoom' : 'In Person'}</Typography>}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
                   <Typography fontWeight={800} variant="body2">Tuition / total due</Typography>
-                  <Typography variant="h6" fontWeight={950} color="secondary.main">${price.toFixed(2)}</Typography>
+                  <Typography variant="h6" fontWeight={950} color="secondary.main">{usd(price)}</Typography>
                 </Stack>
               </Paper>
             </Grid>
@@ -462,7 +469,7 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
               sx={{ py: 1.75, fontSize: '1.05rem', fontWeight: 800 }}
               startIcon={paymentLoading ? <CircularProgress size={20} color="inherit" /> : undefined}
             >
-              {paymentLoading ? 'Connecting to Stripe...' : `Proceed to Stripe Payment ($${price.toFixed(2)})`}
+              {paymentLoading ? 'Connecting to Stripe...' : `Proceed to Stripe Payment (${usd(price)})`}
             </Button>
             <Button variant="outlined" fullWidth onClick={editRegistration} disabled={paymentLoading} startIcon={<EditIcon />}>Edit registration information</Button>
           </Stack>
@@ -572,7 +579,7 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
                     <InputLabel id="freight-broker-class-label">{program.name} session</InputLabel>
                     <Select labelId="freight-broker-class-label" value={classes.some(c => c.id === formData.classId) ? formData.classId : ''} onChange={event => setFormData(current => ({ ...current, classId: event.target.value }))} label={`${program.name} session`}>
                       {classes.map(c => <MenuItem key={c.id} value={c.id} disabled={!isSessionSelectable(c)}>
-                        {c.name} — ${dollars(c.price_cents, program).toFixed(2)}{!isSessionSelectable(c) ? ' (unavailable)' : ''}
+                        {c.name} — {usd(dollars(c.price_cents, program))}{!isSessionSelectable(c) ? ' (unavailable)' : ''}
                       </MenuItem>)}
                     </Select>
                   </FormControl>
