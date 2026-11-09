@@ -1,10 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { masterclassProgram } from '../../../src/features/freightBroker/program'
 import { config, databaseConfigured } from '../config'
 import { escapeHtml, sendEmail } from './notifications'
 import { reconcileSession, stripeClient, stripeConfigured } from './stripe'
 import { serviceClient } from './supabase'
 
-// Automatic follow-up email for Dispatch Masterclass registrations that are
+// Automatic follow-up email for masterclass registrations that are
 // still unpaid a day after registering: asks the student whether they were
 // charged (reply to confirm) or invites them to complete their registration.
 
@@ -21,11 +22,12 @@ export function followUpDue(reg: Registration, ctx: { now: Date; delayHours: num
   return !ctx.emailHasPaid && !ctx.emailFollowedUpRecently
 }
 
-export function paymentFollowUpEmailHtml(firstName: string, registrationNo: string, amount: string) {
-  const link = 'https://imanlogistics.com/freight-dispatch-masterclass/'
+export function paymentFollowUpEmailHtml(firstName: string, registrationNo: string, amount: string, programId?: string | null) {
+  const program = masterclassProgram(programId)
+  const link = `https://imanlogistics.com${program.path}`
   return `<div style="font-family:Arial,sans-serif;max-width:600px;color:#1f2937">
 <p>Hello ${escapeHtml(firstName || 'there')},</p>
-<p>Thank you for registering for the Iman Logistics Freight Dispatch Masterclass (registration <strong>${escapeHtml(registrationNo)}</strong>). Due to a technical issue on our website, your registration still shows <strong>payment pending</strong> in our system.</p>
+<p>Thank you for registering for the Iman Logistics ${escapeHtml(program.name)} (registration <strong>${escapeHtml(registrationNo)}</strong>). Due to a technical issue on our website, your registration still shows <strong>payment pending</strong> in our system.</p>
 <p><strong>Did you see a payment of ${escapeHtml(amount)} to Iman Logistics on your bank or card statement?</strong></p>
 <ul><li><strong>If yes,</strong> please reply to this email to confirm (if possible, include the date and the last 4 digits of the card). Once we receive your reply, we will update your payment status and send your registration confirmation.</li>
 <li><strong>If no,</strong> you have not been charged. You can complete your registration anytime at <a href="${link}">${link}</a>.</li></ul>
@@ -33,20 +35,22 @@ export function paymentFollowUpEmailHtml(firstName: string, registrationNo: stri
 <p>Best regards,<br>Iman Logistics<br><a href="mailto:info@imanlogistics.com">info@imanlogistics.com</a></p></div>`
 }
 
-type Candidate = { id: string; registration_no: string; first_name: string; email: string; status: string; payment_status: string; created_at: string; class: { price_cents: number } | null }
+type Candidate = { id: string; program: string | null; registration_no: string; first_name: string; email: string; status: string; payment_status: string; created_at: string; class: { price_cents: number } | null }
 
 export async function runPaymentFollowUps(db: SupabaseClient, now = new Date()) {
   const { delayHours, batchSize } = config.paymentFollowUp
   const cutoff = new Date(now.getTime() - delayHours * 60 * 60 * 1000).toISOString()
-  const { data, error } = await db.from(ENTITY_TYPE).select('id, registration_no, first_name, email, status, payment_status, created_at, class:freight_dispatch_masterclass_classes(price_cents)')
+  const { data, error } = await db.from(ENTITY_TYPE).select('id, program, registration_no, first_name, email, status, payment_status, created_at, class:freight_dispatch_masterclass_classes(price_cents)')
     .eq('status', 'SUBMITTED').eq('payment_status', 'pending').lte('created_at', cutoff).order('created_at', { ascending: true }).limit(500)
   if (error) throw error
   const candidates = (data ?? []) as unknown as Candidate[]
   if (!candidates.length) return { candidates: 0, sent: 0, confirmedByStripe: 0, skipped: 0 }
 
   const emails = [...new Set(candidates.map(reg => reg.email.toLowerCase()))]
-  const { data: paidRows } = await db.from(ENTITY_TYPE).select('email').in('email', emails).eq('payment_status', 'paid')
-  const paidEmails = new Set((paidRows ?? []).map(row => String(row.email).toLowerCase()))
+  // Paying for one masterclass says nothing about a registration for the other.
+  const paidKey = (email: string, program?: string | null) => `${email.toLowerCase()}|${masterclassProgram(program).id}`
+  const { data: paidRows } = await db.from(ENTITY_TYPE).select('email, program').in('email', emails).eq('payment_status', 'paid')
+  const paidEmails = new Set((paidRows ?? []).map(row => paidKey(String(row.email), row.program)))
   const { data: sentRows } = await db.from('notification_log').select('entity_id, recipient, created_at').eq('template', TEMPLATE).eq('status', 'sent')
   const sentRegistrations = new Set((sentRows ?? []).map(row => String(row.entity_id)))
   const recentSince = now.getTime() - RECENT_DAYS * 24 * 60 * 60 * 1000
@@ -56,7 +60,7 @@ export async function runPaymentFollowUps(db: SupabaseClient, now = new Date()) 
   for (const reg of candidates) {
     if (totals.sent >= batchSize) break
     const email = reg.email.toLowerCase()
-    if (sentRegistrations.has(reg.id) || !followUpDue(reg, { now, delayHours, emailHasPaid: paidEmails.has(email), emailFollowedUpRecently: recentEmails.has(email) })) { totals.skipped += 1; continue }
+    if (sentRegistrations.has(reg.id) || !followUpDue(reg, { now, delayHours, emailHasPaid: paidEmails.has(paidKey(email, reg.program)), emailFollowedUpRecently: recentEmails.has(email) })) { totals.skipped += 1; continue }
 
     // Never ask "did you pay?" if Stripe says they did: check every unfinished checkout first.
     const { data: payments } = await db.from('payments').select('*').eq('broker_registration_id', reg.id).order('created_at', { ascending: false })
@@ -68,14 +72,14 @@ export async function runPaymentFollowUps(db: SupabaseClient, now = new Date()) 
     }
     if (stripeUnknown) { totals.skipped += 1; continue }
     const { data: fresh } = await db.from(ENTITY_TYPE).select('status, payment_status').eq('id', reg.id).single()
-    if (fresh?.payment_status !== 'pending' || fresh?.status !== 'SUBMITTED') { totals.confirmedByStripe += 1; paidEmails.add(email); continue }
+    if (fresh?.payment_status !== 'pending' || fresh?.status !== 'SUBMITTED') { totals.confirmedByStripe += 1; paidEmails.add(paidKey(email, reg.program)); continue }
 
     const cents = Number(payments?.[0]?.amount_cents ?? reg.class?.price_cents ?? 0)
     const delivery = await sendEmail({
       entityType: ENTITY_TYPE, entityId: reg.id, template: TEMPLATE, idempotencyKey: `payment-follow-up:${reg.id}`,
       from: config.freightBrokerEmailFrom, replyTo: 'info@imanlogistics.com', to: reg.email,
-      subject: 'Your Freight Dispatch Masterclass registration — please confirm your payment',
-      html: paymentFollowUpEmailHtml(reg.first_name, reg.registration_no, `$${(cents / 100).toFixed(2)}`),
+      subject: `Your ${masterclassProgram(reg.program).name} registration — please confirm your payment`,
+      html: paymentFollowUpEmailHtml(reg.first_name, reg.registration_no, `$${(cents / 100).toFixed(2)}`, reg.program),
     })
     if (delivery.status === 'sent') { totals.sent += 1; recentEmails.add(email) } else totals.skipped += 1
   }

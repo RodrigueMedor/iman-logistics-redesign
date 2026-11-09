@@ -1,3 +1,4 @@
+import type { MasterclassProgramId } from '../features/freightBroker/program'
 import { api } from './api'
 
 export type BackOfficeTable = 'contact_submissions' | 'consultation_bookings' | 'job_applications' | 'freight_dispatch_masterclass_registrations' | 'payments' | 'customers' | 'notification_log' | 'audit_logs'
@@ -77,6 +78,7 @@ export async function recordsForEmail(email: string) {
 
 export type BrokerClassRow = {
   id: string
+  program: MasterclassProgramId
   name: string
   description: string | null
   price_cents: number
@@ -100,10 +102,10 @@ export type BrokerClassRow = {
   seats_taken: number
   seats_remaining: number | null
 }
-export type BrokerClassInput = Omit<BrokerClassRow, 'id' | 'seats_taken' | 'seats_remaining'>
+export type BrokerClassInput = Omit<BrokerClassRow, 'id' | 'seats_taken' | 'seats_remaining' | 'program'> & { program?: MasterclassProgramId }
 export const brokerClassStatuses = ['OPEN', 'FULL', 'CLOSED', 'COMPLETED'] as const
 
-export const listBrokerClassesAdmin = () => api<BrokerClassRow[]>('/admin/freight-broker/classes', { auth: true })
+export const listBrokerClassesAdmin = (program?: MasterclassProgramId) => api<BrokerClassRow[]>(`/admin/freight-broker/classes${program ? `?program=${encodeURIComponent(program)}` : ''}`, { auth: true })
 export async function saveBrokerClass(values: BrokerClassInput, id?: string) {
   if (id) await api(`/admin/freight-broker/classes/${id}`, { method: 'PUT', body: values, auth: true })
   else await api('/admin/freight-broker/classes', { body: values, auth: true })
@@ -127,6 +129,8 @@ export type DashboardStats = {
   bookings: { total: number; pending: number; upcoming: number; unpaid: number }
   applications: { total: number; new: number; inProgress: number }
   brokerRegistrations: { total: number; confirmed: number; awaitingPayment: number }
+  // Missing until the Broker Master Class migration has run.
+  brokerMasterclassRegistrations?: { total: number; confirmed: number; awaitingPayment: number }
   payments: { paidCents: number; paidLast30DaysCents: number; pending: number }
   shipments: { total: number; inTransit: number; exceptions: number }
   customers: number

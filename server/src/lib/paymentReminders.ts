@@ -19,6 +19,10 @@ import { serviceClient } from './supabase'
 // process died mid-request, or Twilio timed out) is never repeated.
 
 export const PAYMENT_REMINDER_TEXT = 'IMAN Logistics: Your Dispatch Masterclass registration was received, but your payment is still pending. Please complete your payment to secure your registration. Reply STOP to unsubscribe.'
+// Same reminder, naming the program the student registered for.
+export const paymentReminderText = (program?: string | null) => program === 'broker_masterclass'
+  ? 'IMAN Logistics: Your Broker Master Class registration was received, but your payment is still pending. Please complete your payment to secure your registration. Reply STOP to unsubscribe.'
+  : PAYMENT_REMINDER_TEXT
 // Payment reminders are only for a submitted registration whose payment is
 // currently pending. Failed/canceled checkouts must not cause a reminder: the
 // student can start a new checkout, but that is a separate payment flow.
@@ -46,6 +50,7 @@ export type ReminderSettings = typeof config.paymentReminders
 
 export type ReminderRegistration = {
   id: string
+  program?: string | null
   status: string
   payment_status: string
   phone: string | null
@@ -123,7 +128,7 @@ const idempotencyKey = (registrationId: string, attempt: number) => `registratio
 
 async function loadRegistration(db: SupabaseClient, id: string) {
   const { data, error } = await db.from('freight_dispatch_masterclass_registrations')
-    .select('id, status, payment_status, phone, sms_consent_at, sms_opted_out_at, submitted_at, class:freight_dispatch_masterclass_classes(status, ends_at, registration_deadline, timezone)')
+    .select('id, program, status, payment_status, phone, sms_consent_at, sms_opted_out_at, submitted_at, class:freight_dispatch_masterclass_classes(status, ends_at, registration_deadline, timezone)')
     .eq('id', id).maybeSingle()
   if (error) throw error
   return data as ReminderRegistration | null
@@ -213,7 +218,7 @@ export async function processPaymentReminder(db: SupabaseClient, registrationId:
 
   const attempt = retrying?.attempt_number ?? (latest?.attempt_number ?? 0) + 1
   const sendAttempts = (retrying?.send_attempts ?? 0) + 1
-  const sending = { status: 'sending', send_attempts: sendAttempts, sending_started_at: now.toISOString(), next_retry_at: null, phone: phone!, body: PAYMENT_REMINDER_TEXT }
+  const sending = { status: 'sending', send_attempts: sendAttempts, sending_started_at: now.toISOString(), next_retry_at: null, phone: phone!, body: paymentReminderText(fresh?.program) }
   let reminderId: string
   if (retrying) {
     reminderId = retrying.id
@@ -229,7 +234,7 @@ export async function processPaymentReminder(db: SupabaseClient, registrationId:
     reminderId = inserted.id
   }
 
-  const delivery = await sendSms({ entityType: ENTITY_TYPE, entityId: registrationId, template: TEMPLATE, to: phone, body: PAYMENT_REMINDER_TEXT, idempotencyKey: idempotencyKey(registrationId, attempt), statusCallback: statusCallbackUrl() })
+  const delivery = await sendSms({ entityType: ENTITY_TYPE, entityId: registrationId, template: TEMPLATE, to: phone, body: paymentReminderText(fresh?.program), idempotencyKey: idempotencyKey(registrationId, attempt), statusCallback: statusCallbackUrl() })
   const at = new Date().toISOString()
 
   if (delivery.status === 'sent') {

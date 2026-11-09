@@ -1,9 +1,10 @@
 import { Alert, Box, Checkbox, FormControlLabel, Paper, Stack, TextField, Typography } from '@mui/material'
 import PolicyIcon from '@mui/icons-material/Policy'
-import { expectedSignatureName, FREIGHT_BROKER_POLICY_CHECKBOX, FREIGHT_BROKER_POLICY_TEXT, normalizePersonName } from './program'
+import { expectedSignatureName, MASTERCLASS_PROGRAMS, normalizePersonName, type MasterclassProgram } from './program'
 
 // Adapted from the school's DispatcherPolicyAgreement.
-export function PolicyAgreement({ firstName, lastName, accepted, signature, onAcceptedChange, onSignatureChange }: {
+export function PolicyAgreement({ program = MASTERCLASS_PROGRAMS.dispatch_masterclass, firstName, lastName, accepted, signature, onAcceptedChange, onSignatureChange }: {
+  program?: MasterclassProgram
   firstName: string
   lastName: string
   accepted: boolean
@@ -22,11 +23,11 @@ export function PolicyAgreement({ firstName, lastName, accepted, signature, onAc
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 3, bgcolor: '#fff9e6', borderColor: '#ffe082', borderRadius: 2 }}>
-        <Typography variant="subtitle2" fontWeight={800} color="#b78103" gutterBottom>FREIGHT DISPATCH MASTERCLASS NON-REFUNDABLE POLICY</Typography>
-        <Typography variant="body1" fontWeight={600} color="#3e2723" sx={{ lineHeight: 1.6 }}>{FREIGHT_BROKER_POLICY_TEXT}</Typography>
+        <Typography variant="subtitle2" fontWeight={800} color="#b78103" gutterBottom>{program.name.toUpperCase()} NON-REFUNDABLE POLICY</Typography>
+        <Typography variant="body1" fontWeight={600} color="#3e2723" sx={{ lineHeight: 1.6 }}>{program.policyText}</Typography>
         <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #ffe57f' }}>
           <Typography variant="caption" color="text.secondary">
-            Payments are securely processed by Stripe. Once confirmed, tuition credits may be applied toward any future scheduled Freight Dispatch Masterclass session.
+            Payments are securely processed by Stripe. Once confirmed, tuition credits may be applied toward any future scheduled {program.name} session.
           </Typography>
         </Box>
       </Paper>
@@ -34,7 +35,7 @@ export function PolicyAgreement({ firstName, lastName, accepted, signature, onAc
       <Box sx={{ p: 2, border: '2px solid', borderColor: accepted ? 'success.main' : 'divider', borderRadius: 2, bgcolor: accepted ? '#f0fdf4' : 'transparent', transition: 'border-color 0.2s, background-color 0.2s' }}>
         <FormControlLabel
           control={<Checkbox checked={accepted} onChange={event => onAcceptedChange(event.target.checked)} color="success" required />}
-          label={<Typography variant="body2" fontWeight={700}>{FREIGHT_BROKER_POLICY_CHECKBOX}</Typography>}
+          label={<Typography variant="body2" fontWeight={700}>{program.policyCheckbox}</Typography>}
         />
       </Box>
 

@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { CircularProgress, Stack } from '@mui/material'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { SiteLayout } from '../components/layout/SiteLayout'
 import { ProtectedRoute } from '../components/auth/ProtectedRoute'
 import { AdminLayout } from '../components/layout/AdminLayout'
@@ -9,6 +9,7 @@ import { backOfficeRoles } from '../contexts/AuthContext'
 
 const Home = lazy(() => import('../pages/Home'))
 const DispatchMasterclass = lazy(() => import('../pages/DispatchMasterclass'))
+const FreightBrokerMasterclass = lazy(() => import('../pages/FreightBrokerMasterclass'))
 const About = lazy(() => import('../pages/About'))
 const TruckingSchool = lazy(() => import('../pages/TruckingSchool'))
 const Contact = lazy(() => import('../pages/Contact'))
@@ -55,8 +56,10 @@ export function AppRoutes() {
         <Route path="admin/contacts/" element={<ContactsPage />} />
         <Route path="admin/bookings/" element={<BookingsPage />} />
         <Route path="admin/applications/" element={<ApplicationsPage />} />
-        <Route path="admin/dispatch-masterclass/" element={<BrokerRegistrationsPage />} />
-        <Route path="admin/dispatch-masterclass/classes/" element={<BrokerClassesPage />} />
+        <Route path="admin/dispatch-masterclass/" element={<BrokerRegistrationsPage program="dispatch_masterclass" />} />
+        <Route path="admin/dispatch-masterclass/classes/" element={<BrokerClassesPage program="dispatch_masterclass" />} />
+        <Route path="admin/broker-masterclass/" element={<BrokerRegistrationsPage program="broker_masterclass" />} />
+        <Route path="admin/broker-masterclass/classes/" element={<BrokerClassesPage program="broker_masterclass" />} />
         <Route path="admin/notifications/" element={<NotificationsPage />} />
         <Route path="admin/payments/" element={<PaymentsPage />} />
         <Route path="admin/customers/" element={<CustomersPage />} />
@@ -81,7 +84,7 @@ export function AppRoutes() {
     <Route element={<SiteLayout />}>
       <Route index element={<Home />} />
       <Route path="freight-dispatch-masterclass/" element={<DispatchMasterclass />} />
-      <Route path="freight-broker-masterclass/" element={<ToDispatchMasterclass />} />
+      <Route path="freight-broker-masterclass/" element={<FreightBrokerMasterclass />} />
       <Route path="iman-trucking-school/" element={<TruckingSchool />} />
       <Route path="consultants/" element={<Consultation />} />
       <Route path="tracking/*" element={<Tracking />} />
@@ -97,9 +100,3 @@ export function AppRoutes() {
   </Routes></Suspense>
 }
 
-// The Freight Broker Masterclass page was retired; keep old links (including
-// #register) working by sending them to the Freight Dispatch Masterclass page.
-function ToDispatchMasterclass() {
-  const { hash } = useLocation()
-  return <Navigate to={`/freight-dispatch-masterclass/${hash}`} replace />
-}

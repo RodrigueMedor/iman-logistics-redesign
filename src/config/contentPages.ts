@@ -2,6 +2,7 @@ export const contentPages = [
   { value: 'global', label: 'Global header and footer', path: '/' },
   { value: 'home', label: 'Home', path: '/' },
   { value: 'freight-dispatch-masterclass', label: 'Freight Dispatch Masterclass', path: '/freight-dispatch-masterclass/' },
+  { value: 'freight-broker-master-class', label: 'Freight Broker Master Class', path: '/freight-broker-masterclass/' },
   { value: 'iman-trucking-school', label: 'Iman Trucking School', path: '/iman-trucking-school/' },
   { value: 'consultants', label: 'Consultation', path: '/consultants/' },
   { value: 'tracking', label: 'Shipment Tracking', path: '/tracking/' },

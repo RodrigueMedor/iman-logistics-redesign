@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
-import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_POLICY_VERSION, FREIGHT_BROKER_PROGRAM, FREIGHT_BROKER_SMS_CONSENT_TEXT, normalizePersonName } from '../../../src/features/freightBroker/program'
+import { isMasterclassProgram, MASTERCLASS_PROGRAMS, masterclassProgram, normalizePersonName } from '../../../src/features/freightBroker/program'
 import { config } from '../config'
 import { backOffice, requireRole, staff, superAdminOnly } from '../lib/auth'
 import { classIsFull, loadRegistration, makeRegistrationNo } from '../lib/freightBroker'
@@ -10,9 +10,19 @@ import { checkoutReturnUrl, stripeClient } from '../lib/stripe'
 import { publicClient, serviceClient } from '../lib/supabase'
 import { freightBrokerCheckout, freightBrokerClassInput, freightBrokerRegistration, registrationVerificationCode, registrationVerificationResend, registrationVerificationStart } from '../schemas'
 
-// Freight Dispatch Masterclass registration: the Iman Trucking School dispatcher
-// registration endpoints (/api/create-dispatcher-registration and
-// /api/create-dispatcher-checkout), adapted to this API.
+// Masterclass registration (Freight Dispatch Masterclass and Freight Broker
+// Master Class): the Iman Trucking School dispatcher registration endpoints
+// (/api/create-dispatcher-registration and /api/create-dispatcher-checkout),
+// adapted to this API. Each class session belongs to one program; everything
+// shown, signed, and charged follows the program of the session.
+
+// Stripe needs an absolute, publicly reachable image. The Dispatch image is a
+// Vite asset whose content hash is stable; the Broker logo is served from public/.
+const checkoutImages = {
+  dispatch_masterclass: '/assets/freight-dispatch-session-promo-CiPnRAQU.png',
+  broker_masterclass: '/images/freight-broker-master-class.jpg',
+} as const
+
 export const freightBrokerRoutes = Router()
 export const freightBrokerAdminRoutes = Router()
 
@@ -22,8 +32,9 @@ const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 // Stored as E.164 so SMS opt-outs (keyed by the number Twilio reports) match.
 const e164OrRaw = (value: string) => { try { return normalizeVerificationPhone(value) } catch { return value || null } }
 
-freightBrokerRoutes.get('/classes', async (_req, res) => {
-  const { data, error } = await publicClient().rpc('freight_broker_open_classes')
+freightBrokerRoutes.get('/classes', async (req, res) => {
+  const program = isMasterclassProgram(req.query.program) ? req.query.program : 'dispatch_masterclass'
+  const { data, error } = await publicClient().rpc('freight_broker_open_classes', { p_program: program })
   if (error) throw error
   // Always live: back-office edits must show on the website immediately.
   res.set('Cache-Control', 'no-store').json(data)
@@ -48,6 +59,7 @@ freightBrokerRoutes.post('/verifications/:id/resend', verificationRequests, asyn
 
 freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
   const input = parse(freightBrokerRegistration, req.body, 'Complete every required registration field.')
+  const program = MASTERCLASS_PROGRAMS[input.program]
   const db = serviceClient()
 
   // Resolve exactly the session the student selected; never silently move a
@@ -55,10 +67,10 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
   const now = new Date().toISOString()
   let classRow: { id: string; allows_online: boolean; allows_in_person: boolean } | null = null
   if (isUuid(input.classId)) {
-    const { data } = await db.from('freight_dispatch_masterclass_classes').select('id, allows_online, allows_in_person').eq('id', input.classId).eq('status', 'OPEN').gte('ends_at', now).maybeSingle()
+    const { data } = await db.from('freight_dispatch_masterclass_classes').select('id, allows_online, allows_in_person').eq('id', input.classId).eq('program', program.id).eq('status', 'OPEN').gte('ends_at', now).maybeSingle()
     classRow = data
   }
-  if (!classRow) throw new HttpError(404, 'The selected Freight Dispatch Masterclass session is not available.')
+  if (!classRow) throw new HttpError(404, `The selected ${program.name} session is not available.`)
   if (input.attendanceType === 'online' && !classRow.allows_online) throw new HttpError(409, 'Online attendance is not available for this session.')
   if (input.attendanceType === 'in_person' && !classRow.allows_in_person) throw new HttpError(409, 'In-person attendance is not available for this session.')
 
@@ -69,7 +81,8 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
   const verification = await consumeRegistrationVerification(db, input.verificationId, input.verificationToken, email, input.phone)
 
   const { data, error } = await db.from('freight_dispatch_masterclass_registrations').insert({
-    registration_no: makeRegistrationNo(),
+    program: program.id,
+    registration_no: makeRegistrationNo(program.id),
     first_name: input.firstName, last_name: input.lastName, email, phone: e164OrRaw(input.phone),
     address_line1: input.address1, address_line2: input.address2 || null, city: input.city, state: input.state, zip_code: input.zip,
     class_id: classRow.id, attendance_type: input.attendanceType,
@@ -77,9 +90,9 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
     status: 'SUBMITTED', payment_status: 'pending',
     // A database trigger schedules SMS payment reminders when consent is given.
     ...(input.smsConsent
-      ? { sms_consent_at: now, sms_consent_text: FREIGHT_BROKER_SMS_CONSENT_TEXT, sms_consent_declined_at: null }
+      ? { sms_consent_at: now, sms_consent_text: program.smsConsentText, sms_consent_declined_at: null }
       : { sms_consent_at: null, sms_consent_text: null, sms_consent_declined_at: now }),
-  }).select('id, registration_no, class_id').single()
+  }).select('id, registration_no, class_id, program').single()
   if (error) throw error
   res.status(201).json(data)
 })
@@ -92,6 +105,7 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
 
   const registration = await loadRegistration(db, String(req.params.id))
   if (!registration) throw new HttpError(404, 'Registration not found.')
+  const program = masterclassProgram(registration.program)
   if (registration.email !== input.email.toLowerCase()) throw new HttpError(400, 'Email does not match the registration.')
   if (registration.payment_status === 'paid') throw new HttpError(400, 'This registration has already been paid and confirmed.')
   if (registration.status === 'CANCELED') throw new HttpError(409, 'This registration was canceled. Please register again.')
@@ -119,24 +133,24 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
     }
   }
 
-  const policy = { payment_policy_version: FREIGHT_BROKER_POLICY_VERSION, payment_policy_signature: input.paymentPolicySignature, payment_policy_accepted_at: new Date().toISOString(), payment_policy_text: FREIGHT_BROKER_POLICY_TEXT }
+  const policy = { payment_policy_version: program.policyVersion, payment_policy_signature: input.paymentPolicySignature, payment_policy_accepted_at: new Date().toISOString(), payment_policy_text: program.policyText }
   const metadata = {
-    program: FREIGHT_BROKER_PROGRAM.id,
-    payment_type: FREIGHT_BROKER_PROGRAM.id,
+    program: program.id,
+    payment_type: program.id,
     registration_no: registration.registration_no,
     freight_broker_registration_id: registration.id,
     class_id: registration.class.id,
     class_name: registration.class.name,
     attendance_type: registration.attendance_type,
     expected_amount: priceCents,
-    policy_text: FREIGHT_BROKER_POLICY_TEXT,
+    policy_text: program.policyText,
     ...policy,
   }
   const { data: payment, error } = await db.from('payments').insert({
     broker_registration_id: registration.id,
     payer_name: `${registration.first_name} ${registration.last_name}`,
     payer_email: registration.email,
-    description: `${FREIGHT_BROKER_PROGRAM.name} · ${registration.registration_no}`,
+    description: `${program.name} · ${registration.registration_no}`,
     amount_cents: priceCents, currency: 'USD', method: 'card', status: 'pending', provider: 'stripe', metadata,
   }).select('id').single()
   if (error) throw error
@@ -154,27 +168,25 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
         currency: 'usd',
         unit_amount: priceCents,
         product_data: {
-          name: `${FREIGHT_BROKER_PROGRAM.name} Registration - ${registration.class.name}`,
+          name: `${program.name} Registration - ${registration.class.name}`,
           description: `${registration.attendance_type === 'online' ? 'Online / Zoom' : 'In Person'} attendance · Registration ${registration.registration_no} · Iman Logistics`,
-          // Stripe requires an absolute, publicly reachable image URL. Vite's
-          // content hash is stable for this promotional asset across builds.
-          images: [`${config.appUrl.replace(/\/$/, '')}/assets/freight-dispatch-session-promo-CiPnRAQU.png`],
+          images: [`${config.appUrl.replace(/\/$/, '')}${checkoutImages[program.id]}`],
         },
       },
     }],
-    custom_text: { submit: { message: FREIGHT_BROKER_POLICY_TEXT } },
+    custom_text: { submit: { message: program.policyText } },
     expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-    success_url: checkoutReturnUrl('/freight-dispatch-masterclass/', { payment: 'success', session_id: '{CHECKOUT_SESSION_ID}' }),
-    cancel_url: checkoutReturnUrl('/freight-dispatch-masterclass/', { payment: 'canceled', session_id: '{CHECKOUT_SESSION_ID}' }),
+    success_url: checkoutReturnUrl(program.path, { payment: 'success', session_id: '{CHECKOUT_SESSION_ID}' }),
+    cancel_url: checkoutReturnUrl(program.path, { payment: 'canceled', session_id: '{CHECKOUT_SESSION_ID}' }),
     metadata: {
       payment_id: payment.id,
-      program: FREIGHT_BROKER_PROGRAM.id,
-      payment_type: FREIGHT_BROKER_PROGRAM.id,
+      program: program.id,
+      payment_type: program.id,
       freight_broker_registration_id: registration.id,
       registration_no: registration.registration_no,
       expected_amount: String(priceCents),
       app_email: registration.email,
-      payment_policy_version: FREIGHT_BROKER_POLICY_VERSION,
+      payment_policy_version: program.policyVersion,
     },
   })
 
@@ -189,19 +201,23 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
 // ---------------------------------------------------------------------------
 
 freightBrokerAdminRoutes.get('/classes', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes_admin').select('*').order('starts_at', { ascending: false })
+  let query = staff(req).db.from('freight_dispatch_masterclass_classes_admin').select('*')
+  if (isMasterclassProgram(req.query.program)) query = query.eq('program', req.query.program)
+  const { data, error } = await query.order('starts_at', { ascending: false })
   if (error) throw error
   res.json(data)
 })
 
 freightBrokerAdminRoutes.post('/classes', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').insert(parse(freightBrokerClassInput, req.body)).select('*').single()
+  const input = parse(freightBrokerClassInput, req.body)
+  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').insert({ ...input, program: input.program ?? 'dispatch_masterclass' }).select('*').single()
   if (error) throw error
   res.status(201).json(data)
 })
 
 freightBrokerAdminRoutes.put('/classes/:id', requireRole(backOffice), async (req, res) => {
   const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').update(parse(freightBrokerClassInput, req.body)).eq('id', req.params.id).select('*').maybeSingle()
+  if (error?.code === '23514') throw new HttpError(409, 'This class session already has registrations, so it cannot be moved to another masterclass.')
   if (error) throw error
   if (!data) throw new HttpError(404, 'Class session not found.')
   res.json(data)

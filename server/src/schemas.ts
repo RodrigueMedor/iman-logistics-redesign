@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { consultationSlots, meetingTypes, serviceCatalog } from '../../src/features/consultation/serviceCatalog'
+import { MASTERCLASS_PROGRAM_IDS } from '../../src/features/freightBroker/program'
 
 // Request schemas. Each one validates requests AND generates the OpenAPI
 // (Swagger) documentation, so the docs cannot drift from the code.
@@ -70,6 +71,7 @@ export const listQuery = z.object({
   method: z.string().max(40).optional(),
   entity_type: z.string().max(60).optional(),
   channel: z.string().max(20).optional(),
+  program: z.enum(MASTERCLASS_PROGRAM_IDS).optional(),
 })
 
 export const recordUpdate = z.object({
@@ -176,9 +178,11 @@ export const imageUpload = z.object({
   size: z.number().int().positive().max(5 * 1024 * 1024, 'Images must be 5 MB or smaller.'),
 }).meta({ id: 'ImageUploadInput' })
 
-// Freight Dispatch Masterclass registration (adapted from Dispatcher Class Registration)
+// Masterclass registration (Freight Dispatch or Freight Broker; adapted from Dispatcher Class Registration)
+const masterclassProgramId = z.enum(MASTERCLASS_PROGRAM_IDS, 'Unknown masterclass program.')
 const requiredText = (label: string, max: number) => z.string().trim().min(1, `${label} is required.`).max(max)
 export const freightBrokerRegistration = z.object({
+  program: masterclassProgramId.default('dispatch_masterclass').meta({ description: 'Which masterclass the session belongs to. The class session must be in this program.' }),
   firstName: requiredText('First name', 80).meta({ example: 'Jordan' }),
   lastName: requiredText('Last name', 80).meta({ example: 'Customer' }),
   email: z.email('Enter a valid email address').max(254),
@@ -206,11 +210,13 @@ export const registrationVerificationResend = z.object({ channel: z.enum(['email
 export const freightBrokerCheckout = z.object({
   email: z.email().max(254).meta({ description: 'Must match the registration.' }),
   classId: z.string().max(80).optional().meta({ description: 'If sent, must match the registration’s class.' }),
-  paymentPolicyAccepted: z.literal(true, 'You must accept the Freight Dispatch Masterclass registration policy before checkout.'),
+  paymentPolicyAccepted: z.literal(true, 'You must accept the masterclass registration policy before checkout.'),
   paymentPolicySignature: z.string().trim().min(2, 'Type your full legal name to sign the policy.').max(160).meta({ description: 'Full legal name exactly as entered on the registration.', example: 'Jordan Customer' }),
 }).meta({ id: 'FreightBrokerCheckoutInput' })
 
 export const freightBrokerClassInput = z.object({
+  // Optional so an update never moves a session to another program by omission.
+  program: masterclassProgramId.optional().meta({ description: 'New sessions default to dispatch_masterclass.' }),
   name: z.string().trim().min(2).max(200),
   description: z.string().trim().max(2000).nullable().default(null),
   price_cents: z.number().int().positive('Price must be greater than zero.').max(1_000_000),

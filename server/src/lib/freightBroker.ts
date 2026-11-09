@@ -1,15 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM } from '../../../src/features/freightBroker/program'
+import { masterclassProgram, type MasterclassProgramId } from '../../../src/features/freightBroker/program'
 import { config } from '../config'
 import { escapeHtml, sendEmail, sendSms } from './notifications'
 
-// Freight Dispatch Masterclass registration helpers, adapted from the dispatcher
+// Masterclass registration helpers (Freight Dispatch and Freight Broker), adapted from the dispatcher
 // registration in the Iman Trucking School server (server-express.js).
 
 const registrationSelect = '*, class:freight_dispatch_masterclass_classes(id, name, status, starts_at, ends_at, registration_deadline, days_of_week, class_time, delivery_mode, location, instructor_name, price_cents, timezone, allows_online, allows_in_person, zoom_join_url, online_instructions, physical_location, in_person_instructions)'
 
 export type RegistrationRow = {
   id: string
+  program?: string | null
   registration_no: string
   first_name: string
   last_name: string
@@ -34,10 +35,10 @@ export type RegistrationRow = {
   class: { id: string; name: string; status: string; starts_at: string; ends_at: string; registration_deadline: string | null; days_of_week: string | null; class_time: string | null; delivery_mode: 'online' | 'in_person' | null; location: string | null; instructor_name: string | null; price_cents: number; timezone: string; allows_online: boolean; allows_in_person: boolean; zoom_join_url: string | null; online_instructions: string; physical_location: string | null; in_person_instructions: string } | null
 }
 
-export function makeRegistrationNo() {
+export function makeRegistrationNo(programId?: MasterclassProgramId) {
   const stamp = Date.now().toString(36).toUpperCase()
   const suffix = Math.random().toString(36).slice(2, 8).toUpperCase()
-  return `${FREIGHT_BROKER_PROGRAM.registrationPrefix}-${new Date().getFullYear()}-${stamp}${suffix}`
+  return `${masterclassProgram(programId).registrationPrefix}-${new Date().getFullYear()}-${stamp}${suffix}`
 }
 
 export async function loadRegistration(db: SupabaseClient, id: string) {
@@ -57,10 +58,12 @@ export async function classIsFull(db: SupabaseClient, classId: string) {
 // The confirmation page's view of a registration (the school's
 // PaymentRegistrationDetails, with the class fields added by the redesign).
 export function registrationDetails(row: RegistrationRow) {
+  const program = masterclassProgram(row.program)
   return {
     id: row.id,
     registrationNo: row.registration_no,
-    program: FREIGHT_BROKER_PROGRAM.id,
+    program: program.id,
+    programName: program.name,
     firstName: row.first_name,
     lastName: row.last_name,
     email: row.email,
@@ -69,7 +72,7 @@ export function registrationDetails(row: RegistrationRow) {
     city: row.city,
     state: row.state,
     zip: row.zip_code,
-    className: row.class?.name || FREIGHT_BROKER_PROGRAM.defaultClassName,
+    className: row.class?.name || program.defaultClassName,
     classStartsAt: row.class?.starts_at ?? null,
     classEndsAt: row.class?.ends_at ?? null,
     classDaysOfWeek: row.class?.days_of_week ?? null,
@@ -87,7 +90,8 @@ export function registrationDetails(row: RegistrationRow) {
     policySignature: row.payment_policy_signature,
     policyAcceptedAt: row.payment_policy_accepted_at,
     policyVersion: row.payment_policy_version,
-    policyText: FREIGHT_BROKER_POLICY_TEXT,
+    // The wording the student actually signed, else the program's current policy.
+    policyText: row.payment_policy_text || program.policyText,
   }
 }
 
@@ -96,11 +100,14 @@ type PaidPayment = { id: string; amount_cents: number; paid_at: string | null; s
 // Same content as the live school's payment notifications
 // (buildNotificationContext / paymentNotificationEmailHtml / SMS text).
 function notificationContext(row: RegistrationRow, payment: PaidPayment) {
+  const program = masterclassProgram(row.program)
   return {
+    programName: program.name,
+    adminPath: program.adminPath,
     firstName: row.first_name,
     name: `${row.first_name} ${row.last_name}`.trim() || 'Customer',
     amount: `$${(payment.amount_cents / 100).toFixed(2)}`,
-    program: row.class?.name || FREIGHT_BROKER_PROGRAM.defaultClassName,
+    program: row.class?.name || program.defaultClassName,
     registrationNo: row.registration_no,
     transactionId: payment.stripe_payment_intent_id || payment.stripe_checkout_session_id || payment.id,
     date: new Date(payment.paid_at || Date.now()).toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/New_York' }),
@@ -137,7 +144,7 @@ function staffPaymentEmailHtml(ctx: Context) {
         ${line(ctx.attendance === 'Online / Zoom' ? 'Zoom information' : 'Class location', ctx.attendanceDetails)}
         ${ctx.instructions ? line('Instructions', ctx.instructions) : ''}
       </div>
-      <p>Review this registration in the <a href="${new URL('/admin/dispatch-masterclass/', config.appUrl)}">back office</a>.</p>
+      <p>Review this registration in the <a href="${new URL(ctx.adminPath, config.appUrl)}">back office</a>.</p>
       <p>Best regards,<br>Iman Logistics</p>
     </div>`
 }
@@ -167,7 +174,7 @@ export function studentConfirmationEmailHtml(row: RegistrationRow, payment: Paid
       <div style="text-align: center;">
         <div style="display: inline-block; width: 56px; height: 56px; line-height: 56px; border-radius: 50%; background: #4caf50; color: #fff; font-size: 32px; font-weight: bold;">&#10003;</div>
         <h2 style="color: #0A005A; margin: 12px 0 8px;">Registration completed!</h2>
-        <p style="color: #4b5563; margin: 0 0 20px;">Thank you, ${escapeHtml(ctx.firstName || 'Student')}! Your seat in the ${escapeHtml(FREIGHT_BROKER_PROGRAM.name)} is confirmed.</p>
+        <p style="color: #4b5563; margin: 0 0 20px;">Thank you, ${escapeHtml(ctx.firstName || 'Student')}! Your seat in the ${escapeHtml(ctx.programName)} is confirmed.</p>
         <div style="background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 10px; padding: 14px; margin-bottom: 20px;">
           <div style="font-size: 12px; font-weight: bold; letter-spacing: 1px; color: #2e7d32; text-transform: uppercase;">Confirmed registration number</div>
           <div style="font-size: 22px; font-weight: 900; color: #1b5e20; letter-spacing: 1px; word-break: break-all;">${escapeHtml(ctx.registrationNo)}</div>
@@ -182,7 +189,7 @@ export function studentConfirmationEmailHtml(row: RegistrationRow, payment: Paid
       </div>
       <div style="background: #fff9e6; border: 1px solid #ffe082; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; color: #3e2723;">
         <div style="font-weight: bold; margin-bottom: 6px;">Registration policy acknowledged</div>
-        <div style="font-size: 14px;">${escapeHtml(row.payment_policy_text || FREIGHT_BROKER_POLICY_TEXT)}</div>
+        <div style="font-size: 14px;">${escapeHtml(row.payment_policy_text || masterclassProgram(row.program).policyText)}</div>
         ${row.payment_policy_signature ? `<div style="font-size: 12px; font-style: italic; margin-top: 10px;">Electronically signed by ${escapeHtml(row.payment_policy_signature)}${escapeHtml(signedAt)}</div>` : ''}
       </div>
       <p style="font-size: 14px;">Our team will contact you with course access and materials prior to start. Your calendar invite and signed agreement are attached to this email.</p>
@@ -194,19 +201,20 @@ const icsEscape = (value: string) => value.replace(/\\/g, '\\\\').replace(/\n/g,
 const icsDate = (value: string) => new Date(value).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
 function calendarInvite(row: RegistrationRow, ctx: Context) {
   const location = row.attendance_type === 'online' ? ctx.attendanceDetails : (row.class?.physical_location || row.class?.location || '')
-  const description = [FREIGHT_BROKER_PROGRAM.name, `Registration ${row.registration_no}`, ctx.attendance, ctx.attendanceDetails, ctx.instructions].filter(Boolean).join('\n')
+  const description = [ctx.programName, `Registration ${row.registration_no}`, ctx.attendance, ctx.attendanceDetails, ctx.instructions].filter(Boolean).join('\n')
   return [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Iman Logistics//Freight Dispatch Masterclass//EN', 'METHOD:REQUEST',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//Iman Logistics//${ctx.programName}//EN`, 'METHOD:REQUEST',
     'BEGIN:VEVENT', `UID:${row.id}@imanlogistics.com`, `DTSTAMP:${icsDate(new Date().toISOString())}`,
     `DTSTART:${icsDate(row.class?.starts_at || new Date().toISOString())}`, `DTEND:${icsDate(row.class?.ends_at || row.class?.starts_at || new Date().toISOString())}`,
-    `SUMMARY:${icsEscape(row.class?.name || FREIGHT_BROKER_PROGRAM.name)}`, `DESCRIPTION:${icsEscape(description)}`, `LOCATION:${icsEscape(location)}`,
+    `SUMMARY:${icsEscape(row.class?.name || ctx.programName)}`, `DESCRIPTION:${icsEscape(description)}`, `LOCATION:${icsEscape(location)}`,
     'STATUS:CONFIRMED', 'SEQUENCE:0', 'END:VEVENT', 'END:VCALENDAR', '',
   ].join('\r\n')
 }
 
 function signedAgreement(row: RegistrationRow) {
-  const policy = row.payment_policy_text || FREIGHT_BROKER_POLICY_TEXT
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Signed registration agreement</title></head><body style="font-family:Arial,sans-serif;max-width:760px;margin:40px auto;line-height:1.6"><h1>Freight Dispatch Masterclass Registration Agreement</h1><p><strong>Registration:</strong> ${escapeHtml(row.registration_no)}</p><p><strong>Student:</strong> ${escapeHtml(`${row.first_name} ${row.last_name}`)}</p><p><strong>Attendance:</strong> ${escapeHtml(row.attendance_type === 'online' ? 'Online / Zoom' : 'In Person')}</p><h2>Policy</h2><p>${escapeHtml(policy)}</p><hr><p><strong>Electronically signed by:</strong> ${escapeHtml(row.payment_policy_signature || '')}</p><p><strong>Accepted at:</strong> ${escapeHtml(row.payment_policy_accepted_at || '')}</p><p><strong>Policy version:</strong> ${escapeHtml(row.payment_policy_version || '')}</p></body></html>`
+  const program = masterclassProgram(row.program)
+  const policy = row.payment_policy_text || program.policyText
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Signed registration agreement</title></head><body style="font-family:Arial,sans-serif;max-width:760px;margin:40px auto;line-height:1.6"><h1>${escapeHtml(program.name)} Registration Agreement</h1><p><strong>Registration:</strong> ${escapeHtml(row.registration_no)}</p><p><strong>Student:</strong> ${escapeHtml(`${row.first_name} ${row.last_name}`)}</p><p><strong>Attendance:</strong> ${escapeHtml(row.attendance_type === 'online' ? 'Online / Zoom' : 'In Person')}</p><h2>Policy</h2><p>${escapeHtml(policy)}</p><hr><p><strong>Electronically signed by:</strong> ${escapeHtml(row.payment_policy_signature || '')}</p><p><strong>Accepted at:</strong> ${escapeHtml(row.payment_policy_accepted_at || '')}</p><p><strong>Policy version:</strong> ${escapeHtml(row.payment_policy_version || '')}</p></body></html>`
 }
 
 const smsText = (ctx: Context, forAdmin: boolean) => forAdmin
