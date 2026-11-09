@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react'
-import { Alert, Box, Button, Checkbox, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Box, Button, Checkbox, Chip, Container, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, MenuItem, Tooltip, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditIcon from '@mui/icons-material/Edit'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import GroupsIcon from '@mui/icons-material/Groups'
+import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import { Seo } from '../../components/common/Seo'
 import { useAuth } from '../../contexts/AuthContext'
 import { RecordsPage, StatusChip } from '../../features/backoffice/RecordsPage'
-import { brokerClassStatuses, deleteBrokerClass, formatDate, formatDateTime, formatMoney, listBrokerClassesAdmin, registrationNotifications, registrationPaymentReminders, retryRegistrationPaymentReminder, saveBrokerClass, type BrokerClassRow, type NotificationRow, type PaymentReminderState, type RecordRow } from '../../services/backoffice'
+import { brokerClassStatuses, deleteBrokerClass, recordRegistrationPayment, resendRegistrationConfirmation, transferRegistration, formatDate, formatDateTime, formatMoney, listBrokerClassesAdmin, registrationNotifications, registrationPaymentReminders, retryRegistrationPaymentReminder, saveBrokerClass, type BrokerClassRow, type NotificationRow, type PaymentReminderState, type RecordRow } from '../../services/backoffice'
 import { MASTERCLASS_PROGRAMS, type MasterclassProgramId } from '../../features/freightBroker/program'
-import { deliveryStatuses, masterclassRegistrationsConfig, notificationLogConfig, notificationStatuses, reminderStatuses } from './backOfficeConfigs'
+import { deliveryStatuses, masterclassRegistrationsConfig, notificationLogConfig, notificationStatuses, paymentMethods, reminderStatuses } from './backOfficeConfigs'
 
 function RegistrationNotifications({ id }: { id: string }) {
   const [rows, setRows] = useState<NotificationRow[] | null>(null)
@@ -75,10 +79,120 @@ function PaymentReminders({ id }: { id: string }) {
   </Box>
 }
 
-const renderRegistrationDetail = (row: RecordRow) => <><PaymentReminders id={String(row.id)} /><RegistrationNotifications id={String(row.id)} /></>
+const sessionLabel = (c: BrokerClassRow) => `${c.name} · ${formatDate(c.starts_at)}${c.status !== 'OPEN' ? ` (${c.status})` : ''}`
+
+// Staff actions for one registration: move to another session, record a
+// payment received outside Stripe, and resend the confirmation email.
+function RegistrationActions({ row, sessions, onChanged }: { row: RecordRow; sessions: BrokerClassRow[]; onChanged: () => void }) {
+  const id = String(row.id)
+  const paid = row.payment_status === 'paid'
+  const canceled = row.status === 'CANCELED'
+  const currentClass = sessions.find(c => c.id === row.class_id)
+  const [dialog, setDialog] = useState<'move' | 'payment' | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [move, setMove] = useState({ classId: '', allowFull: false, note: '' })
+  const [payment, setPayment] = useState({ method: 'zelle', amount: '', reference: '', note: '', sendConfirmation: true })
+
+  const run = async (action: () => Promise<string>) => {
+    setBusy(true); setError(''); setMessage('')
+    try { setMessage(await action()); setDialog(null); onChanged() }
+    catch (caught) { setError(caught instanceof Error ? caught.message : 'Something went wrong.') }
+    finally { setBusy(false) }
+  }
+  const openPayment = () => { setPayment({ method: 'zelle', amount: currentClass ? (currentClass.price_cents / 100).toFixed(2) : '', reference: '', note: '', sendConfirmation: true }); setError(''); setDialog('payment') }
+  const savePayment = () => {
+    const cents = Math.round(Number(payment.amount) * 100)
+    if (!Number.isFinite(cents) || cents <= 0) return setError('Enter the amount received.')
+    void run(async () => {
+      const result = await recordRegistrationPayment(id, { method: payment.method, amount_cents: cents, provider_reference: payment.reference, note: payment.note, sendConfirmation: payment.sendConfirmation })
+      return result.notificationError ? `Payment recorded and the registration is confirmed, but the confirmation had a problem: ${result.notificationError}` : `Payment recorded and the registration is confirmed.${payment.sendConfirmation ? ' The confirmation email was sent.' : ''}`
+    })
+  }
+  const targets = sessions.filter(c => c.id !== row.class_id)
+
+  return <Paper variant="outlined" sx={{ p: 2, mt: 2, borderRadius: 3 }}>
+    <Typography fontWeight={900} mb={1.5}>Staff actions</Typography>
+    <Stack direction="row" gap={1} flexWrap="wrap">
+      <Button variant="outlined" size="small" disabled={canceled || busy} onClick={() => { setMove({ classId: '', allowFull: false, note: '' }); setError(''); setDialog('move') }}>Move to another session</Button>
+      {!paid && <Button variant="outlined" size="small" color="success" disabled={canceled || busy} onClick={openPayment}>Record offline payment</Button>}
+      {paid && <Button variant="outlined" size="small" disabled={busy} onClick={() => void run(async () => { await resendRegistrationConfirmation(id); return 'Confirmation email sent again.' })}>{busy ? 'Sending…' : 'Resend confirmation email'}</Button>}
+    </Stack>
+    {canceled && <Typography variant="caption" color="text.secondary" display="block" mt={1}>Set the status back to Submitted or Confirmed to move this student or record a payment.</Typography>}
+    {paid && <Typography variant="caption" color="text.secondary" display="block" mt={1}>Refunds for card payments are issued in the Stripe Dashboard. Offline payments can be marked refunded on the Payments page.</Typography>}
+    {message && <Alert severity="success" sx={{ mt: 1.5 }} onClose={() => setMessage('')}>{message}</Alert>}
+    {error && !dialog && <Alert severity="error" sx={{ mt: 1.5 }}>{error}</Alert>}
+
+    <Dialog open={dialog === 'move'} onClose={() => !busy && setDialog(null)} maxWidth="sm" fullWidth>
+      <DialogTitle fontWeight={900}>Move to another session</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <Typography variant="body2" color="text.secondary">Current session: {currentClass ? sessionLabel(currentClass) : String((row.class as { name?: string } | null)?.name ?? 'none')}. The payment, if any, moves with the student.</Typography>
+          <TextField select label="New session" value={move.classId} onChange={event => setMove(current => ({ ...current, classId: event.target.value }))} required>
+            {!targets.length && <MenuItem value="" disabled>No other sessions. Create one on the Classes page first.</MenuItem>}
+            {targets.map(c => <MenuItem key={c.id} value={c.id}>{sessionLabel(c)} · {c.seat_capacity == null ? 'unlimited seats' : `${c.seats_remaining} seat${c.seats_remaining === 1 ? '' : 's'} left`}</MenuItem>)}
+          </TextField>
+          <FormControlLabel control={<Checkbox checked={move.allowFull} onChange={event => setMove(current => ({ ...current, allowFull: event.target.checked }))} />} label="Move even if the session is full" />
+          <TextField label="Reason (saved in the internal notes)" value={move.note} onChange={event => setMove(current => ({ ...current, note: event.target.value }))} multiline minRows={2} />
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={() => setDialog(null)} disabled={busy}>Cancel</Button>
+        <Button variant="contained" disabled={busy || !move.classId} onClick={() => void run(async () => { await transferRegistration(id, move); return 'Student moved to the new session.' })}>{busy ? 'Moving…' : 'Move student'}</Button>
+      </DialogActions>
+    </Dialog>
+
+    <Dialog open={dialog === 'payment'} onClose={() => !busy && setDialog(null)} maxWidth="sm" fullWidth>
+      <DialogTitle fontWeight={900}>Record offline payment</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 1 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <Typography variant="body2" color="text.secondary">For money received outside the website (cash, check, Zelle…). The registration becomes Confirmed and its seat is counted.</Typography>
+          <TextField select label="Method" value={payment.method} onChange={event => setPayment(current => ({ ...current, method: event.target.value }))}>
+            {paymentMethods.map(option => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
+          </TextField>
+          <TextField label="Amount received (USD)" type="number" value={payment.amount} onChange={event => setPayment(current => ({ ...current, amount: event.target.value }))} slotProps={{ htmlInput: { min: 0.01, step: '0.01' } }} required />
+          <TextField label="Reference (check number, Zelle confirmation…)" value={payment.reference} onChange={event => setPayment(current => ({ ...current, reference: event.target.value }))} />
+          <TextField label="Note" value={payment.note} onChange={event => setPayment(current => ({ ...current, note: event.target.value }))} multiline minRows={2} />
+          <FormControlLabel control={<Checkbox checked={payment.sendConfirmation} onChange={event => setPayment(current => ({ ...current, sendConfirmation: event.target.checked }))} />} label="Email the student their confirmation, calendar invite and signed agreement" />
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={() => setDialog(null)} disabled={busy}>Cancel</Button>
+        <Button variant="contained" color="success" disabled={busy} onClick={savePayment}>{busy ? 'Saving…' : 'Record payment'}</Button>
+      </DialogActions>
+    </Dialog>
+  </Paper>
+}
+
 export function BrokerRegistrationsPage({ program = 'dispatch_masterclass' }: { program?: MasterclassProgramId }) {
-  // key: switching boards remounts the page so search, filters and paging reset.
-  return <RecordsPage key={program} {...masterclassRegistrationsConfig(MASTERCLASS_PROGRAMS[program])} renderDetail={renderRegistrationDetail} />
+  const [searchParams, setSearchParams] = useSearchParams()
+  const sessionId = searchParams.get('session') ?? ''
+  const [sessions, setSessions] = useState<BrokerClassRow[]>([])
+  useEffect(() => { listBrokerClassesAdmin(program).then(setSessions).catch(() => setSessions([])) }, [program])
+  const config = useMemo(() => {
+    const base = masterclassRegistrationsConfig(MASTERCLASS_PROGRAMS[program])
+    const session = sessions.find(c => c.id === sessionId)
+    return {
+      ...base,
+      fixedFilters: { ...base.fixedFilters, ...(sessionId ? { class_id: sessionId } : {}) },
+      subtitle: session ? `Students registered for ${session.name} (${formatDate(session.starts_at)} – ${formatDate(session.ends_at)}).` : base.subtitle,
+      csvName: session ? `${base.csvName}-${session.starts_at.slice(0, 10)}` : base.csvName,
+      headerAction: () => <TextField select size="small" label="Session" value={sessions.some(c => c.id === sessionId) ? sessionId : ''} onChange={event => setSearchParams(event.target.value ? { session: event.target.value } : {})} sx={{ minWidth: 260 }}>
+        <MenuItem value="">All sessions</MenuItem>
+        {sessions.map(c => <MenuItem key={c.id} value={c.id}>{sessionLabel(c)}</MenuItem>)}
+      </TextField>,
+      renderDetail: (row: RecordRow, reload: () => void) => <>
+        <RegistrationActions row={row} sessions={sessions} onChanged={reload} />
+        <PaymentReminders id={String(row.id)} />
+        <RegistrationNotifications id={String(row.id)} />
+      </>,
+    }
+  }, [program, sessionId, sessions, setSearchParams])
+  // key: switching boards or sessions remounts the page so search, filters and paging reset.
+  return <RecordsPage key={`${program}:${sessionId}`} {...config} />
 }
 export function NotificationsPage() { return <RecordsPage {...notificationLogConfig} /> }
 
@@ -129,11 +243,18 @@ export function BrokerClassesPage({ program: programId = 'dispatch_masterclass' 
     setFormError('')
     setDialogOpen(true)
   }
+  // Copy a session's details into a new one; staff then set the new dates.
+  const openDuplicate = (row: BrokerClassRow) => {
+    openEdit(row)
+    setForm(current => ({ ...current, id: null, name: `${row.name} (copy)`, startsAt: '', endsAt: '', deadline: '', status: 'OPEN' }))
+  }
   const update = (key: keyof ClassForm, value: string) => setForm(current => ({ ...current, [key]: value }))
 
   const save = async () => {
     const price = Number(form.priceDollars)
     if (!form.name.trim() || !form.startsAt || !form.endsAt) return setFormError('Name, start, and end are required.')
+    if (new Date(form.endsAt) <= new Date(form.startsAt)) return setFormError('The end must be after the start.')
+    if (form.deadline && new Date(form.deadline) > new Date(form.endsAt)) return setFormError('The registration deadline must be before the session ends.')
     if (!Number.isFinite(price) || price <= 0) return setFormError('Enter a price greater than zero.')
     if (!form.allowsOnline && !form.allowsInPerson) return setFormError('Enable Online / Zoom, In Person, or both.')
     if (form.seatCapacity && (!Number.isInteger(Number(form.seatCapacity)) || Number(form.seatCapacity) < 0)) return setFormError('Seat capacity must be a whole number, or blank for unlimited.')
@@ -184,7 +305,7 @@ export function BrokerClassesPage({ program: programId = 'dispatch_masterclass' 
     <Seo title={`${program.shortName} Classes | Iman Logistics Back Office`} canonical={`${program.adminPath}classes/`} />
     <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'flex-end' }} spacing={2} mb={3}>
-        <Box><Typography component="h1" variant="h4" fontWeight={950}>{program.shortName} class sessions</Typography><Typography color="text.secondary" mt={.5}>OPEN sessions appear under "Upcoming sessions" on the {program.name} page. Seats are counted from paid registrations.</Typography></Box>
+        <Box><Typography component="h1" variant="h4" fontWeight={950}>{program.shortName} class sessions</Typography><Typography color="text.secondary" mt={.5}>OPEN sessions appear under "Upcoming sessions" on the {program.name} page. Seats are counted from paid registrations. Use Students to see everyone registered for a session.</Typography></Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New class session</Button>
       </Stack>
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
@@ -195,16 +316,18 @@ export function BrokerClassesPage({ program: programId = 'dispatch_masterclass' 
             <TableHead><TableRow>{['Session', 'Dates', 'Schedule', 'Price', 'Delivery', 'Seats', 'Status', ''].map(label => <TableCell key={label} sx={{ fontWeight: 900, whiteSpace: 'nowrap' }}>{label}</TableCell>)}</TableRow></TableHead>
             <TableBody>
               {rows.map(row => <TableRow key={row.id} hover>
-                <TableCell sx={{ py: 1.5 }}><Typography variant="body2" fontWeight={800}>{row.name}</Typography>{row.instructor_name && <Typography variant="caption" color="text.secondary">Instructor: {row.instructor_name}</Typography>}</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(row.starts_at)} – {formatDate(row.ends_at)}{row.registration_deadline && <Typography variant="caption" display="block" color="warning.dark">Register by {formatDate(row.registration_deadline)}</Typography>}</TableCell>
+                <TableCell sx={{ py: 1.5, minWidth: 180 }}><Typography variant="body2" fontWeight={800}>{row.name}</Typography>{row.instructor_name && <Typography variant="caption" color="text.secondary">Instructor: {row.instructor_name}</Typography>}</TableCell>
+                <TableCell sx={{ minWidth: 130 }}>{formatDate(row.starts_at)} –<br />{formatDate(row.ends_at)}{row.registration_deadline && <Typography variant="caption" display="block" color="warning.dark">Register by {formatDate(row.registration_deadline)}</Typography>}</TableCell>
                 <TableCell>{[row.days_of_week, row.class_time].filter(Boolean).join(' · ') || '—'}</TableCell>
                 <TableCell>{formatMoney(row.price_cents)}</TableCell>
                 <TableCell>{[row.allows_online && 'Online', row.allows_in_person && 'In person'].filter(Boolean).join(' / ')}</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.seat_capacity == null ? `${row.seats_taken} taken · unlimited` : `${row.seats_taken} / ${row.seat_capacity} · ${row.seats_remaining} left`}</TableCell>
+                <TableCell sx={{ minWidth: 90 }}>{row.seat_capacity == null ? `${row.seats_taken} paid` : `${row.seats_taken} / ${row.seat_capacity} paid`}<Typography variant="caption" display="block" color="text.secondary">{row.seat_capacity == null ? 'Unlimited seats' : `${row.seats_remaining} left`}</Typography></TableCell>
                 <TableCell><Chip size="small" label={row.status} color={statusColor(row.status)} sx={{ fontWeight: 800 }} /></TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                  <Button size="small" startIcon={<EditIcon />} onClick={() => openEdit(row)}>Edit</Button>
-                  {profile?.role === 'super_admin' && <Button size="small" color="error" onClick={() => void remove(row)}>Delete</Button>}
+                  <Button size="small" variant="outlined" startIcon={<GroupsIcon />} component={RouterLink} to={`${program.adminPath}?session=${row.id}`} sx={{ mr: .5 }}>Students</Button>
+                  <Tooltip title="Edit session"><IconButton size="small" aria-label={`Edit ${row.name}`} onClick={() => openEdit(row)}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                  <Tooltip title="Duplicate with new dates"><IconButton size="small" aria-label={`Duplicate ${row.name}`} onClick={() => openDuplicate(row)}><ContentCopyIcon fontSize="small" /></IconButton></Tooltip>
+                  {profile?.role === 'super_admin' && <Tooltip title="Delete session"><IconButton size="small" color="error" aria-label={`Delete ${row.name}`} onClick={() => void remove(row)}><DeleteOutlineIcon fontSize="small" /></IconButton></Tooltip>}
                 </TableCell>
               </TableRow>)}
               {!rows.length && <TableRow><TableCell colSpan={8} sx={{ py: 6, textAlign: 'center', color: 'text.secondary' }}>{loading ? 'Loading…' : 'No class sessions yet.'}</TableCell></TableRow>}

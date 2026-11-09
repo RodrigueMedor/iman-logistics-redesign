@@ -72,6 +72,7 @@ export const listQuery = z.object({
   entity_type: z.string().max(60).optional(),
   channel: z.string().max(20).optional(),
   program: z.enum(MASTERCLASS_PROGRAM_IDS).optional(),
+  class_id: z.uuid().optional(),
 })
 
 export const recordUpdate = z.object({
@@ -95,6 +96,20 @@ export const paymentInput = z.object({
 }).meta({ id: 'PaymentInput', description: 'A payment recorded by staff (cash, Zelle, check…). Stripe payments are created by checkout.' })
 
 const trackingEvent = z.object({ label: z.string().max(80), location: z.string().max(120), timestamp: z.string().max(80), completed: z.boolean(), detail: z.string().max(300) })
+export const registrationTransfer = z.object({
+  classId: z.uuid().meta({ description: 'The class session to move the student to. It must belong to the same masterclass.' }),
+  allowFull: z.boolean().default(false).meta({ description: 'Move the student even if the session has no seats left.' }),
+  note: z.string().trim().max(500).default(''),
+}).meta({ id: 'RegistrationTransfer' })
+
+export const registrationManualPayment = z.object({
+  method: z.enum(['cash', 'check', 'zelle', 'bank_transfer', 'intuit', 'card', 'other']),
+  amount_cents: z.number().int().min(1).max(100_000_000),
+  provider_reference: z.string().trim().max(200).default('').meta({ description: 'Check number, Zelle confirmation, receipt number…' }),
+  note: z.string().trim().max(1000).default(''),
+  sendConfirmation: z.boolean().default(true).meta({ description: 'Send the student confirmation email, calendar invite and signed agreement, plus the staff notice.' }),
+}).meta({ id: 'RegistrationManualPayment', description: 'A payment received outside Stripe for a masterclass registration.' })
+
 export const shipmentInput = z.object({
   reference: z.string().trim().toUpperCase().min(3).max(40).meta({ example: 'IMAN-13579' }),
   status: z.enum(['Pending pickup', 'In transit', 'Delivered', 'Exception']),

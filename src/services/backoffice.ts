@@ -112,6 +112,11 @@ export async function saveBrokerClass(values: BrokerClassInput, id?: string) {
 }
 export const deleteBrokerClass = (id: string) => api(`/admin/freight-broker/classes/${id}`, { method: 'DELETE', auth: true })
 
+export const transferRegistration = (id: string, values: { classId: string; allowFull: boolean; note: string }) => api(`/admin/freight-broker/registrations/${id}/transfer`, { body: values, auth: true })
+export type ManualRegistrationPayment = { method: string; amount_cents: number; provider_reference: string; note: string; sendConfirmation: boolean }
+export const recordRegistrationPayment = (id: string, values: ManualRegistrationPayment) => api<{ notificationError: string }>(`/admin/freight-broker/registrations/${id}/manual-payment`, { body: values, auth: true })
+export const resendRegistrationConfirmation = (id: string) => api<{ sent: boolean }>(`/admin/freight-broker/registrations/${id}/resend-confirmation`, { body: {}, auth: true })
+
 export type NotificationRow = { id: number; created_at: string; channel: string; template: string; recipient: string; subject: string; status: string; provider: string; error: string }
 export const registrationNotifications = (id: string) => api<NotificationRow[]>(`/admin/freight-broker/registrations/${id}/notifications`, { auth: true })
 

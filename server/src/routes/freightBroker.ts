@@ -3,12 +3,12 @@ import rateLimit from 'express-rate-limit'
 import { isMasterclassProgram, MASTERCLASS_PROGRAMS, masterclassProgram, normalizePersonName } from '../../../src/features/freightBroker/program'
 import { config } from '../config'
 import { backOffice, requireRole, staff, superAdminOnly } from '../lib/auth'
-import { classIsFull, loadRegistration, makeRegistrationNo } from '../lib/freightBroker'
+import { classIsFull, loadRegistration, makeRegistrationNo, resendStudentConfirmation, sendRegistrationPaidNotifications } from '../lib/freightBroker'
 import { HttpError, parse } from '../lib/http'
 import { consumeRegistrationVerification, normalizeVerificationPhone, resendRegistrationCode, startRegistrationVerification, verifyRegistrationCode } from '../lib/registrationVerification'
 import { checkoutReturnUrl, stripeClient } from '../lib/stripe'
 import { publicClient, serviceClient } from '../lib/supabase'
-import { freightBrokerCheckout, freightBrokerClassInput, freightBrokerRegistration, registrationVerificationCode, registrationVerificationResend, registrationVerificationStart } from '../schemas'
+import { freightBrokerCheckout, freightBrokerClassInput, freightBrokerRegistration, registrationManualPayment, registrationTransfer, registrationVerificationCode, registrationVerificationResend, registrationVerificationStart } from '../schemas'
 
 // Masterclass registration (Freight Dispatch Masterclass and Freight Broker
 // Master Class): the Iman Trucking School dispatcher registration endpoints
@@ -275,4 +275,83 @@ freightBrokerAdminRoutes.post('/registrations/:id/payment-reminders/retry', requ
   if (error) throw error
   if (!data || data.status !== 'scheduled' || !data.next_reminder_at) throw new HttpError(409, 'The registration is no longer eligible for SMS reminders.')
   res.json({ queued: true, nextReminderAt: data.next_reminder_at })
+})
+
+// ---------------------------------------------------------------------------
+// Back office: staff actions on a registration
+// ---------------------------------------------------------------------------
+
+const REGISTRATIONS = 'freight_dispatch_masterclass_registrations'
+const PAID_PAYMENT_FIELDS = 'id, broker_registration_id, amount_cents, paid_at, stripe_payment_intent_id, stripe_checkout_session_id'
+const staffNote = (actor: string, text: string) => `[${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC · ${actor}] ${text}`
+const appendNote = (existing: unknown, line: string) => [String(existing ?? '').trim(), line].filter(Boolean).join('\n')
+
+// Move a student to another session of the same masterclass, for example
+// when the non-refundable payment is used as credit toward a later session.
+freightBrokerAdminRoutes.post('/registrations/:id/transfer', requireRole(backOffice), async (req, res) => {
+  const input = parse(registrationTransfer, req.body)
+  const { db, staff: actor } = staff(req)
+  const { data: registration } = await db.from(REGISTRATIONS).select('id, program, class_id, status, attendance_type, staff_notes, class:freight_dispatch_masterclass_classes(name)').eq('id', req.params.id).maybeSingle()
+  if (!registration) throw new HttpError(404, 'Registration not found.')
+  if (registration.status === 'CANCELED') throw new HttpError(409, 'This registration is canceled. Change its status before moving it.')
+  if (registration.class_id === input.classId) throw new HttpError(409, 'The student is already in that session.')
+  const { data: target } = await db.from('freight_dispatch_masterclass_classes').select('id, name, program, allows_online, allows_in_person').eq('id', input.classId).maybeSingle()
+  if (!target) throw new HttpError(404, 'Class session not found.')
+  const program = masterclassProgram(registration.program)
+  if (target.program !== program.id) throw new HttpError(400, `Choose another ${program.name} session. Students can't be moved to a different masterclass.`)
+  if (!input.allowFull && await classIsFull(db, target.id)) throw new HttpError(409, 'That session has no seats left. Tick "Move even if the session is full" to move the student anyway.')
+
+  let attendance = registration.attendance_type
+  if (attendance === 'online' && !target.allows_online) attendance = 'in_person'
+  if (attendance === 'in_person' && !target.allows_in_person) attendance = 'online'
+  const fromName = (registration.class as { name?: string } | null)?.name ?? 'no session'
+  const note = staffNote(actor.email, `Moved from "${fromName}" to "${target.name}".${attendance !== registration.attendance_type ? ` Attendance changed to ${attendance === 'online' ? 'Online / Zoom' : 'In Person'}.` : ''}${input.note ? ` ${input.note}` : ''}`)
+  // Staff may only edit status and notes directly, so the session change is
+  // made by the server after the checks above; the note is written as the
+  // staff member so the audit log shows who moved the student.
+  const { data, error } = await serviceClient().from(REGISTRATIONS).update({ class_id: target.id, attendance_type: attendance }).eq('id', registration.id).select('id, class_id, attendance_type').single()
+  if (error) throw error
+  const { error: noteError } = await db.from(REGISTRATIONS).update({ staff_notes: appendNote(registration.staff_notes, note) }).eq('id', registration.id)
+  if (noteError) throw noteError
+  res.json(data)
+})
+
+// Record a payment received outside Stripe (cash, check, Zelle…). The payment
+// trigger confirms the registration; then the usual confirmation goes out.
+freightBrokerAdminRoutes.post('/registrations/:id/manual-payment', requireRole(backOffice), async (req, res) => {
+  const input = parse(registrationManualPayment, req.body)
+  const { db, staff: actor } = staff(req)
+  const { data: registration } = await db.from(REGISTRATIONS).select('id, program, registration_no, first_name, last_name, email, status, payment_status, staff_notes').eq('id', req.params.id).maybeSingle()
+  if (!registration) throw new HttpError(404, 'Registration not found.')
+  if (registration.payment_status === 'paid') throw new HttpError(409, 'This registration is already paid.')
+  if (registration.status === 'CANCELED') throw new HttpError(409, 'This registration is canceled. Change its status before recording a payment.')
+  const program = masterclassProgram(registration.program)
+  const { data: payment, error } = await db.from('payments').insert({
+    broker_registration_id: registration.id,
+    payer_name: `${registration.first_name} ${registration.last_name}`,
+    payer_email: registration.email,
+    description: `${program.name} · ${registration.registration_no} (recorded by staff)`,
+    amount_cents: input.amount_cents, currency: 'USD', method: input.method, status: 'paid', provider: 'manual',
+    provider_reference: input.provider_reference, admin_notes: input.note,
+    metadata: { program: program.id, payment_type: program.id, recorded_by: actor.email },
+  }).select(PAID_PAYMENT_FIELDS).single()
+  if (error) throw error
+  await db.from(REGISTRATIONS).update({ staff_notes: appendNote(registration.staff_notes, staffNote(actor.email, `Recorded a ${input.method.replace('_', ' ')} payment of $${(input.amount_cents / 100).toFixed(2)}${input.provider_reference ? ` (ref ${input.provider_reference})` : ''}.`)) }).eq('id', registration.id)
+  let notificationError = ''
+  if (input.sendConfirmation) {
+    try { await sendRegistrationPaidNotifications(serviceClient(), registration.id, payment) } catch (caught) { notificationError = caught instanceof Error ? caught.message : 'Confirmation could not be sent.' }
+  }
+  res.status(201).json({ payment, notificationError })
+})
+
+freightBrokerAdminRoutes.post('/registrations/:id/resend-confirmation', requireRole(backOffice), async (req, res) => {
+  const { db } = staff(req)
+  const { data: registration } = await db.from(REGISTRATIONS).select('id, payment_status, payment_id').eq('id', req.params.id).maybeSingle()
+  if (!registration) throw new HttpError(404, 'Registration not found.')
+  if (registration.payment_status !== 'paid' || !registration.payment_id) throw new HttpError(409, 'Only a paid registration has a confirmation to resend.')
+  const { data: payment } = await db.from('payments').select(PAID_PAYMENT_FIELDS).eq('id', registration.payment_id).maybeSingle()
+  if (!payment) throw new HttpError(404, 'The payment for this registration was not found.')
+  const delivery = await resendStudentConfirmation(serviceClient(), registration.id, payment)
+  if (delivery.status !== 'sent') throw new HttpError(502, `The email was not sent: ${delivery.error || delivery.status}.`)
+  res.json({ sent: true })
 })

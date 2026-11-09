@@ -516,7 +516,53 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('a session with registrations cannot move to another program (409)', (await call(`/admin/freight-broker/classes/${brokerClass.json.id}`, { method: 'PUT', body: { ...brokerSessionBody, program: 'dispatch_masterclass' }, token: admin.token })).status === 409)
   const stats = await call('/admin/stats', { token: admin.token })
   check('the dashboard counts Broker registrations separately', (stats.json?.brokerMasterclassRegistrations?.confirmed ?? 0) >= 1)
-  await call(`/admin/freight-broker/classes/${brokerClass.json.id}`, { method: 'PUT', body: { ...brokerSessionBody, status: 'COMPLETED' }, token: admin.token })
+
+  section('Broker Master Class back office: edit sessions, students per session, move, offline payment, resend')
+  const renamed = { ...brokerSessionBody, name: `Broker cohort ${run} (renamed)`, starts_at: new Date(Date.now() + 20 * 864e5).toISOString(), ends_at: new Date(Date.now() + 24 * 864e5).toISOString(), class_time: '6:00 PM – 9:00 PM ET' }
+  const edited = await call(`/admin/freight-broker/classes/${brokerClass.json.id}`, { method: 'PUT', body: renamed, token: admin.token })
+  check('staff change a Broker session title, dates and time', edited.status === 200 && edited.json?.name === renamed.name && edited.json.class_time === renamed.class_time && edited.json.program === 'broker_masterclass', edited.text.slice(0, 200))
+  check('the website shows the edited Broker session', (await call('/freight-broker/classes?program=broker_masterclass')).json?.some(item => item.id === brokerClass.json.id && item.name === renamed.name && item.starts_at.slice(0, 16) === renamed.starts_at.slice(0, 16)))
+  const roster = await call(`/admin/freight-broker-registrations?program=broker_masterclass&class_id=${brokerClass.json.id}`, { token: admin.token })
+  check('staff list the students of one Broker session', roster.status === 200 && roster.json?.data?.length >= 1 && roster.json.data.every(row => row.class_id === brokerClass.json.id) && roster.json.data.some(row => row.id === brokerReg.json.id), roster.text.slice(0, 200))
+  check('an invalid session filter is rejected (400)', (await call('/admin/freight-broker-registrations?class_id=not-a-uuid', { token: admin.token })).status === 400)
+
+  const laterClass = await call('/admin/freight-broker/classes', { body: { ...brokerSessionBody, name: `Broker cohort ${run} later`, starts_at: new Date(Date.now() + 40 * 864e5).toISOString(), ends_at: new Date(Date.now() + 44 * 864e5).toISOString() }, token: admin.token })
+  const fullClass = await call('/admin/freight-broker/classes', { body: { ...brokerSessionBody, name: `Broker cohort ${run} full`, seat_capacity: 0 }, token: admin.token })
+  check('a student cannot be moved to a Dispatch session (400)', (await call(`/admin/freight-broker/registrations/${brokerReg.json.id}/transfer`, { body: { classId: ruleClass.json.id }, token: admin.token })).status === 400)
+  check('a student is not moved into a full session without confirmation (409)', (await call(`/admin/freight-broker/registrations/${brokerReg.json.id}/transfer`, { body: { classId: fullClass.json.id }, token: admin.token })).status === 409)
+  check('employees outside the back office cannot move students (403)', (await call(`/admin/freight-broker/registrations/${brokerReg.json.id}/transfer`, { body: { classId: laterClass.json.id }, token: employee.token })).status === 403)
+  check('moving a student requires sign-in (401)', (await call(`/admin/freight-broker/registrations/${brokerReg.json.id}/transfer`, { body: { classId: laterClass.json.id } })).status === 401)
+  const moved = await call(`/admin/freight-broker/registrations/${brokerReg.json.id}/transfer`, { body: { classId: laterClass.json.id, note: 'Used credit toward a later session.' }, token: admin.token })
+  const movedRow = (await service.from('freight_dispatch_masterclass_registrations').select('class_id, program, payment_status, staff_notes').eq('id', brokerReg.json.id).single()).data
+  check('staff move a paid student to a later Broker session', moved.status === 200 && movedRow.class_id === laterClass.json.id && movedRow.program === 'broker_masterclass' && movedRow.payment_status === 'paid', moved.text.slice(0, 200))
+  check('the move is written to the internal notes', movedRow.staff_notes.includes('Moved from') && movedRow.staff_notes.includes('Used credit toward a later session.'))
+  const sessionsAfterMove = (await call('/admin/freight-broker/classes?program=broker_masterclass', { token: admin.token })).json
+  check('the paid seat moves with the student', sessionsAfterMove.find(item => item.id === laterClass.json.id)?.seats_taken === 1 && sessionsAfterMove.find(item => item.id === brokerClass.json.id)?.seats_taken === 0)
+
+  await fetch(`${mockUrl}/captured`, { method: 'DELETE' })
+  const resent = await call(`/admin/freight-broker/registrations/${brokerReg.json.id}/resend-confirmation`, { method: 'POST', body: {}, token: admin.token })
+  const resentEmail = (await captured()).find(message => message.channel === 'email' && message.to === brokerRegistrant.email)
+  check('staff resend the confirmation email', resent.status === 200 && resentEmail?.html.includes('Freight Broker Master Class'), resent.text.slice(0, 200))
+
+  const offlineRegistrant = { ...brokerRegistrant, email: `broker-offline-${run}@example.test`, lastName: 'Offline', classId: laterClass.json.id }
+  const offlineReg = await register({ ...offlineRegistrant, phone: testPhone(), program: 'broker_masterclass' })
+  check('a second student registers without paying online', offlineReg.status === 201, offlineReg.text.slice(0, 200))
+  check('an unpaid registration has no confirmation to resend (409)', (await call(`/admin/freight-broker/registrations/${offlineReg.json.id}/resend-confirmation`, { method: 'POST', body: {}, token: admin.token })).status === 409)
+  await fetch(`${mockUrl}/captured`, { method: 'DELETE' })
+  const offline = await call(`/admin/freight-broker/registrations/${offlineReg.json.id}/manual-payment`, { body: { method: 'zelle', amount_cents: 59900, provider_reference: `ZEL-${run}`, note: 'Paid by Zelle.' }, token: admin.token })
+  const offlineRow = (await service.from('freight_dispatch_masterclass_registrations').select('status, payment_status, payment_id, staff_notes').eq('id', offlineReg.json.id).single()).data
+  const offlinePayment = (await service.from('payments').select('*').eq('id', offlineRow.payment_id).single()).data
+  check('staff record a Zelle payment and the registration is confirmed', offline.status === 201 && !offline.json?.notificationError && offlineRow.status === 'CONFIRMED' && offlineRow.payment_status === 'paid', offline.text.slice(0, 200))
+  check('the offline payment appears on the Payments page as a manual Zelle payment', offlinePayment?.provider === 'manual' && offlinePayment.method === 'zelle' && offlinePayment.amount_cents === 59900 && offlinePayment.provider_reference === `ZEL-${run}` && Boolean(offlinePayment.paid_at))
+  check('the offline payment is written to the internal notes', offlineRow.staff_notes.includes('zelle payment of $599.00'))
+  check('the student is emailed their confirmation after an offline payment', (await captured()).some(message => message.channel === 'email' && message.to === offlineRegistrant.email && message.html?.includes('Freight Broker Master Class')))
+  check('a paid registration cannot be paid twice (409)', (await call(`/admin/freight-broker/registrations/${offlineReg.json.id}/manual-payment`, { body: { method: 'cash', amount_cents: 100 }, token: admin.token })).status === 409)
+  check('the later session now counts both paid students', (await call('/admin/freight-broker/classes?program=broker_masterclass', { token: admin.token })).json?.find(item => item.id === laterClass.json.id)?.seats_taken === 2)
+  const canceled = await call(`/admin/freight-broker-registrations/${offlineReg.json.id}`, { method: 'PATCH', body: { status: 'CANCELED' }, token: admin.token })
+  check('staff cancel a registration', canceled.status === 200 && canceled.json?.status === 'CANCELED')
+  check('a canceled registration cannot be moved (409)', (await call(`/admin/freight-broker/registrations/${offlineReg.json.id}/transfer`, { body: { classId: brokerClass.json.id }, token: admin.token })).status === 409)
+
+  for (const id of [brokerClass.json.id, laterClass.json.id, fullClass.json.id]) await call(`/admin/freight-broker/classes/${id}`, { method: 'PUT', body: { ...brokerSessionBody, status: 'COMPLETED' }, token: admin.token })
 } else {
   console.log('\n(Stripe checks skipped: STRIPE_SECRET_KEY is not set.)')
 }
