@@ -419,7 +419,7 @@ export const notificationLogConfig: RecordsConfig = {
     { key: 'created_at', label: 'When', render: row => formatDateTime(row.created_at) },
     { key: 'channel', label: 'Channel', render: row => String(row.channel).toUpperCase() },
     { key: 'recipient', label: 'Recipient' },
-    { key: 'template', label: 'Message', hideOnMobile: true },
+    { key: 'template', label: 'Message', hideOnMobile: true, render: row => <><Typography variant="body2" fontWeight={700} noWrap>{String(row.subject || row.template || '—')}</Typography>{row.subject ? <Typography variant="caption" color="text.secondary" noWrap component="div">{String(row.template)}</Typography> : null}</> },
     { key: 'status', label: 'Status', render: row => <StatusChip value={row.status} options={notificationStatuses} /> },
   ],
   details: [
