@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, Divider, FormControl, FormControlLabel, FormLabel, GlobalStyles, Grid, InputLabel, Link, MenuItem, Paper, Radio, RadioGroup, Select, Stack, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Checkbox, Chip, CircularProgress, Skeleton, Divider, FormControl, FormControlLabel, FormLabel, GlobalStyles, Grid, InputLabel, Link, MenuItem, Paper, Radio, RadioGroup, Select, Stack, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material'
 import BusinessCenterIcon from '@mui/icons-material/BusinessCenter'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
+import LockIcon from '@mui/icons-material/Lock'
+import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import SavingsIcon from '@mui/icons-material/Savings'
 import EditIcon from '@mui/icons-material/Edit'
 import ErrorIcon from '@mui/icons-material/Error'
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
@@ -80,22 +85,23 @@ function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selec
       <Box
         aria-hidden="true"
         sx={{
-          minHeight: 225,
+          minHeight: broker ? 0 : 225,
           p: 2,
           display: 'flex',
-          alignItems: 'flex-end',
-          // The Broker logo sits on its own navy, so its card is navy with the logo on the right.
+          alignItems: broker ? 'center' : 'flex-end',
+          // The Broker logo sits on its own navy, so its banner is navy with the logo beside the text.
           ...(broker
-            ? { bgcolor: '#010081', backgroundImage: `url(${brokerLogo})`, backgroundSize: '44% auto', backgroundPosition: 'right 4px center', backgroundRepeat: 'no-repeat' }
+            ? { gap: 1.5, background: 'linear-gradient(135deg, #010081 0%, #0a0a5c 100%)' }
             : { backgroundImage: `linear-gradient(90deg, rgba(255,255,255,.99) 0%, rgba(255,255,255,.92) 45%, rgba(255,255,255,.08) 78%), url(${sessionPromoImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }),
         }}
       >
-        <Stack alignItems="flex-start" spacing={0.65} sx={{ width: broker ? '58%' : '62%', pb: 0.5 }}>
+        <Stack alignItems="flex-start" spacing={0.65} sx={{ flex: broker ? 1 : undefined, minWidth: 0, width: broker ? 'auto' : '62%', pb: 0.5 }}>
           <Box sx={{ bgcolor: '#e30613', color: '#fff', px: 1.15, py: 0.5, fontSize: '.7rem', fontWeight: 950, letterSpacing: '.08em', borderRadius: 0.75 }}>UPCOMING SESSION</Box>
           <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: broker ? '1rem' : '1.15rem', lineHeight: 1.05, fontWeight: 950, textTransform: 'uppercase' }}>{c.name}</Typography>
           <Typography sx={{ color: broker ? '#ff5a5f' : '#e30613', fontSize: '.85rem', lineHeight: 1.15, fontWeight: 900, textTransform: 'uppercase' }}>{sessionDates(c)}</Typography>
-          <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: '2rem', lineHeight: 1, fontWeight: 950 }}>${dollars(c.price_cents, program).toFixed(2)}</Typography>
+          <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: broker ? '1.75rem' : '2rem', lineHeight: 1, fontWeight: 950 }}>${dollars(c.price_cents, program).toFixed(2)}</Typography>
         </Stack>
+        {broker && <Box component="img" src={brokerLogo} alt="" sx={{ width: 112, height: 112, flexShrink: 0, objectFit: 'cover', borderRadius: 2, border: '1px solid rgba(255,255,255,.18)' }} />}
       </Box>
       <Box sx={{ p: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
@@ -139,6 +145,7 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
   const [classes, setClasses] = useState<BrokerClass[]>([])
   const [classesLoading, setClassesLoading] = useState(true)
   const [classesError, setClassesError] = useState('')
+  const [classesReload, setClassesReload] = useState(0)
   const [state, setState] = useState<'idle' | 'saving' | 'review' | 'success' | 'error'>('idle')
   const [paymentLoading, setPaymentLoading] = useState(false)
   const [paymentError, setPaymentError] = useState('')
@@ -176,13 +183,13 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
   useEffect(() => {
     const load = () => listBrokerClasses(programId)
       .then(data => { setClasses(data); setClassesError('') })
-      .catch(() => setClassesError('Class sessions could not be loaded. Please refresh the page to try again.'))
+      .catch(() => setClassesError('We couldn’t load the upcoming sessions just now.'))
       .finally(() => setClassesLoading(false))
     const onVisible = () => { if (document.visibilityState === 'visible') void load() }
     void load()
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [programId])
+  }, [programId, classesReload])
 
   // Keep the selection on a session that can still be registered for, so the
   // registrant never reviews one session and pays for another.
@@ -310,8 +317,14 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
 
   const header = (
     <Stack direction="row" alignItems="center" gap={2} sx={{ mb: { xs: 3, md: 4 } }}>
-      <BusinessCenterIcon sx={{ fontSize: { xs: 36, md: 44 }, color: 'secondary.main' }} />
-      <Typography variant="h4" component="h2" fontWeight={900} sx={{ fontSize: { xs: 26, md: 34 } }}>{program.name} Registration</Typography>
+      <Box sx={{ display: { xs: 'none', sm: 'grid' }, placeItems: 'center', width: 56, height: 56, borderRadius: 3, bgcolor: 'secondary.main', color: '#fff', flexShrink: 0, boxShadow: '0 10px 24px rgba(227,6,19,.25)' }}>
+        <BusinessCenterIcon sx={{ fontSize: 30 }} />
+      </Box>
+      <Box>
+        <Typography sx={{ color: 'secondary.main', fontWeight: 900, letterSpacing: '.12em', fontSize: 13 }}>ENROLLMENT</Typography>
+        <Typography variant="h4" component="h2" fontWeight={900} sx={{ fontSize: { xs: 26, md: 34 }, lineHeight: 1.15 }}>{program.name} Registration</Typography>
+        <Typography color="text.secondary" sx={{ mt: 0.5 }}>Choose a session, verify your email, review the policy, and pay securely with Stripe.</Typography>
+      </Box>
     </Stack>
   )
 
@@ -466,13 +479,47 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
       {stepper}
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, md: 4 }} sx={{ order: { xs: 0, md: 1 } }}>
-          <Typography component="h3" fontWeight={900} sx={{ mb: 1.5 }}>Upcoming sessions</Typography>
-          {classesLoading && <Stack direction="row" gap={1.5} alignItems="center"><CircularProgress size={20} /><Typography color="text.secondary">Loading sessions…</Typography></Stack>}
-          {classesError && <Alert severity="error">{classesError}</Alert>}
-          {!classesLoading && !classesError && !classes.length && <Alert severity="info">No sessions are open right now. Please check back soon or contact us.</Alert>}
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+            <Stack direction="row" alignItems="center" gap={1}>
+              <CalendarMonthIcon color="secondary" fontSize="small" />
+              <Typography component="h3" fontWeight={900}>Upcoming sessions</Typography>
+            </Stack>
+            {!classesLoading && !classesError && classes.length > 0 && <Chip size="small" label={`${classes.length} open`} color="success" variant="outlined" />}
+          </Stack>
+          {classesLoading && !classes.length && <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }} aria-busy="true" aria-label="Loading sessions">
+            <Skeleton variant="rectangular" height={150} />
+            <Box sx={{ p: 2 }}><Skeleton width="70%" height={28} /><Skeleton width="90%" /><Skeleton width="55%" /><Skeleton width="40%" height={36} sx={{ mt: 1 }} /></Box>
+          </Paper>}
+          {classesError && !classes.length && <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, textAlign: 'center' }} role="alert">
+            <ErrorIcon color="error" sx={{ fontSize: 36, mb: 1 }} />
+            <Typography fontWeight={800}>{classesError}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>Please try again. If this keeps happening, contact us and we’ll register you directly.</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row', md: 'column', lg: 'row' }} gap={1} justifyContent="center">
+              <Button variant="contained" color="secondary" startIcon={<RefreshIcon />} onClick={() => { setClassesLoading(true); setClassesReload(n => n + 1) }}>Try again</Button>
+              <Button variant="outlined" component={RouterLink} to="/contact/">Contact us</Button>
+            </Stack>
+          </Paper>}
+          {!classesLoading && !classesError && !classes.length && <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, textAlign: 'center' }}>
+            <EventAvailableIcon color="secondary" sx={{ fontSize: 40, mb: 1 }} />
+            <Typography fontWeight={800}>New sessions are being scheduled</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>There are no open {program.shortName} sessions right now. Contact us to hear about the next start date.</Typography>
+            <Button variant="outlined" color="secondary" component={RouterLink} to="/contact/">Contact us</Button>
+          </Paper>}
           <Stack spacing={2} role="radiogroup" aria-label="Upcoming sessions">
             {classes.map(c => <SessionCard key={c.id} c={c} program={program} selected={c.id === formData.classId} onSelect={() => selectClass(c.id)} />)}
           </Stack>
+          <Paper variant="outlined" sx={{ mt: 2, p: 2.25, borderRadius: 3, bgcolor: 'background.paper' }}>
+            <Stack spacing={1.5}>
+              {([
+                [<LockIcon key="l" fontSize="small" />, 'Secure checkout', 'Payments are processed by Stripe. We never see your card details.'],
+                [<MarkEmailReadIcon key="m" fontSize="small" />, 'Instant confirmation', 'Your receipt and signed agreement are emailed as soon as payment clears.'],
+                [<SavingsIcon key="s" fontSize="small" />, 'Your payment is protected', 'Can’t attend? Your payment stays as a credit toward a future session.'],
+              ] as const).map(([icon, title, text]) => <Stack key={title} direction="row" gap={1.25} alignItems="flex-start">
+                <Box sx={{ color: 'secondary.main', mt: '2px' }}>{icon}</Box>
+                <Box><Typography variant="body2" fontWeight={800}>{title}</Typography><Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.45 }}>{text}</Typography></Box>
+              </Stack>)}
+            </Stack>
+          </Paper>
         </Grid>
 
         <Grid size={{ xs: 12, md: 8 }} sx={{ order: { xs: 1, md: 0 } }} ref={formSectionRef}>
