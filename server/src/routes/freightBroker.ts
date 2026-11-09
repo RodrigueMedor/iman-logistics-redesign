@@ -5,6 +5,7 @@ import { config } from '../config'
 import { backOffice, requireRole, staff, superAdminOnly } from '../lib/auth'
 import { classIsFull, loadRegistration, makeRegistrationNo, resendStudentConfirmation, sendRegistrationPaidNotifications } from '../lib/freightBroker'
 import { HttpError, parse } from '../lib/http'
+import { isMissingProgramSupport, programSupportRequired, warnMissingProgramSupport } from '../lib/programSupport'
 import { consumeRegistrationVerification, normalizeVerificationPhone, resendRegistrationCode, startRegistrationVerification, verifyRegistrationCode } from '../lib/registrationVerification'
 import { checkoutReturnUrl, stripeClient } from '../lib/stripe'
 import { publicClient, serviceClient } from '../lib/supabase'
@@ -34,7 +35,12 @@ const e164OrRaw = (value: string) => { try { return normalizeVerificationPhone(v
 
 freightBrokerRoutes.get('/classes', async (req, res) => {
   const program = isMasterclassProgram(req.query.program) ? req.query.program : 'dispatch_masterclass'
-  const { data, error } = await publicClient().rpc('freight_broker_open_classes', { p_program: program })
+  let { data, error } = await publicClient().rpc('freight_broker_open_classes', { p_program: program })
+  if (isMissingProgramSupport(error)) {
+    // Older database: only Dispatch sessions exist, through the old function.
+    warnMissingProgramSupport()
+    ;({ data, error } = program === 'dispatch_masterclass' ? await publicClient().rpc('freight_broker_open_classes') : { data: [], error: null })
+  }
   if (error) throw error
   // Always live: back-office edits must show on the website immediately.
   res.set('Cache-Control', 'no-store').json(data)
@@ -67,8 +73,11 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
   const now = new Date().toISOString()
   let classRow: { id: string; allows_online: boolean; allows_in_person: boolean } | null = null
   if (isUuid(input.classId)) {
-    const { data } = await db.from('freight_dispatch_masterclass_classes').select('id, allows_online, allows_in_person').eq('id', input.classId).eq('program', program.id).eq('status', 'OPEN').gte('ends_at', now).maybeSingle()
+    const session = () => db.from('freight_dispatch_masterclass_classes').select('id, allows_online, allows_in_person').eq('id', input.classId).eq('status', 'OPEN').gte('ends_at', now)
+    const { data, error } = await session().eq('program', program.id).maybeSingle()
     classRow = data
+    // Older database: every session is a Dispatch session.
+    if (isMissingProgramSupport(error) && program.id === 'dispatch_masterclass') classRow = (await session().maybeSingle()).data
   }
   if (!classRow) throw new HttpError(404, `The selected ${program.name} session is not available.`)
   if (input.attendanceType === 'online' && !classRow.allows_online) throw new HttpError(409, 'Online attendance is not available for this session.')
@@ -80,7 +89,7 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
   if ((count ?? 0) >= 5) throw new HttpError(429, 'Too many registrations. Please try again later.')
   const verification = await consumeRegistrationVerification(db, input.verificationId, input.verificationToken, email, input.phone)
 
-  const { data, error } = await db.from('freight_dispatch_masterclass_registrations').insert({
+  const row: Record<string, unknown> = {
     program: program.id,
     registration_no: makeRegistrationNo(program.id),
     first_name: input.firstName, last_name: input.lastName, email, phone: e164OrRaw(input.phone),
@@ -92,7 +101,14 @@ freightBrokerRoutes.post('/registrations', submissions, async (req, res) => {
     ...(input.smsConsent
       ? { sms_consent_at: now, sms_consent_text: program.smsConsentText, sms_consent_declined_at: null }
       : { sms_consent_at: null, sms_consent_text: null, sms_consent_declined_at: now }),
-  }).select('id, registration_no, class_id, program').single()
+  }
+  let { data, error } = await db.from('freight_dispatch_masterclass_registrations').insert(row).select('id, registration_no, class_id, program').single()
+  if (isMissingProgramSupport(error) && program.id === 'dispatch_masterclass') {
+    const { program: _program, ...withoutProgram } = row
+    const retry = await db.from('freight_dispatch_masterclass_registrations').insert(withoutProgram).select('id, registration_no, class_id').single()
+    data = retry.data && { ...retry.data, program: program.id }
+    error = retry.error
+  }
   if (error) throw error
   res.status(201).json(data)
 })
@@ -201,22 +217,43 @@ freightBrokerRoutes.post('/registrations/:id/checkout', submissions, async (req,
 // ---------------------------------------------------------------------------
 
 freightBrokerAdminRoutes.get('/classes', requireRole(backOffice), async (req, res) => {
-  let query = staff(req).db.from('freight_dispatch_masterclass_classes_admin').select('*')
-  if (isMasterclassProgram(req.query.program)) query = query.eq('program', req.query.program)
-  const { data, error } = await query.order('starts_at', { ascending: false })
+  const program = isMasterclassProgram(req.query.program) ? req.query.program : undefined
+  const sessions = () => staff(req).db.from('freight_dispatch_masterclass_classes_admin').select('*')
+  let { data, error } = await (program ? sessions().eq('program', program) : sessions()).order('starts_at', { ascending: false })
+  if (isMissingProgramSupport(error)) {
+    // Older database: every session is a Dispatch session.
+    warnMissingProgramSupport()
+    if (program === 'broker_masterclass') ({ data, error } = { data: [], error: null })
+    else {
+      ({ data, error } = await sessions().order('starts_at', { ascending: false }))
+      data = data?.map(row => ({ ...row, program: 'dispatch_masterclass' })) ?? null
+    }
+  }
   if (error) throw error
   res.json(data)
 })
 
 freightBrokerAdminRoutes.post('/classes', requireRole(backOffice), async (req, res) => {
   const input = parse(freightBrokerClassInput, req.body)
-  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').insert({ ...input, program: input.program ?? 'dispatch_masterclass' }).select('*').single()
+  const program = input.program ?? 'dispatch_masterclass'
+  let { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').insert({ ...input, program }).select('*').single()
+  if (isMissingProgramSupport(error)) {
+    if (program !== 'dispatch_masterclass') throw programSupportRequired()
+    const { program: _program, ...withoutProgram } = input
+    ;({ data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').insert(withoutProgram).select('*').single())
+  }
   if (error) throw error
   res.status(201).json(data)
 })
 
 freightBrokerAdminRoutes.put('/classes/:id', requireRole(backOffice), async (req, res) => {
-  const { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').update(parse(freightBrokerClassInput, req.body)).eq('id', req.params.id).select('*').maybeSingle()
+  const input = parse(freightBrokerClassInput, req.body)
+  let { data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').update(input).eq('id', req.params.id).select('*').maybeSingle()
+  if (isMissingProgramSupport(error)) {
+    if (input.program && input.program !== 'dispatch_masterclass') throw programSupportRequired()
+    const { program: _program, ...withoutProgram } = input
+    ;({ data, error } = await staff(req).db.from('freight_dispatch_masterclass_classes').update(withoutProgram).eq('id', req.params.id).select('*').maybeSingle())
+  }
   if (error?.code === '23514') throw new HttpError(409, 'This class session already has registrations, so it cannot be moved to another masterclass.')
   if (error) throw error
   if (!data) throw new HttpError(404, 'Class session not found.')
