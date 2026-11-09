@@ -1,6 +1,7 @@
 import { Router, type Request } from 'express'
 import { z } from 'zod'
 import { backOffice, requireRole, staff, superAdminOnly, type Role } from '../lib/auth'
+import { isMissingProgramSupport, warnMissingProgramSupport } from '../lib/programSupport'
 import { HttpError, parse } from '../lib/http'
 import { reconcilePendingStripePayments, stripeClient, stripeConfigured } from '../lib/stripe'
 import { audit, serviceClient } from '../lib/supabase'
@@ -79,13 +80,18 @@ adminRoutes.get('/files/signed-url', requireRole(backOffice), async (req, res) =
 adminRoutes.get('/customers/:email/activity', requireRole(backOffice), async (req, res) => {
   const { db } = staff(req)
   const email = String(req.params.email).toLowerCase()
-  const [contacts, bookings, applications, payments, registrations] = await Promise.all([
+  const [contacts, bookings, applications, payments, registrationsWithProgram] = await Promise.all([
     db.from('contact_submissions').select('reference, subject, status, created_at').eq('email', email).order('created_at', { ascending: false }),
     db.from('consultation_bookings').select('reference, service_name, booking_date, status, payment_status, created_at').eq('email', email).order('created_at', { ascending: false }),
     db.from('job_applications').select('reference, position, status, created_at').eq('email', email).order('created_at', { ascending: false }),
     db.from('payments').select('reference, description, amount_cents, currency, status, created_at').eq('payer_email', email).order('created_at', { ascending: false }),
     db.from('freight_dispatch_masterclass_registrations').select('reference:registration_no, program, status, payment_status, created_at, class:freight_dispatch_masterclass_classes(name)').eq('email', email).order('created_at', { ascending: false }),
   ])
+  let registrations: { data: unknown; error: unknown } = registrationsWithProgram
+  if (isMissingProgramSupport(registrationsWithProgram.error)) {
+    warnMissingProgramSupport()
+    registrations = await db.from('freight_dispatch_masterclass_registrations').select('reference:registration_no, status, payment_status, created_at, class:freight_dispatch_masterclass_classes(name)').eq('email', email).order('created_at', { ascending: false })
+  }
   for (const result of [contacts, bookings, applications, payments, registrations]) if (result.error) throw result.error
   res.json({ contacts: contacts.data, bookings: bookings.data, applications: applications.data, payments: payments.data, registrations: registrations.data })
 })
@@ -245,15 +251,24 @@ function resourceFor(req: Request) {
 adminRoutes.get('/:resource', requireRole(backOffice), async (req, res) => {
   const resource = resourceFor(req)
   const query = parse(listQuery, req.query)
-  let request = staff(req).db.from(resource.table).select(resource.select ?? '*', { count: 'exact' })
-  for (const filter of resource.filters) {
-    const value = query[filter as keyof typeof query]
-    if (typeof value === 'string' && value) request = request.eq(filter, value)
-  }
-  const term = cleanSearch(query.search ?? '')
-  if (term) request = request.or(resource.search.map(column => `${column}.ilike.*${term}*`).join(','))
   const from = (query.page - 1) * query.pageSize
-  const { data, error, count } = await request.order(resource.orderBy.column, { ascending: resource.orderBy.ascending ?? false }).range(from, from + query.pageSize - 1)
+  const list = (skip: string[] = []) => {
+    let request = staff(req).db.from(resource.table).select(resource.select ?? '*', { count: 'exact' })
+    for (const filter of resource.filters) {
+      const value = query[filter as keyof typeof query]
+      if (typeof value === 'string' && value && !skip.includes(filter)) request = request.eq(filter, value)
+    }
+    const term = cleanSearch(query.search ?? '')
+    if (term) request = request.or(resource.search.map(column => `${column}.ilike.*${term}*`).join(','))
+    return request.order(resource.orderBy.column, { ascending: resource.orderBy.ascending ?? false }).range(from, from + query.pageSize - 1)
+  }
+  let { data, error, count } = await list()
+  if (isMissingProgramSupport(error) && 'program' in query && query.program) {
+    // Older database: every registration is a Dispatch registration.
+    warnMissingProgramSupport()
+    if (query.program === 'dispatch_masterclass') ({ data, error, count } = await list(['program']))
+    else ({ data, error, count } = { data: [], error: null, count: 0 })
+  }
   if (error) throw error
   res.json({ data, page: query.page, pageSize: query.pageSize, total: count ?? 0 })
 })
