@@ -20,6 +20,7 @@ import PlaceIcon from '@mui/icons-material/Place'
 import PolicyIcon from '@mui/icons-material/Policy'
 import PrintIcon from '@mui/icons-material/Print'
 import SchoolIcon from '@mui/icons-material/School'
+import ScheduleIcon from '@mui/icons-material/Schedule'
 import VideocamIcon from '@mui/icons-material/Videocam'
 import { createPortal } from 'react-dom'
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom'
@@ -138,10 +139,33 @@ const isSessionSelectable = (c: BrokerClass) => (c.status || 'OPEN') === 'OPEN' 
 const sessionDates = (c?: BrokerClass) => c?.starts_at ? `${mediumDate(c.starts_at, c.timezone)}${c.ends_at ? ` – ${mediumDate(c.ends_at, c.timezone)}` : ''}` : 'Rolling enrollment'
 const sessionPlace = (c?: BrokerClass) => c?.allows_online && c?.allows_in_person ? 'Online / Zoom or In Person' : c?.allows_in_person ? (c.location || 'In Person') : 'Online / Zoom'
 
-function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selected: boolean; onSelect: () => void; program: MasterclassProgram }) {
+// Sessions that differ only by class time (same name apart from a trailing
+// "(Morning)"/"(Evening)", same start date and price) are shown as one card;
+// the student picks the time in the form. Each time stays its own session, so
+// seats, registrations and the back office still count per time.
+type SessionGroup = { key: string; name: string; sessions: BrokerClass[]; first: BrokerClass }
+const baseSessionName = (name: string) => name.replace(/\s*\(([^)]*)\)\s*$/, '')
+const slotName = (c: BrokerClass) => /\(([^)]*)\)\s*$/.exec(c.name)?.[1] ?? ''
+const slotLabel = (c: BrokerClass) => [slotName(c), c.class_time].filter(Boolean).join(' · ') || c.name
+function groupSessions(classes: BrokerClass[]): SessionGroup[] {
+  const groups = new Map<string, SessionGroup>()
+  for (const c of classes) {
+    const key = [baseSessionName(c.name), mediumDate(c.starts_at, c.timezone), c.price_cents].join('|')
+    const group = groups.get(key)
+    if (group) group.sessions.push(c)
+    else groups.set(key, { key, name: baseSessionName(c.name), sessions: [c], first: c })
+  }
+  return [...groups.values()]
+}
+const seatsText = (c: BrokerClass) => isSessionFull(c) ? 'Full' : deadlinePassed(c) ? 'Closed' : c.seat_capacity != null ? `${c.seats_remaining} seat${c.seats_remaining === 1 ? '' : 's'} left` : 'Open'
+
+function SessionCard({ group, selectedId, onSelect, program }: { group: SessionGroup; selectedId: string; onSelect: () => void; program: MasterclassProgram }) {
   const broker = program.id === 'broker_masterclass'
-  const full = isSessionFull(c)
-  const selectable = isSessionSelectable(c)
+  const c = group.sessions.find(item => item.id === selectedId) ?? group.first
+  const selected = group.sessions.some(item => item.id === selectedId)
+  const multiple = group.sessions.length > 1
+  const full = group.sessions.every(isSessionFull)
+  const selectable = group.sessions.some(isSessionSelectable)
   const displayStatus = full && (c.status || 'OPEN') === 'OPEN' ? 'FULL' : (c.status || 'OPEN')
   return (
     <Paper
@@ -149,7 +173,7 @@ function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selec
       role="radio"
       aria-checked={selected}
       aria-disabled={!selectable}
-      aria-label={`${c.name}, ${sessionDates(c)}`}
+      aria-label={`${group.name}, ${sessionDates(c)}`}
       tabIndex={selectable ? 0 : -1}
       onClick={() => selectable && onSelect()}
       onKeyDown={event => { if (selectable && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onSelect() } }}
@@ -170,7 +194,7 @@ function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selec
       >
         <Stack alignItems="flex-start" spacing={0.65} sx={{ flex: broker ? 1 : undefined, minWidth: 0, width: broker ? 'auto' : '62%', pb: 0.5 }}>
           <Box sx={{ bgcolor: '#e30613', color: '#fff', px: 1.15, py: 0.5, fontSize: '.7rem', fontWeight: 950, letterSpacing: '.08em', borderRadius: 0.75 }}>UPCOMING SESSION</Box>
-          <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: broker ? '1rem' : '1.15rem', lineHeight: 1.05, fontWeight: 950, textTransform: 'uppercase' }}>{c.name}</Typography>
+          <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: broker ? '1rem' : '1.15rem', lineHeight: 1.05, fontWeight: 950, textTransform: 'uppercase' }}>{group.name}</Typography>
           <Typography sx={{ color: broker ? '#ff5a5f' : '#e30613', fontSize: '.85rem', lineHeight: 1.15, fontWeight: 900, textTransform: 'uppercase' }}>{sessionDates(c)}</Typography>
           <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: broker ? '1.75rem' : '2rem', lineHeight: 1, fontWeight: 950 }}>{usd(dollars(c.price_cents, program))}</Typography>
         </Stack>
@@ -178,13 +202,24 @@ function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selec
       </Box>
       <Box sx={{ p: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={1}>
-          <Typography fontWeight={800} variant="body1">{c.name}</Typography>
+          <Typography fontWeight={800} variant="body1">{group.name}</Typography>
           <Chip size="small" label={displayStatus} color={statusChipColor(displayStatus)} />
         </Stack>
         {c.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{c.description}</Typography>}
         <Stack spacing={0.5} sx={{ mt: 1.25 }}>
           <Stack direction="row" alignItems="center" gap={0.75}><EventAvailableIcon fontSize="small" color="action" /><Typography variant="body2" color="text.secondary">{sessionDates(c)}</Typography></Stack>
-          {(c.days_of_week || c.class_time) && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>{[c.days_of_week, c.class_time].filter(Boolean).join(' · ')}</Typography>}
+          {multiple
+            ? <>
+              {c.days_of_week && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>{c.days_of_week}</Typography>}
+              <Stack direction="row" alignItems="center" gap={0.75} sx={{ pt: 0.5 }}><ScheduleIcon fontSize="small" color="action" /><Typography variant="body2" fontWeight={800}>{group.sessions.length} class times. Choose yours in the form:</Typography></Stack>
+              <Stack spacing={0.5} sx={{ pl: 3.25 }}>
+                {group.sessions.map(item => <Stack key={item.id} direction="row" justifyContent="space-between" gap={1} sx={{ px: 1.25, py: 0.75, borderRadius: 1.5, border: 1, borderColor: item.id === selectedId ? 'secondary.main' : 'divider', bgcolor: 'background.paper' }}>
+                  <Typography variant="body2" fontWeight={item.id === selectedId ? 800 : 500}>{slotLabel(item)}</Typography>
+                  <Typography variant="caption" color={isSessionSelectable(item) ? 'text.secondary' : 'error.main'} sx={{ whiteSpace: 'nowrap', alignSelf: 'center' }}>{seatsText(item)}</Typography>
+                </Stack>)}
+              </Stack>
+            </>
+            : (c.days_of_week || c.class_time) && <Typography variant="body2" color="text.secondary" sx={{ pl: 3.25 }}>{[c.days_of_week, c.class_time].filter(Boolean).join(' · ')}</Typography>}
           {c.registration_deadline && <Typography variant="caption" color="warning.dark" sx={{ pl: 3.25 }}>Register by {mediumDate(c.registration_deadline, c.timezone)}</Typography>}
           <Stack direction="row" alignItems="center" gap={0.75}>
             {c.delivery_mode === 'online' ? <VideocamIcon fontSize="small" color="action" /> : <PlaceIcon fontSize="small" color="action" />}
@@ -195,7 +230,8 @@ function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selec
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5, pt: 1.25, borderTop: '1px dashed', borderColor: 'divider' }}>
           <Stack>
             <Typography variant="h6" fontWeight={950} color="secondary.main">{usd(dollars(c.price_cents, program))}</Typography>
-            {c.seat_capacity != null && <Typography variant="caption" color={full ? 'error.main' : 'text.secondary'}>{full ? 'No seats left' : `${c.seats_remaining} seat${c.seats_remaining === 1 ? '' : 's'} left`}</Typography>}
+            {!multiple && c.seat_capacity != null && <Typography variant="caption" color={full ? 'error.main' : 'text.secondary'}>{full ? 'No seats left' : `${c.seats_remaining} seat${c.seats_remaining === 1 ? '' : 's'} left`}</Typography>}
+            {multiple && full && <Typography variant="caption" color="error.main">No seats left</Typography>}
           </Stack>
           <Button size="small" variant={selected ? 'contained' : 'outlined'} color="secondary" disabled={!selectable} tabIndex={-1} onClick={event => { event.stopPropagation(); if (selectable) onSelect() }}>
             {selected ? 'Selected' : full ? 'Full' : 'Register now'}
@@ -282,6 +318,10 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
   }, [classes, formData.classId, formData.attendanceType])
 
   const selectedClass = classes.find(item => item.id === (formData.classId || registration?.class_id))
+  const sessionGroups = groupSessions(classes)
+  const selectedGroup = sessionGroups.find(group => group.sessions.some(item => item.id === formData.classId))
+  // Picking a card or a session keeps the chosen time when it belongs to it, else the first open time.
+  const selectGroup = (group: SessionGroup) => selectClass(group.sessions.find(item => item.id === formData.classId && isSessionSelectable(item))?.id ?? group.sessions.find(isSessionSelectable)?.id ?? group.first.id)
   const price = dollars(selectedClass?.price_cents, program)
   const activeStep = state === 'review' ? 1 : state === 'success' ? 2 : 0
   const update = (field: keyof RegistrationForm) => (event: { target: { value: string } }) => setFormData(current => ({ ...current, [field]: event.target.value }))
@@ -557,7 +597,7 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
               <CalendarMonthIcon color="secondary" fontSize="small" />
               <Typography component="h3" fontWeight={900}>Upcoming sessions</Typography>
             </Stack>
-            {!classesLoading && !classesError && classes.length > 0 && <Chip size="small" label={`${classes.length} open`} color="success" variant="outlined" />}
+            {!classesLoading && !classesError && classes.length > 0 && <Chip size="small" label={`${sessionGroups.length} open`} color="success" variant="outlined" />}
           </Stack>
           {classesLoading && !classes.length && <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }} aria-busy="true" aria-label="Loading sessions">
             <Skeleton variant="rectangular" height={150} />
@@ -579,7 +619,7 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
             <Button variant="outlined" color="secondary" component={RouterLink} to="/contact/">Contact us</Button>
           </Paper>}
           <Stack spacing={2} role="radiogroup" aria-label="Upcoming sessions">
-            {classes.map(c => <SessionCard key={c.id} c={c} program={program} selected={c.id === formData.classId} onSelect={() => selectClass(c.id)} />)}
+            {sessionGroups.map(group => <SessionCard key={group.key} group={group} program={program} selectedId={formData.classId} onSelect={() => selectGroup(group)} />)}
           </Stack>
           <Paper variant="outlined" sx={{ mt: 2, p: 2.25, borderRadius: 3, bgcolor: 'background.paper' }}>
             <Stack spacing={1.5}>
@@ -643,12 +683,23 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
                   <SectionHeading icon={<SchoolIcon color="secondary" fontSize="small" />} title="Class selection" />
                   <FormControl fullWidth required size="small">
                     <InputLabel id="freight-broker-class-label">{program.name} session</InputLabel>
-                    <Select labelId="freight-broker-class-label" value={classes.some(c => c.id === formData.classId) ? formData.classId : ''} onChange={event => setFormData(current => ({ ...current, classId: event.target.value }))} label={`${program.name} session`}>
-                      {classes.map(c => <MenuItem key={c.id} value={c.id} disabled={!isSessionSelectable(c)}>
-                        {c.name} — {usd(dollars(c.price_cents, program))}{!isSessionSelectable(c) ? ' (unavailable)' : ''}
-                      </MenuItem>)}
+                    <Select labelId="freight-broker-class-label" value={selectedGroup?.key ?? ''} onChange={event => { const group = sessionGroups.find(item => item.key === event.target.value); if (group) selectGroup(group) }} label={`${program.name} session`}>
+                      {sessionGroups.map(group => { const open = group.sessions.some(isSessionSelectable); return <MenuItem key={group.key} value={group.key} disabled={!open}>
+                        {group.name} — {usd(dollars(group.first.price_cents, program))}{!open ? ' (unavailable)' : ''}
+                      </MenuItem> })}
                     </Select>
                   </FormControl>
+                  {selectedGroup && selectedGroup.sessions.length > 1 && <FormControl required sx={{ mt: 2, width: '100%' }}>
+                    <FormLabel id="class-time-choice" sx={{ fontWeight: 800, color: 'text.primary', mb: 1 }}>Choose your class time</FormLabel>
+                    <RadioGroup aria-labelledby="class-time-choice" value={formData.classId} onChange={event => selectClass(event.target.value)}>
+                      <Grid container spacing={1.5}>
+                        {selectedGroup.sessions.map(item => { const open = isSessionSelectable(item); const chosen = item.id === formData.classId; return <Grid size={{ xs: 12, sm: 6 }} key={item.id}>
+                          <FormControlLabel value={item.id} disabled={!open} control={<Radio color="secondary" />} sx={{ m: 0, width: '100%', height: '100%', alignItems: 'flex-start', p: 1.25, pr: 2, borderRadius: 2, border: chosen ? 2 : 1, borderColor: chosen ? 'secondary.main' : 'divider', bgcolor: chosen ? 'action.selected' : 'transparent' }}
+                            label={<Box sx={{ pt: 1 }}><Typography fontWeight={800}>{slotName(item) || item.name}</Typography><Typography variant="body2" color="text.secondary">{item.class_time || sessionDates(item)}</Typography><Typography variant="caption" color={open ? 'text.secondary' : 'error.main'}>{seatsText(item)}</Typography></Box>} />
+                        </Grid> })}
+                      </Grid>
+                    </RadioGroup>
+                  </FormControl>}
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>Tip: pick a session from the "Upcoming sessions" list for full schedule and location details.</Typography>
                   <FormControl fullWidth required size="small" sx={{ mt: 2 }}>
                     <InputLabel id="attendance-type-label">How will you attend?</InputLabel>
