@@ -17,3 +17,21 @@ insert into public.shipments (reference, status, origin, destination, estimated_
     {"label": "Delivered", "location": "Houston, TX", "timestamp": "July 23 · 1:18 PM", "completed": true, "detail": "Delivery was completed and confirmed."}
   ]'::jsonb)
 on conflict (reference) do nothing;
+
+-- Example upcoming Freight Broker Master Class session, so the "Upcoming
+-- sessions" list on /freight-broker-masterclass/ is never empty locally.
+-- Dates are relative to the reset so it always stays upcoming.
+insert into public.freight_dispatch_masterclass_classes
+  (program, name, description, price_cents, starts_at, ends_at, registration_deadline, days_of_week, class_time,
+   delivery_mode, location, timezone, allows_online, allows_in_person, instructor_name, seat_capacity, status,
+   online_instructions)
+values
+  ('broker_masterclass', 'Freight Broker Master Class — Example Session',
+   'Start and run a freight brokerage: authority and bonding, finding shippers, carrier vetting, pricing, contracts, and getting paid.',
+   52000,
+   date_trunc('day', now()) + interval '28 days' + interval '14 hours',
+   date_trunc('day', now()) + interval '32 days' + interval '18 hours',
+   date_trunc('day', now()) + interval '25 days' + interval '5 hours',
+   'Mon – Fri', '9:00 AM – 1:00 PM ET', 'online', 'Online / Zoom', 'America/New_York', true, false,
+   'Iman Logistics instructor', 20, 'OPEN',
+   'The Zoom link is emailed after your payment is confirmed.');

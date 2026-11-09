@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { masterclassProgram, type MasterclassProgramId } from '../../../src/features/freightBroker/program'
 import { config } from '../config'
+import { HttpError } from './http'
 import { escapeHtml, sendEmail, sendSms } from './notifications'
 
 // Masterclass registration helpers (Freight Dispatch and Freight Broker), adapted from the dispatcher
@@ -245,6 +246,24 @@ export function fulfillmentJobTypes(row: Pick<RegistrationRow, 'sms_consent_at' 
 // Sent once a registration payment is confirmed: registrant email, registrant
 // SMS when they opted in, staff email, and staff SMS when a staff phone is configured. Each is
 // independent, so one failing never blocks the others or the payment.
+// Staff "Resend confirmation": the same student email (receipt, calendar
+// invite, signed agreement) with a fresh idempotency key so it really sends.
+export async function resendStudentConfirmation(db: SupabaseClient, registrationId: string, payment: PaidPayment) {
+  const row = await loadRegistration(db, registrationId)
+  if (!row) throw new HttpError(404, 'Registration not found.')
+  const ctx = notificationContext(row, payment)
+  return sendEmail({
+    entityType: 'freight_dispatch_masterclass_registrations', entityId: row.id,
+    template: 'freight_broker.payment_confirmed_resend', idempotencyKey: `registration:${row.id}:payment:${payment.id}:student_confirmation:resend:${Date.now()}`,
+    from: config.freightBrokerEmailFrom, to: row.email,
+    subject: `Registration & Payment Confirmed - ${ctx.registrationNo}`, html: studentConfirmationEmailHtml(row, payment),
+    attachments: [
+      { filename: `${ctx.registrationNo}-calendar.ics`, content: Buffer.from(calendarInvite(row, ctx)) },
+      { filename: `${ctx.registrationNo}-signed-agreement.html`, content: Buffer.from(signedAgreement(row)) },
+    ],
+  })
+}
+
 export async function sendRegistrationPaidNotifications(db: SupabaseClient, registrationId: string, payment: PaidPayment) {
   const row = await loadRegistration(db, registrationId)
   if (!row) return
