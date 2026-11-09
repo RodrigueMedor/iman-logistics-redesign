@@ -48,6 +48,8 @@ export type RecordsConfig = {
   columns: Column[]
   details: Column[]
   filters?: Filter[]
+  // Always applied, e.g. one masterclass program's registrations.
+  fixedFilters?: Record<string, string>
   notes?: boolean
   // Column holding internal notes (default admin_notes).
   notesKey?: string
@@ -88,7 +90,7 @@ export function RecordsPage(config: RecordsConfig) {
     setLoading(true)
     setError('')
     try {
-      const result = await listRecords({ table: config.table, search: debouncedSearch, filters, page, pageSize })
+      const result = await listRecords({ table: config.table, search: debouncedSearch, filters: { ...filters, ...config.fixedFilters }, page, pageSize })
       setRows(result.rows)
       setCount(result.count)
       setSelected(current => current ? result.rows.find(row => row[idKey] === current[idKey]) ?? current : null)
@@ -97,7 +99,8 @@ export function RecordsPage(config: RecordsConfig) {
     } finally {
       setLoading(false)
     }
-  }, [config.table, debouncedSearch, filters, page, idKey])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.table, JSON.stringify(config.fixedFilters ?? {}), debouncedSearch, filters, page, idKey])
 
   useEffect(() => { void load() }, [load])
 

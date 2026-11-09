@@ -1,18 +1,18 @@
 import { Button } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 
-// Opens the Freight Dispatch Masterclass registration form.
-export function BuyButton() {
+// Opens a masterclass registration form (the Freight Dispatch Masterclass by default).
+export function BuyButton({ to = '/freight-dispatch-masterclass/#register', label = 'Masterclass Registration' }: { to?: string; label?: string } = {}) {
   return (
     <Button
       component={RouterLink}
-      to="/freight-dispatch-masterclass/#register"
+      to={to}
       variant="contained"
       color="secondary"
       size="large"
       sx={{ minWidth: 220, fontSize: 17 }}
     >
-      Masterclass Registration
+      {label}
     </Button>
   )
 }

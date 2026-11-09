@@ -18,25 +18,28 @@ import { runtimeConfig } from '../../lib/runtimeConfig'
 import sessionPromoImage from '../../assets/images/freight-dispatch-session-promo.png'
 import { createBrokerRegistration, listBrokerClasses, resendRegistrationCode, startBrokerCheckout, startRegistrationVerification, verifyRegistrationCode, type BrokerClass, type CreatedRegistration, type RegistrationDetails, type RegistrationForm, type VerificationState } from './api'
 import { PolicyAgreement } from './PolicyAgreement'
-import { FREIGHT_BROKER_POLICY_TEXT, FREIGHT_BROKER_PROGRAM, FREIGHT_BROKER_SMS_CONSENT_TEXT, FREIGHT_BROKER_STEPS, isPolicySigned } from './program'
+import { FREIGHT_BROKER_STEPS, isPolicySigned, MASTERCLASS_PROGRAMS, type MasterclassProgram, type MasterclassProgramId } from './program'
 import { RegistrationPaymentStatus } from './RegistrationPaymentStatus'
 
-// Freight Dispatch Masterclass registration, matching the live Dispatcher Class
-// Registration page (imantruckingschool.com/dispatcher-registration/):
-// "Your information" → "Review & policy" → "Confirmation", with the
-// "Upcoming sessions" list beside the form. Embedded on the Freight Dispatch
-// Masterclass page as the #register section.
+// Masterclass registration, matching the live Dispatcher Class Registration
+// page (imantruckingschool.com/dispatcher-registration/): "Your information" →
+// "Review & policy" → "Confirmation", with the "Upcoming sessions" list beside
+// the form. Embedded as the #register section of the Freight Dispatch
+// Masterclass page and of the Freight Broker Master Class page; `program`
+// decides which sessions, policy, and Stripe checkout are used.
 
-const pendingRegistrationStorageKey = 'iman_freight_broker_pending_reg'
+// The Dispatch key is unchanged so a registration in progress survives deploys.
+const pendingRegistrationStorageKey = (program: MasterclassProgramId) => program === 'dispatch_masterclass' ? 'iman_freight_broker_pending_reg' : `iman_${program}_pending_reg`
+const brokerLogo = '/images/freight-broker-master-class.jpg'
 const emptyForm: RegistrationForm = { firstName: '', lastName: '', email: '', phone: '', address1: '', address2: '', city: '', state: '', zip: '', classId: '', attendanceType: 'online', smsConsent: null, verificationId: '', verificationToken: '' }
-const dollars = (cents?: number | null) => (cents ?? FREIGHT_BROKER_PROGRAM.defaultPriceCents) / 100
+const dollars = (cents?: number | null, program: MasterclassProgram = MASTERCLASS_PROGRAMS.dispatch_masterclass) => (cents ?? program.defaultPriceCents) / 100
 const mediumDate = (value?: string | null) => value ? new Date(value).toLocaleDateString('en-US', { dateStyle: 'medium', timeZone: 'UTC' }) : null
 const scrollToSection = () => window.setTimeout(() => document.getElementById('register')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
 
 type Pending = { formData?: RegistrationForm; registration?: CreatedRegistration; paymentPolicyAccepted?: boolean; paymentPolicySignature?: string }
-const readPending = (): Pending => { try { return JSON.parse(sessionStorage.getItem(pendingRegistrationStorageKey) || '{}') } catch { return {} } }
-const writePending = (value: Pending) => { try { sessionStorage.setItem(pendingRegistrationStorageKey, JSON.stringify(value)) } catch { /* storage unavailable */ } }
-const clearPending = () => { try { sessionStorage.removeItem(pendingRegistrationStorageKey) } catch { /* storage unavailable */ } }
+const readPending = (program: MasterclassProgramId): Pending => { try { return JSON.parse(sessionStorage.getItem(pendingRegistrationStorageKey(program)) || '{}') } catch { return {} } }
+const writePending = (program: MasterclassProgramId, value: Pending) => { try { sessionStorage.setItem(pendingRegistrationStorageKey(program), JSON.stringify(value)) } catch { /* storage unavailable */ } }
+const clearPending = (program: MasterclassProgramId) => { try { sessionStorage.removeItem(pendingRegistrationStorageKey(program)) } catch { /* storage unavailable */ } }
 
 function SectionHeading({ icon, title }: { icon: ReactNode; title: string }) {
   return <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 2 }}>{icon}<Typography fontWeight={800} variant="subtitle1">{title}</Typography></Stack>
@@ -57,7 +60,8 @@ const isSessionSelectable = (c: BrokerClass) => (c.status || 'OPEN') === 'OPEN' 
 const sessionDates = (c?: BrokerClass) => c?.starts_at ? `${mediumDate(c.starts_at)}${c.ends_at ? ` – ${mediumDate(c.ends_at)}` : ''}` : 'Rolling enrollment'
 const sessionPlace = (c?: BrokerClass) => c?.allows_online && c?.allows_in_person ? 'Online / Zoom or In Person' : c?.allows_in_person ? (c.location || 'In Person') : 'Online / Zoom'
 
-function SessionCard({ c, selected, onSelect }: { c: BrokerClass; selected: boolean; onSelect: () => void }) {
+function SessionCard({ c, selected, onSelect, program }: { c: BrokerClass; selected: boolean; onSelect: () => void; program: MasterclassProgram }) {
+  const broker = program.id === 'broker_masterclass'
   const full = isSessionFull(c)
   const selectable = isSessionSelectable(c)
   const displayStatus = full && (c.status || 'OPEN') === 'OPEN' ? 'FULL' : (c.status || 'OPEN')
@@ -80,16 +84,17 @@ function SessionCard({ c, selected, onSelect }: { c: BrokerClass; selected: bool
           p: 2,
           display: 'flex',
           alignItems: 'flex-end',
-          backgroundImage: `linear-gradient(90deg, rgba(255,255,255,.99) 0%, rgba(255,255,255,.92) 45%, rgba(255,255,255,.08) 78%), url(${sessionPromoImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          // The Broker logo sits on its own navy, so its card is navy with the logo on the right.
+          ...(broker
+            ? { bgcolor: '#010081', backgroundImage: `url(${brokerLogo})`, backgroundSize: '44% auto', backgroundPosition: 'right 4px center', backgroundRepeat: 'no-repeat' }
+            : { backgroundImage: `linear-gradient(90deg, rgba(255,255,255,.99) 0%, rgba(255,255,255,.92) 45%, rgba(255,255,255,.08) 78%), url(${sessionPromoImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }),
         }}
       >
-        <Stack alignItems="flex-start" spacing={0.65} sx={{ width: '62%', pb: 0.5 }}>
+        <Stack alignItems="flex-start" spacing={0.65} sx={{ width: broker ? '58%' : '62%', pb: 0.5 }}>
           <Box sx={{ bgcolor: '#e30613', color: '#fff', px: 1.15, py: 0.5, fontSize: '.7rem', fontWeight: 950, letterSpacing: '.08em', borderRadius: 0.75 }}>UPCOMING SESSION</Box>
-          <Typography sx={{ color: '#06254a', fontSize: '1.15rem', lineHeight: 1.05, fontWeight: 950, textTransform: 'uppercase' }}>{c.name}</Typography>
-          <Typography sx={{ color: '#e30613', fontSize: '.85rem', lineHeight: 1.15, fontWeight: 900, textTransform: 'uppercase' }}>{sessionDates(c)}</Typography>
-          <Typography sx={{ color: '#06254a', fontSize: '2rem', lineHeight: 1, fontWeight: 950 }}>${dollars(c.price_cents).toFixed(2)}</Typography>
+          <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: broker ? '1rem' : '1.15rem', lineHeight: 1.05, fontWeight: 950, textTransform: 'uppercase' }}>{c.name}</Typography>
+          <Typography sx={{ color: broker ? '#ff5a5f' : '#e30613', fontSize: '.85rem', lineHeight: 1.15, fontWeight: 900, textTransform: 'uppercase' }}>{sessionDates(c)}</Typography>
+          <Typography sx={{ color: broker ? '#fff' : '#06254a', fontSize: '2rem', lineHeight: 1, fontWeight: 950 }}>${dollars(c.price_cents, program).toFixed(2)}</Typography>
         </Stack>
       </Box>
       <Box sx={{ p: 2 }}>
@@ -110,7 +115,7 @@ function SessionCard({ c, selected, onSelect }: { c: BrokerClass; selected: bool
         </Stack>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.5, pt: 1.25, borderTop: '1px dashed', borderColor: 'divider' }}>
           <Stack>
-            <Typography variant="h6" fontWeight={950} color="secondary.main">${dollars(c.price_cents).toFixed(2)}</Typography>
+            <Typography variant="h6" fontWeight={950} color="secondary.main">${dollars(c.price_cents, program).toFixed(2)}</Typography>
             {c.seat_capacity != null && <Typography variant="caption" color={full ? 'error.main' : 'text.secondary'}>{full ? 'No seats left' : `${c.seats_remaining} seat${c.seats_remaining === 1 ? '' : 's'} left`}</Typography>}
           </Stack>
           <Button size="small" variant={selected ? 'contained' : 'outlined'} color="secondary" disabled={!selectable} tabIndex={-1} onClick={event => { event.stopPropagation(); if (selectable) onSelect() }}>
@@ -122,7 +127,8 @@ function SessionCard({ c, selected, onSelect }: { c: BrokerClass; selected: bool
   )
 }
 
-export function FreightBrokerRegistration() {
+export function FreightBrokerRegistration({ program: programId = 'dispatch_masterclass' }: { program?: MasterclassProgramId } = {}) {
+  const program = MASTERCLASS_PROGRAMS[programId]
   const location = useLocation()
   const navigate = useNavigate()
   const searchParams = new URLSearchParams(location.search)
@@ -157,18 +163,18 @@ export function FreightBrokerRegistration() {
 
   // Restore the pending registration when returning from (or canceling) Stripe.
   useEffect(() => {
-    const cached = readPending()
+    const cached = readPending(programId)
     if (cached.formData) setFormData(current => ({ ...current, ...cached.formData }))
     if (cached.registration) setRegistration(cached.registration)
     if (cached.paymentPolicyAccepted) setPaymentPolicyAccepted(true)
     if (cached.paymentPolicySignature) setPaymentPolicySignature(cached.paymentPolicySignature)
     if (paymentSessionId) scrollToSection()
-  }, [paymentSessionId])
+  }, [paymentSessionId, programId])
 
   // Load the sessions, and reload them whenever the visitor returns to the tab
   // so changes made in the back office show without a manual refresh.
   useEffect(() => {
-    const load = () => listBrokerClasses()
+    const load = () => listBrokerClasses(programId)
       .then(data => { setClasses(data); setClassesError('') })
       .catch(() => setClassesError('Class sessions could not be loaded. Please refresh the page to try again.'))
       .finally(() => setClassesLoading(false))
@@ -176,7 +182,7 @@ export function FreightBrokerRegistration() {
     void load()
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [])
+  }, [programId])
 
   // Keep the selection on a session that can still be registered for, so the
   // registrant never reviews one session and pays for another.
@@ -196,7 +202,7 @@ export function FreightBrokerRegistration() {
   }, [classes, formData.classId, formData.attendanceType])
 
   const selectedClass = classes.find(item => item.id === (formData.classId || registration?.class_id))
-  const price = dollars(selectedClass?.price_cents)
+  const price = dollars(selectedClass?.price_cents, program)
   const activeStep = state === 'review' ? 1 : state === 'success' ? 2 : 0
   const update = (field: keyof RegistrationForm) => (event: { target: { value: string } }) => setFormData(current => ({ ...current, [field]: event.target.value }))
 
@@ -241,15 +247,15 @@ export function FreightBrokerRegistration() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!contactVerified) return setPaymentError(phoneVerificationRequired ? 'Verify both your email address and phone number before continuing.' : 'Verify your email address before continuing.')
-    if (!formData.classId) return setPaymentError('Please select a Freight Dispatch Masterclass session to continue.')
+    if (!formData.classId) return setPaymentError(`Please select a ${program.name} session to continue.`)
     if (formData.smsConsent === null) return setPaymentError('Please choose whether you want to receive SMS payment reminders.')
     setPaymentError('')
     setState('saving')
     try {
       // The registration is created by the API with the server-side key.
-      const data = await createBrokerRegistration({ ...formData, website: honeypot })
+      const data = await createBrokerRegistration({ ...formData, website: honeypot }, programId)
       setRegistration(data)
-      writePending({ formData, registration: data })
+      writePending(programId, { formData, registration: data })
       setState('review')
       scrollToSection()
     } catch (caught) {
@@ -265,7 +271,7 @@ export function FreightBrokerRegistration() {
     if (!isPolicySigned(paymentPolicyAccepted, paymentPolicySignature, formData.firstName, formData.lastName)) {
       return setPaymentError(`Type your full legal name ("${`${formData.firstName} ${formData.lastName}`.trim()}") to sign before paying.`)
     }
-    writePending({ formData, registration, paymentPolicyAccepted, paymentPolicySignature })
+    writePending(programId, { formData, registration, paymentPolicyAccepted, paymentPolicySignature })
     setPaymentLoading(true)
     setPaymentError('')
     try {
@@ -293,7 +299,7 @@ export function FreightBrokerRegistration() {
       onContinue={result => {
         if (result.registration) setConfirmed(result.registration)
         if (result.amount_cents != null) setPaidAmountCents(result.amount_cents)
-        clearPending()
+        clearPending(programId)
         clearReturnParams()
         setState('success')
       }}
@@ -305,7 +311,7 @@ export function FreightBrokerRegistration() {
   const header = (
     <Stack direction="row" alignItems="center" gap={2} sx={{ mb: { xs: 3, md: 4 } }}>
       <BusinessCenterIcon sx={{ fontSize: { xs: 36, md: 44 }, color: 'secondary.main' }} />
-      <Typography variant="h4" component="h2" fontWeight={900} sx={{ fontSize: { xs: 26, md: 34 } }}>{FREIGHT_BROKER_PROGRAM.name} Registration</Typography>
+      <Typography variant="h4" component="h2" fontWeight={900} sx={{ fontSize: { xs: 26, md: 34 } }}>{program.name} Registration</Typography>
     </Stack>
   )
 
@@ -316,7 +322,7 @@ export function FreightBrokerRegistration() {
   )
 
   if (state === 'success') {
-    const regNo = confirmed?.registrationNo || registration?.registration_no || 'FBM-CONFIRMED'
+    const regNo = confirmed?.registrationNo || registration?.registration_no || `${program.registrationPrefix}-CONFIRMED`
     const firstName = confirmed?.firstName || formData.firstName || 'Student'
     const lastName = confirmed?.lastName || formData.lastName || ''
     const address = confirmed?.address
@@ -329,7 +335,7 @@ export function FreightBrokerRegistration() {
       ['Email address', confirmed?.email || formData.email || '—'],
       ['Phone number', confirmed?.phone || formData.phone || '—'],
       ['Address', address],
-      ['Class enrolled', confirmed?.className || selectedClass?.name || FREIGHT_BROKER_PROGRAM.defaultClassName],
+      ['Class enrolled', confirmed?.className || selectedClass?.name || program.defaultClassName],
       ['Attendance', (confirmed?.attendanceType || formData.attendanceType) === 'online' ? 'Online / Zoom' : 'In Person'],
     ]
     // The receipt is shown on the page and, for printing, also rendered as a
@@ -338,7 +344,7 @@ export function FreightBrokerRegistration() {
       <>
             <CheckCircleIcon sx={{ fontSize: 60, color: '#4caf50', mb: 1.5 }} />
             <Typography variant="h5" component="h3" fontWeight={900} gutterBottom>Registration completed!</Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>Thank you, {firstName}! Your seat in the {FREIGHT_BROKER_PROGRAM.name} is confirmed.</Typography>
+            <Typography color="text.secondary" sx={{ mb: 3 }}>Thank you, {firstName}! Your seat in the {program.name} is confirmed.</Typography>
             <Box sx={{ bgcolor: '#e8f5e9', border: '1px solid #c8e6c9', borderRadius: 3, p: 2, mb: 3 }}>
               <Typography variant="overline" fontWeight={900} color="#2e7d32">Confirmed registration number</Typography>
               <Typography variant="h5" fontWeight={950} color="#1b5e20" sx={{ letterSpacing: '0.04em', wordBreak: 'break-all' }}>{regNo}</Typography>
@@ -359,7 +365,7 @@ export function FreightBrokerRegistration() {
             </Paper>
             <Alert severity="warning" icon={<PolicyIcon fontSize="small" />} sx={{ mb: 3, textAlign: 'left', bgcolor: '#fff9e6', color: '#3e2723', border: '1px solid #ffe082' }}>
               <Typography variant="subtitle2" fontWeight={800} gutterBottom>Registration policy acknowledged</Typography>
-              <Typography variant="body2">{FREIGHT_BROKER_POLICY_TEXT}</Typography>
+              <Typography variant="body2">{confirmed?.policyText || program.policyText}</Typography>
               {(confirmed?.policySignature || paymentPolicySignature) && <Typography variant="caption" display="block" sx={{ mt: 1.5, fontStyle: 'italic' }}>
                 Electronically signed by {confirmed?.policySignature || paymentPolicySignature}{confirmed?.policyAcceptedAt ? ` on ${new Date(confirmed.policyAcceptedAt).toLocaleString('en-US')}` : ''}
               </Typography>}
@@ -376,7 +382,7 @@ export function FreightBrokerRegistration() {
           },
         }} />
         {createPortal(<Box id="freight-broker-print-receipt">
-          <Typography variant="subtitle2" fontWeight={900} color="#0A005A" sx={{ mb: 2 }}>Iman Logistics · {FREIGHT_BROKER_PROGRAM.name} registration receipt</Typography>
+          <Typography variant="subtitle2" fontWeight={900} color="#0A005A" sx={{ mb: 2 }}>Iman Logistics · {program.name} registration receipt</Typography>
           {receipt}
         </Box>, document.body)}
         {header}
@@ -408,7 +414,7 @@ export function FreightBrokerRegistration() {
             <Grid size={{ xs: 12, md: 6 }}>
               <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%' }}>
                 <SectionHeading icon={<SchoolIcon color="secondary" fontSize="small" />} title="Selected class" />
-                <Typography variant="body2" fontWeight={700}>{selectedClass?.name || FREIGHT_BROKER_PROGRAM.defaultClassName}</Typography>
+                <Typography variant="body2" fontWeight={700}>{selectedClass?.name || program.defaultClassName}</Typography>
                 {selectedClass?.description && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>{selectedClass.description}</Typography>}
                 {selectedClass && <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{sessionDates(selectedClass)}</Typography>}
                 {selectedClass && (selectedClass.days_of_week || selectedClass.class_time) && <Typography variant="body2" color="text.secondary">{[selectedClass.days_of_week, selectedClass.class_time].filter(Boolean).join(' · ')}</Typography>}
@@ -436,7 +442,7 @@ export function FreightBrokerRegistration() {
           </Grid>
           <Divider sx={{ my: 3 }} />
           <Stack spacing={2.5}>
-            <PolicyAgreement firstName={formData.firstName} lastName={formData.lastName} accepted={paymentPolicyAccepted} signature={paymentPolicySignature} onAcceptedChange={setPaymentPolicyAccepted} onSignatureChange={setPaymentPolicySignature} />
+            <PolicyAgreement program={program} firstName={formData.firstName} lastName={formData.lastName} accepted={paymentPolicyAccepted} signature={paymentPolicySignature} onAcceptedChange={setPaymentPolicyAccepted} onSignatureChange={setPaymentPolicySignature} />
             <Button
               variant="contained" color="secondary" size="large" fullWidth onClick={() => void handlePayment()}
               disabled={paymentLoading || !isPolicySigned(paymentPolicyAccepted, paymentPolicySignature, formData.firstName, formData.lastName)}
@@ -465,16 +471,16 @@ export function FreightBrokerRegistration() {
           {classesError && <Alert severity="error">{classesError}</Alert>}
           {!classesLoading && !classesError && !classes.length && <Alert severity="info">No sessions are open right now. Please check back soon or contact us.</Alert>}
           <Stack spacing={2} role="radiogroup" aria-label="Upcoming sessions">
-            {classes.map(c => <SessionCard key={c.id} c={c} selected={c.id === formData.classId} onSelect={() => selectClass(c.id)} />)}
+            {classes.map(c => <SessionCard key={c.id} c={c} program={program} selected={c.id === formData.classId} onSelect={() => selectClass(c.id)} />)}
           </Stack>
         </Grid>
 
         <Grid size={{ xs: 12, md: 8 }} sx={{ order: { xs: 1, md: 0 } }} ref={formSectionRef}>
           <Paper sx={{ p: { xs: 3, md: 5 }, borderRadius: 4, boxShadow: '0 12px 35px rgba(10,0,90,.06)', border: 1, borderColor: 'divider', scrollMarginTop: 110 }}>
-            <Typography variant="h5" component="h3" fontWeight={900}>Register for the {FREIGHT_BROKER_PROGRAM.name}</Typography>
+            <Typography variant="h5" component="h3" fontWeight={900}>Register for the {program.name}</Typography>
             <Typography color="text.secondary" sx={{ mb: 2.5 }}>Complete the form below to reserve your seat. You'll review your information and policy agreement before paying.</Typography>
             <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
-              {selectedClass?.description || 'Learn how to dispatch freight from start to finish: finding loads, carrier setup and paperwork, rate negotiation, compliance, and managing multiple trucks. Choose a session from the list to see its price.'}
+              {selectedClass?.description || program.defaultDescription}
             </Alert>
             {state === 'error' && <Alert severity="error" sx={{ mb: 3 }}><Stack direction="row" alignItems="center" gap={1}><ErrorIcon fontSize="small" />{paymentError || 'Unable to submit. Check the information and try again.'}</Stack></Alert>}
             {paymentError && state !== 'error' && <Alert severity="error" sx={{ mb: 3 }}>{paymentError}</Alert>}
@@ -516,10 +522,10 @@ export function FreightBrokerRegistration() {
                 <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, borderRadius: 3 }}>
                   <SectionHeading icon={<SchoolIcon color="secondary" fontSize="small" />} title="Class selection" />
                   <FormControl fullWidth required size="small">
-                    <InputLabel id="freight-broker-class-label">Freight Dispatch Masterclass session</InputLabel>
-                    <Select labelId="freight-broker-class-label" value={classes.some(c => c.id === formData.classId) ? formData.classId : ''} onChange={event => setFormData(current => ({ ...current, classId: event.target.value }))} label="Freight Dispatch Masterclass session">
+                    <InputLabel id="freight-broker-class-label">{program.name} session</InputLabel>
+                    <Select labelId="freight-broker-class-label" value={classes.some(c => c.id === formData.classId) ? formData.classId : ''} onChange={event => setFormData(current => ({ ...current, classId: event.target.value }))} label={`${program.name} session`}>
                       {classes.map(c => <MenuItem key={c.id} value={c.id} disabled={!isSessionSelectable(c)}>
-                        {c.name} — ${dollars(c.price_cents).toFixed(2)}{!isSessionSelectable(c) ? ' (unavailable)' : ''}
+                        {c.name} — ${dollars(c.price_cents, program).toFixed(2)}{!isSessionSelectable(c) ? ' (unavailable)' : ''}
                       </MenuItem>)}
                     </Select>
                   </FormControl>
@@ -542,7 +548,7 @@ export function FreightBrokerRegistration() {
                     <FormControlLabel value="true" control={<Radio />} label="Yes, send me SMS payment reminders." />
                     <FormControlLabel value="false" control={<Radio />} label="No, do not send me SMS payment reminders." />
                   </RadioGroup>
-                  <Typography variant="caption" color="text.secondary">{FREIGHT_BROKER_SMS_CONSENT_TEXT} See our <Link component={RouterLink} to="/privacy-policy/" target="_blank">Privacy Policy</Link> and <Link component={RouterLink} to="/terms-and-conditions/" target="_blank">Terms &amp; Conditions</Link>.</Typography>
+                  <Typography variant="caption" color="text.secondary">{program.smsConsentText} See our <Link component={RouterLink} to="/privacy-policy/" target="_blank">Privacy Policy</Link> and <Link component={RouterLink} to="/terms-and-conditions/" target="_blank">Terms &amp; Conditions</Link>.</Typography>
                 </FormControl>
                 <Button type="submit" variant="contained" color="secondary" size="large" fullWidth disabled={state === 'saving' || noSessions || classesLoading} sx={{ py: 1.75, fontSize: '1.05rem', fontWeight: 700 }}>
                   {state === 'saving' ? 'Saving Registration...' : 'Continue to Review & Policy Agreement'}

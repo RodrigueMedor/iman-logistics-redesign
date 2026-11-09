@@ -1,5 +1,6 @@
 import { Typography } from '@mui/material'
 import { StatusChip, type Option, type RecordsConfig } from '../../features/backoffice/RecordsPage'
+import type { MasterclassProgram } from '../../features/freightBroker/program'
 import { formatDate, formatDateTime, formatMoney, type RecordRow } from '../../services/backoffice'
 
 export const contactStatuses: Option[] = [
@@ -197,7 +198,7 @@ export const paymentsBaseConfig: RecordsConfig = {
     { key: 'method', label: 'Method' },
     { key: 'provider', label: 'Recorded by', render: row => row.provider === 'stripe' ? 'Stripe Checkout' : 'Staff (manual)' },
     { key: 'booking', label: 'Booking', render: row => String((row.booking as { reference?: string } | null)?.reference ?? '—') },
-    { key: 'registration', label: 'Dispatch Masterclass registration', render: row => String((row.registration as { registration_no?: string } | null)?.registration_no ?? '—') },
+    { key: 'registration', label: 'Masterclass registration', render: row => String((row.registration as { registration_no?: string } | null)?.registration_no ?? '—') },
     { key: 'provider_reference', label: 'Receipt / Stripe payment ID' },
     { key: 'error_message', label: 'Payment error' },
     { key: 'paid_at', label: 'Paid at', render: row => formatDateTime(row.paid_at) },
@@ -271,7 +272,7 @@ export const customersConfig: RecordsConfig = {
   csvName: 'iman-customers',
 }
 
-// Freight Dispatch Masterclass registrations (the school's DispatcherRegistrations page)
+// Masterclass registrations (the school's DispatcherRegistrations page), one board per program
 export const brokerStatuses: Option[] = [
   { value: 'SUBMITTED', label: 'Submitted', color: 'warning' },
   { value: 'CONFIRMED', label: 'Confirmed', color: 'success' },
@@ -335,6 +336,7 @@ export const brokerRegistrationsConfig: RecordsConfig = {
   title: 'Dispatch Masterclass registrations',
   subtitle: 'Freight Dispatch Masterclass registrations, payments, and signed policies.',
   canonical: '/admin/dispatch-masterclass/',
+  fixedFilters: { program: 'dispatch_masterclass' },
   titleKey: 'registration_no',
   searchPlaceholder: 'Search name, email, phone, registration number',
   columns: [
@@ -387,6 +389,17 @@ export const brokerRegistrationsConfig: RecordsConfig = {
   notesKey: 'staff_notes',
   deletable: true,
   csvName: 'iman-dispatch-masterclass-registrations',
+}
+
+export function masterclassRegistrationsConfig(program: MasterclassProgram): RecordsConfig {
+  return {
+    ...brokerRegistrationsConfig,
+    title: `${program.shortName} registrations`,
+    subtitle: `${program.name} registrations, payments, and signed policies.`,
+    canonical: program.adminPath,
+    fixedFilters: { program: program.id },
+    csvName: `iman-${program.adminPath.split('/').filter(Boolean).pop()}-registrations`,
+  }
 }
 
 export const notificationStatuses: Option[] = [

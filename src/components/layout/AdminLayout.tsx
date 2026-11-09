@@ -30,6 +30,8 @@ const navigation = [
   { label: 'Applications', path: '/admin/applications/', icon: <WorkOutlineRoundedIcon />, roles: everyone },
   { label: 'Dispatch Masterclass registrations', path: '/admin/dispatch-masterclass/', icon: <SchoolOutlinedIcon />, roles: everyone, exact: true },
   { label: 'Dispatch Masterclass classes', path: '/admin/dispatch-masterclass/classes/', icon: <EventNoteOutlinedIcon />, roles: everyone },
+  { label: 'Broker Master Class registrations', path: '/admin/broker-masterclass/', icon: <SchoolOutlinedIcon />, roles: everyone, exact: true },
+  { label: 'Broker Master Class classes', path: '/admin/broker-masterclass/classes/', icon: <EventNoteOutlinedIcon />, roles: everyone },
   { label: 'Payments', path: '/admin/payments/', icon: <PaymentsOutlinedIcon />, roles: everyone },
   { label: 'Customers', path: '/admin/customers/', icon: <PeopleAltOutlinedIcon />, roles: everyone },
   { label: 'Shipments', path: '/admin/shipments/', icon: <LocalShippingOutlinedIcon />, roles: everyone },

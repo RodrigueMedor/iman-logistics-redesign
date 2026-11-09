@@ -6,7 +6,8 @@ import { Seo } from '../../components/common/Seo'
 import { useAuth } from '../../contexts/AuthContext'
 import { RecordsPage, StatusChip } from '../../features/backoffice/RecordsPage'
 import { brokerClassStatuses, deleteBrokerClass, formatDate, formatDateTime, formatMoney, listBrokerClassesAdmin, registrationNotifications, registrationPaymentReminders, retryRegistrationPaymentReminder, saveBrokerClass, type BrokerClassRow, type NotificationRow, type PaymentReminderState, type RecordRow } from '../../services/backoffice'
-import { brokerRegistrationsConfig, deliveryStatuses, notificationLogConfig, notificationStatuses, reminderStatuses } from './backOfficeConfigs'
+import { MASTERCLASS_PROGRAMS, type MasterclassProgramId } from '../../features/freightBroker/program'
+import { deliveryStatuses, masterclassRegistrationsConfig, notificationLogConfig, notificationStatuses, reminderStatuses } from './backOfficeConfigs'
 
 function RegistrationNotifications({ id }: { id: string }) {
   const [rows, setRows] = useState<NotificationRow[] | null>(null)
@@ -74,8 +75,11 @@ function PaymentReminders({ id }: { id: string }) {
   </Box>
 }
 
-const registrationsPageConfig = { ...brokerRegistrationsConfig, renderDetail: (row: RecordRow) => <><PaymentReminders id={String(row.id)} /><RegistrationNotifications id={String(row.id)} /></> }
-export function BrokerRegistrationsPage() { return <RecordsPage {...registrationsPageConfig} /> }
+const renderRegistrationDetail = (row: RecordRow) => <><PaymentReminders id={String(row.id)} /><RegistrationNotifications id={String(row.id)} /></>
+export function BrokerRegistrationsPage({ program = 'dispatch_masterclass' }: { program?: MasterclassProgramId }) {
+  // key: switching boards remounts the page so search, filters and paging reset.
+  return <RecordsPage key={program} {...masterclassRegistrationsConfig(MASTERCLASS_PROGRAMS[program])} renderDetail={renderRegistrationDetail} />
+}
 export function NotificationsPage() { return <RecordsPage {...notificationLogConfig} /> }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +97,8 @@ function toDatetimeLocal(iso: string) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-export function BrokerClassesPage() {
+export function BrokerClassesPage({ program: programId = 'dispatch_masterclass' }: { program?: MasterclassProgramId }) {
+  const program = MASTERCLASS_PROGRAMS[programId]
   const { profile } = useAuth()
   const [rows, setRows] = useState<BrokerClassRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -107,7 +112,7 @@ export function BrokerClassesPage() {
   const load = async () => {
     setLoading(true)
     try {
-      setRows(await listBrokerClassesAdmin())
+      setRows(await listBrokerClassesAdmin(programId))
       setError('')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Unable to load class sessions.')
@@ -115,7 +120,8 @@ export function BrokerClassesPage() {
       setLoading(false)
     }
   }
-  useEffect(() => { void load() }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setDialogOpen(false); setNotice(''); void load() }, [programId])
 
   const openCreate = () => { setForm(emptyForm); setFormError(''); setDialogOpen(true) }
   const openEdit = (row: BrokerClassRow) => {
@@ -135,6 +141,7 @@ export function BrokerClassesPage() {
     setFormError('')
     try {
       await saveBrokerClass({
+        program: programId,
         name: form.name.trim(),
         description: form.description.trim() || null,
         price_cents: Math.round(price * 100),
@@ -174,10 +181,10 @@ export function BrokerClassesPage() {
   }
 
   return <>
-    <Seo title="Dispatch Masterclass Classes | Iman Logistics Back Office" canonical="/admin/dispatch-masterclass/classes/" />
+    <Seo title={`${program.shortName} Classes | Iman Logistics Back Office`} canonical={`${program.adminPath}classes/`} />
     <Container maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'flex-end' }} spacing={2} mb={3}>
-        <Box><Typography component="h1" variant="h4" fontWeight={950}>Dispatch Masterclass class sessions</Typography><Typography color="text.secondary" mt={.5}>OPEN sessions appear under "Upcoming sessions" on the Freight Dispatch Masterclass page. Seats are counted from paid registrations.</Typography></Box>
+        <Box><Typography component="h1" variant="h4" fontWeight={950}>{program.shortName} class sessions</Typography><Typography color="text.secondary" mt={.5}>OPEN sessions appear under "Upcoming sessions" on the {program.name} page. Seats are counted from paid registrations.</Typography></Box>
         <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>New class session</Button>
       </Stack>
       {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}

@@ -1,6 +1,8 @@
 import { api } from '../../services/api'
+import type { MasterclassProgramId } from './program'
 
-// Freight Dispatch Masterclass registration calls (the school's src/lib/stripe.ts
+// Masterclass registration calls for the Freight Dispatch Masterclass and the
+// Freight Broker Master Class (the school's src/lib/stripe.ts
 // createDispatcherRegistration / createDispatcherCheckout / getPaymentStatus).
 
 export type BrokerClass = {
@@ -42,10 +44,12 @@ export type RegistrationForm = {
   verificationToken: string
 }
 
-export type CreatedRegistration = { id: string; registration_no: string; class_id: string }
+export type CreatedRegistration = { id: string; registration_no: string; class_id: string; program?: MasterclassProgramId }
 
 export type RegistrationDetails = {
   id: string
+  program?: MasterclassProgramId
+  programName?: string
   registrationNo: string
   firstName: string
   lastName: string
@@ -84,7 +88,8 @@ export type RegistrationPaymentStatus = {
   registration?: RegistrationDetails | null
 }
 
-export const listBrokerClasses = () => api<BrokerClass[]>('/freight-broker/classes')
+export const listBrokerClasses = (program: MasterclassProgramId = 'dispatch_masterclass') =>
+  api<BrokerClass[]>(`/freight-broker/classes?program=${encodeURIComponent(program)}`)
 
 export type VerificationState = { id: string; email: string; phone: string; phoneVerificationRequired?: boolean; expiresInSeconds: number }
 export type VerificationResult = { emailVerified: boolean; phoneVerified: boolean; verificationToken?: string; tokenExpiresAt?: string }
@@ -95,8 +100,8 @@ export const verifyRegistrationCode = (id: string, channel: 'email' | 'phone', c
 export const resendRegistrationCode = (id: string, channel: 'email' | 'phone') =>
   api(`/freight-broker/verifications/${id}/resend`, { body: { channel } })
 
-export const createBrokerRegistration = (form: RegistrationForm & { website?: string }) =>
-  api<CreatedRegistration>('/freight-broker/registrations', { body: form })
+export const createBrokerRegistration = (form: RegistrationForm & { website?: string }, program: MasterclassProgramId = 'dispatch_masterclass') =>
+  api<CreatedRegistration>('/freight-broker/registrations', { body: { ...form, program } })
 
 export async function startBrokerCheckout(registration: CreatedRegistration, email: string, signature: string) {
   const { url } = await api<{ sessionId: string; url: string | null }>(`/freight-broker/registrations/${registration.id}/checkout`, {

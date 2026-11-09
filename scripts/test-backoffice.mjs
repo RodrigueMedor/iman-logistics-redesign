@@ -325,7 +325,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   await sendEvent('checkout.session.expired', session(retried, { payment_status: 'unpaid', status: 'expired' }))
   check('the replaced session expiring does not release the booking', (await bookingRow(retried.reference)).status === 'pending')
 
-  section('Freight Broker Masterclass: page → registration → payment → notifications → back office')
+  section('Freight Dispatch Masterclass: page → registration → payment → notifications → back office')
   const mockUrl = process.env.MOCK_NOTIFICATIONS_URL || 'http://localhost:4010'
   const captured = async () => (await fetch(`${mockUrl}/captured`)).json()
   await fetch(`${mockUrl}/captured`, { method: 'DELETE' })
@@ -384,12 +384,12 @@ if (process.env.STRIPE_SECRET_KEY) {
   const brokerCheckout = await call(`/freight-broker/registrations/${reg.json.id}/checkout`, { body: checkoutBody })
   check('step 2 returns a Stripe Checkout URL', brokerCheckout.status === 200 && brokerCheckout.json?.url?.startsWith('https://'), brokerCheckout.text)
   const { data: brokerPayment } = await service.from('payments').select('*').eq('broker_registration_id', reg.json.id).eq('status', 'pending').single()
-  check('the payment is priced from the class and tagged Freight Dispatch Masterclass', brokerPayment?.amount_cents === 52000 && brokerPayment.provider === 'stripe' && brokerPayment.metadata.program === 'freight_broker_masterclass' && brokerPayment.metadata.registration_no === reg.json.registration_no && brokerPayment.description.startsWith('Freight Dispatch Masterclass'), JSON.stringify(brokerPayment?.metadata))
+  check('the payment is priced from the class and tagged Freight Dispatch Masterclass', brokerPayment?.amount_cents === 52000 && brokerPayment.provider === 'stripe' && brokerPayment.metadata.program === 'dispatch_masterclass' && brokerPayment.metadata.registration_no === reg.json.registration_no && brokerPayment.description.startsWith('Freight Dispatch Masterclass'), JSON.stringify(brokerPayment?.metadata))
   const afterCheckout = await regRow()
   check('the signed policy is recorded on the registration', afterCheckout.payment_policy_signature === signature && afterCheckout.payment_policy_version === 'v2-freight-dispatch-nonrefundable-credit' && Boolean(afterCheckout.payment_policy_accepted_at))
   const brokerSession = `cs_test_${crypto.randomUUID().replaceAll('-', '')}`
   await service.from('payments').update({ stripe_checkout_session_id: brokerSession }).eq('id', brokerPayment.id)
-  const brokerEvent = { id: brokerSession, object: 'checkout.session', payment_status: 'paid', status: 'complete', amount_total: 52000, currency: 'usd', payment_intent: `pi_${brokerPayment.id.replaceAll('-', '')}`, metadata: { payment_id: brokerPayment.id, program: 'freight_broker_masterclass' } }
+  const brokerEvent = { id: brokerSession, object: 'checkout.session', payment_status: 'paid', status: 'complete', amount_total: 52000, currency: 'usd', payment_intent: `pi_${brokerPayment.id.replaceAll('-', '')}`, metadata: { payment_id: brokerPayment.id, program: 'dispatch_masterclass' } }
   check('the Stripe webhook accepts the paid session', (await sendEvent('checkout.session.completed', brokerEvent)).status === 200)
   const confirmedReg = await regRow()
   check('payment confirms the registration (CONFIRMED + paid)', confirmedReg.status === 'CONFIRMED' && confirmedReg.payment_status === 'paid' && confirmedReg.payment_id === brokerPayment.id, `${confirmedReg.status} ${confirmedReg.payment_status}`)
@@ -410,10 +410,10 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('staff receive a payment SMS', staffSms?.body?.startsWith('Iman Logistics: payment received from Taylor') && staffSms.body.includes('$520.00'), staffSms?.body)
   check('duplicate Stripe events do not send duplicate notifications', messages.length === 3, String(messages.length))
   const { data: logged } = await service.from('notification_log').select('channel, status, template').eq('entity_id', reg.json.id)
-  check('all four notifications are logged as sent', logged?.length === 4 && logged.every(row => row.status === 'sent'), JSON.stringify(logged))
+  check('the three notifications (no student SMS: declined) are logged as sent', logged?.length === 3 && logged.every(row => row.status === 'sent'), JSON.stringify(logged))
 
   const returnPage = await call(`/payments/status?session_id=${brokerSession}`)
-  check('the return page shows the confirmed registration', returnPage.json?.status === 'succeeded' && returnPage.json.payment_type === 'freight_broker_masterclass' && returnPage.json.registration?.registrationNo === reg.json.registration_no && returnPage.json.registration.className === rolling.name, returnPage.text.slice(0, 300))
+  check('the return page shows the confirmed registration', returnPage.json?.status === 'succeeded' && returnPage.json.payment_type === 'dispatch_masterclass' && returnPage.json.registration?.registrationNo === reg.json.registration_no && returnPage.json.registration.className === rolling.name, returnPage.text.slice(0, 300))
   check('a paid registration cannot be charged again (400)', (await call(`/freight-broker/registrations/${reg.json.id}/checkout`, { body: checkoutBody })).status === 400)
 
   const adminList = await call(`/admin/freight-broker-registrations?search=${encodeURIComponent(reg.json.registration_no)}`, { token: admin.token })
@@ -424,7 +424,7 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('staff cannot change payment fields (400)', (await call(`/admin/freight-broker-registrations/${reg.json.id}`, { method: 'PATCH', body: { payment_status: 'refunded' }, token: admin.token })).status === 400)
   check('employees cannot see registrations (403)', (await call('/admin/freight-broker-registrations', { token: employee.token })).status === 403)
   const regNotifications = await call(`/admin/freight-broker/registrations/${reg.json.id}/notifications`, { token: admin.token })
-  check('staff can see the notifications sent for the registration', regNotifications.json?.length === 4)
+  check('staff can see the notifications sent for the registration', regNotifications.json?.length === 3)
   // The registrant's email also received the verification code before registering.
   check('the notification log is searchable in the back office', (await call(`/admin/notification-log?search=${encodeURIComponent(registrant.email)}`, { token: admin.token })).json?.total === 2)
   const brokerPaymentAdmin = await call(`/admin/payments/${brokerPayment.id}`, { token: admin.token })
@@ -477,6 +477,46 @@ if (process.env.STRIPE_SECRET_KEY) {
   check('checkout is refused for a CLOSED session (409)', (await ruleCheckout()).status === 409)
   // Close the throwaway sessions so they do not show on the public page.
   for (const [id, name] of [[seatClass.json.id, `Test cohort ${run}`], [ruleClass.json.id, `Rule cohort ${run}`]]) await call(`/admin/freight-broker/classes/${id}`, { method: 'PUT', body: { ...sessionBody, name, status: 'COMPLETED' }, token: admin.token })
+
+  section('Freight Broker Master Class: its own sessions, registration, Stripe checkout, and back office')
+  const brokerSessionBody = { ...sessionBody, name: `Broker cohort ${run}`, price_cents: 59900, program: 'broker_masterclass' }
+  const brokerClass = await call('/admin/freight-broker/classes', { body: brokerSessionBody, token: admin.token })
+  check('staff create a Broker Master Class session', brokerClass.status === 201 && brokerClass.json?.program === 'broker_masterclass', brokerClass.text.slice(0, 200))
+  check('sessions created without a program stay Dispatch sessions', ruleClass.json?.program === 'dispatch_masterclass')
+  const brokerListing = await call('/freight-broker/classes?program=broker_masterclass')
+  check('the Broker page lists the Broker session', brokerListing.json?.some(item => item.id === brokerClass.json.id && item.price_cents === 59900 && item.program === 'broker_masterclass'))
+  check('the Broker page does not list Dispatch sessions', !brokerListing.json?.some(item => item.program !== 'broker_masterclass'))
+  check('the Dispatch page does not list the Broker session', !(await call('/freight-broker/classes')).json?.some(item => item.id === brokerClass.json.id))
+  check('the back office lists sessions per program', (await call('/admin/freight-broker/classes?program=broker_masterclass', { token: admin.token })).json?.every(item => item.program === 'broker_masterclass'))
+  const brokerRegistrant = { ...registrant, email: `broker-mc-${run}@example.test`, lastName: 'Brokerage', classId: brokerClass.json.id, attendanceType: 'online' }
+  check('a Broker session cannot be registered as a Dispatch registration (404)', (await register({ ...brokerRegistrant, phone: testPhone() })).status === 404)
+  const brokerReg = await register({ ...brokerRegistrant, phone: testPhone(), program: 'broker_masterclass' })
+  check('a verified student registers for the Broker Master Class', brokerReg.status === 201 && brokerReg.json?.program === 'broker_masterclass' && brokerReg.json.registration_no.startsWith('FBR-'), brokerReg.text.slice(0, 200))
+  const brokerCheckoutBody = { email: brokerRegistrant.email, paymentPolicyAccepted: true, paymentPolicySignature: 'Taylor Brokerage' }
+  const brokerMcCheckout = await call(`/freight-broker/registrations/${brokerReg.json.id}/checkout`, { body: brokerCheckoutBody })
+  check('Broker checkout returns a Stripe Checkout URL', brokerMcCheckout.status === 200 && brokerMcCheckout.json?.url?.startsWith('https://'), brokerMcCheckout.text)
+  const { data: brokerMcPayment } = await service.from('payments').select('*').eq('broker_registration_id', brokerReg.json.id).eq('status', 'pending').single()
+  check('the Broker payment is priced from the Broker session and tagged broker_masterclass', brokerMcPayment?.amount_cents === 59900 && brokerMcPayment.metadata.program === 'broker_masterclass' && brokerMcPayment.description.startsWith('Freight Broker Master Class'), JSON.stringify(brokerMcPayment?.metadata))
+  const brokerRow = (await service.from('freight_dispatch_masterclass_registrations').select('*').eq('id', brokerReg.json.id).single()).data
+  check('the Broker policy version and wording are recorded', brokerRow.payment_policy_version === 'v1-freight-broker-nonrefundable-credit' && brokerRow.payment_policy_text.includes('Freight Broker Master Class'))
+  const brokerMcSession = `cs_test_${crypto.randomUUID().replaceAll('-', '')}`
+  await service.from('payments').update({ stripe_checkout_session_id: brokerMcSession }).eq('id', brokerMcPayment.id)
+  await fetch(`${mockUrl}/captured`, { method: 'DELETE' })
+  check('the Stripe webhook accepts the paid Broker session', (await sendEvent('checkout.session.completed', { id: brokerMcSession, object: 'checkout.session', payment_status: 'paid', status: 'complete', amount_total: 59900, currency: 'usd', payment_intent: `pi_${brokerMcPayment.id.replaceAll('-', '')}`, metadata: { payment_id: brokerMcPayment.id, program: 'broker_masterclass' } })).status === 200)
+  const brokerConfirmed = (await service.from('freight_dispatch_masterclass_registrations').select('status, payment_status').eq('id', brokerReg.json.id).single()).data
+  check('payment confirms the Broker registration', brokerConfirmed.status === 'CONFIRMED' && brokerConfirmed.payment_status === 'paid')
+  const brokerMessages = await captured()
+  const brokerEmail = brokerMessages.find(message => message.channel === 'email' && message.to === brokerRegistrant.email)
+  check('the Broker confirmation email names the Broker Master Class', brokerEmail?.html.includes('Your seat in the Freight Broker Master Class is confirmed.'), brokerEmail?.subject)
+  check('the Broker staff email links to the Broker back office', brokerMessages.some(message => message.channel === 'email' && message.html?.includes('/admin/broker-masterclass/')))
+  const brokerReturn = await call(`/payments/status?session_id=${brokerMcSession}`)
+  check('the Broker return page shows the Broker registration', brokerReturn.json?.status === 'succeeded' && brokerReturn.json.payment_type === 'broker_masterclass' && brokerReturn.json.registration?.program === 'broker_masterclass', brokerReturn.text.slice(0, 300))
+  check('the Broker board lists only Broker registrations', (await call('/admin/freight-broker-registrations?program=broker_masterclass', { token: admin.token })).json?.data?.every(row => row.program === 'broker_masterclass'))
+  check('the Dispatch board does not list Broker registrations', !(await call('/admin/freight-broker-registrations?program=dispatch_masterclass', { token: admin.token })).json?.data?.some(row => row.id === brokerReg.json.id))
+  check('a session with registrations cannot move to another program (409)', (await call(`/admin/freight-broker/classes/${brokerClass.json.id}`, { method: 'PUT', body: { ...brokerSessionBody, program: 'dispatch_masterclass' }, token: admin.token })).status === 409)
+  const stats = await call('/admin/stats', { token: admin.token })
+  check('the dashboard counts Broker registrations separately', (stats.json?.brokerMasterclassRegistrations?.confirmed ?? 0) >= 1)
+  await call(`/admin/freight-broker/classes/${brokerClass.json.id}`, { method: 'PUT', body: { ...brokerSessionBody, status: 'COMPLETED' }, token: admin.token })
 } else {
   console.log('\n(Stripe checks skipped: STRIPE_SECRET_KEY is not set.)')
 }
