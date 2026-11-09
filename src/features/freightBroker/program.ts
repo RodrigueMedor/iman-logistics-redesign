@@ -25,6 +25,8 @@ export type MasterclassProgram = {
   smsConsentText: string
   // Shown on the form until a session with its own description is selected.
   defaultDescription: string
+  // Enrollment phone line shown beside the registration form, when there is one.
+  phone?: string
 }
 
 const policyText = (name: string) =>
@@ -65,6 +67,7 @@ export const MASTERCLASS_PROGRAMS: Record<MasterclassProgramId, MasterclassProgr
     policyText: policyText('Freight Broker Master Class'),
     policyCheckbox: policyCheckbox('Freight Broker Master Class'),
     smsConsentText: SMS_CONSENT_TEXT,
+    phone: '888-991-4776',
     defaultDescription: 'A one-month program: the first week is live on Zoom, followed by workshops where you practice setting up a brokerage and moving freight. Broker setup, surety bonds, load boards and carrier vetting, credit checks and factoring, and sales and daily operations. Choose a session from the list to see its price.',
   },
 }

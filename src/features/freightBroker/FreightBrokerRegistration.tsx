@@ -7,6 +7,10 @@ import LockIcon from '@mui/icons-material/Lock'
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SavingsIcon from '@mui/icons-material/Savings'
+import PaymentsIcon from '@mui/icons-material/Payments'
+import PhoneIcon from '@mui/icons-material/Phone'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
 import EditIcon from '@mui/icons-material/Edit'
 import ErrorIcon from '@mui/icons-material/Error'
 import EventAvailableIcon from '@mui/icons-material/EventAvailable'
@@ -52,6 +56,68 @@ type Pending = { formData?: RegistrationForm; registration?: CreatedRegistration
 const readPending = (program: MasterclassProgramId): Pending => { try { return JSON.parse(sessionStorage.getItem(pendingRegistrationStorageKey(program)) || '{}') } catch { return {} } }
 const writePending = (program: MasterclassProgramId, value: Pending) => { try { sessionStorage.setItem(pendingRegistrationStorageKey(program), JSON.stringify(value)) } catch { /* storage unavailable */ } }
 const clearPending = (program: MasterclassProgramId) => { try { sessionStorage.removeItem(pendingRegistrationStorageKey(program)) } catch { /* storage unavailable */ } }
+
+const enrollmentSteps = [
+  [VerifiedUserIcon, 'Verify', 'Confirm your email with a one-time code.'],
+  [PersonIcon, 'Your details', 'Name, phone, address and attendance.'],
+  [PolicyIcon, 'Review & sign', 'Check everything and sign the policy.'],
+  [PaymentsIcon, 'Pay securely', 'Checkout by Stripe. Your seat is confirmed.'],
+] as const
+
+const afterPayment = [
+  [ReceiptLongIcon, 'Confirmation email with your receipt'],
+  [CalendarMonthIcon, 'Calendar invite for your session'],
+  [PolicyIcon, 'A copy of your signed agreement'],
+  [SavingsIcon, 'Credit toward a future session if you can’t attend'],
+] as const
+
+// Fills the space under the form while the sessions list beside it is longer.
+function EnrollmentGuide({ program }: { program: MasterclassProgram }) {
+  const phoneHref = program.phone ? `tel:+1${program.phone.replace(/\D/g, '')}` : ''
+  return <Stack spacing={3} sx={{ mt: 3 }}>
+    <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: 4, border: 1, borderColor: 'divider', boxShadow: '0 12px 35px rgba(10,0,90,.06)' }}>
+      <Typography sx={{ color: 'secondary.main', fontWeight: 900, letterSpacing: '.12em', fontSize: 12, mb: .5 }}>HOW ENROLLMENT WORKS</Typography>
+      <Typography variant="h6" component="h3" fontWeight={900} color="primary" mb={3}>Four steps, about five minutes</Typography>
+      <Grid container spacing={2.5}>
+        {enrollmentSteps.map(([Icon, title, text], index) => <Grid size={{ xs: 12, sm: 6, md: 3 }} key={title}>
+          <Stack spacing={1.25} sx={{ position: 'relative', height: '100%' }}>
+            <Stack direction="row" alignItems="center" gap={1.25}>
+              <Box sx={{ display: 'grid', placeItems: 'center', width: 44, height: 44, borderRadius: '50%', bgcolor: 'rgba(227,6,19,.08)', color: 'secondary.main', flexShrink: 0 }}><Icon fontSize="small" /></Box>
+              {index < enrollmentSteps.length - 1 && <Box aria-hidden sx={{ display: { xs: 'none', md: 'block' }, flex: 1, borderTop: '2px dashed', borderColor: 'divider' }} />}
+            </Stack>
+            <Typography fontWeight={900}><Box component="span" sx={{ color: 'secondary.main', mr: .75 }}>{index + 1}.</Box>{title}</Typography>
+            <Typography variant="body2" color="text.secondary">{text}</Typography>
+          </Stack>
+        </Grid>)}
+      </Grid>
+    </Paper>
+    <Grid container spacing={3}>
+      <Grid size={{ xs: 12, md: 7 }}>
+        <Paper sx={{ p: { xs: 3, md: 4 }, height: '100%', borderRadius: 4, border: 1, borderColor: 'divider', boxShadow: '0 12px 35px rgba(10,0,90,.06)' }}>
+          <Typography sx={{ color: 'secondary.main', fontWeight: 900, letterSpacing: '.12em', fontSize: 12, mb: .5 }}>AFTER YOU PAY</Typography>
+          <Typography variant="h6" component="h3" fontWeight={900} color="primary" mb={2}>What you’ll receive</Typography>
+          <Stack spacing={1.5}>
+            {afterPayment.map(([Icon, text]) => <Stack key={text} direction="row" gap={1.5} alignItems="center">
+              <Icon fontSize="small" color="success" />
+              <Typography>{text}</Typography>
+            </Stack>)}
+          </Stack>
+        </Paper>
+      </Grid>
+      <Grid size={{ xs: 12, md: 5 }}>
+        <Box sx={{ p: { xs: 3, md: 4 }, height: '100%', borderRadius: 4, color: '#fff', background: 'linear-gradient(145deg, #010081 0%, #1a1aa8 100%)', boxShadow: '0 18px 40px rgba(1,0,129,.25)', display: 'flex', flexDirection: 'column' }}>
+          <Box sx={{ display: 'grid', placeItems: 'center', width: 48, height: 48, borderRadius: 3, bgcolor: 'rgba(255,255,255,.12)', mb: 2 }}><PhoneIcon /></Box>
+          <Typography variant="h6" component="h3" fontWeight={900} mb={1}>Questions before you enroll?</Typography>
+          <Typography sx={{ opacity: .85, mb: 2.5, flex: 1 }}>{program.phone ? 'Talk to our team, or register by phone.' : 'Our team is happy to help you choose a session.'}</Typography>
+          <Stack spacing={1.25}>
+            {program.phone && <Button href={phoneHref} variant="contained" color="secondary" startIcon={<PhoneIcon />} sx={{ fontWeight: 800 }}>Call {program.phone}</Button>}
+            <Button component={RouterLink} to="/contact/" variant="outlined" sx={{ color: '#fff', borderColor: 'rgba(255,255,255,.5)', '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,.08)' } }}>Contact us</Button>
+          </Stack>
+        </Box>
+      </Grid>
+    </Grid>
+  </Stack>
+}
 
 function SectionHeading({ icon, title }: { icon: ReactNode; title: string }) {
   return <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 2 }}>{icon}<Typography fontWeight={800} variant="subtitle1">{title}</Typography></Stack>
@@ -611,6 +677,7 @@ export function FreightBrokerRegistration({ program: programId = 'dispatch_maste
               </Stack>
             </form>
           </Paper>
+          <EnrollmentGuide program={program} />
         </Grid>
       </Grid>
     </Box>

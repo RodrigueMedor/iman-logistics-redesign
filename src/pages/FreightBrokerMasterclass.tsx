@@ -20,7 +20,7 @@ const CMS_PAGE = 'freight-broker-master-class'
 const logo = '/images/freight-broker-master-class.jpg'
 const navy = '#010081'
 
-const BROKER_PHONE = '888-991-4776'
+const BROKER_PHONE = program.phone ?? '888-991-4776'
 const phoneHref = `tel:+1${BROKER_PHONE.replace(/\D/g, '')}`
 
 const learning = [
